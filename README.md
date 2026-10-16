@@ -8,6 +8,8 @@
 |---|---|
 | ![My games](docs/screenshots/my-games.png) | ![Roll a game](docs/screenshots/roll.png) |
 
+![Statistics](docs/screenshots/stats.png)
+
 A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus, Nintendo Switch Online, EA Play, Ubisoft+, Netflix Games and Apple Arcade, by tier. You pick the plans you have, mark games as played or completed, and see what's leaving soon. Everything you set is saved on your PC, in `%APPDATA%\Subscription Catalogue` (the app's earlier name).
 
 ## Install
@@ -53,6 +55,8 @@ Games can be marked played, completed or ignored (⊘, for games you're not inte
 
 Other services can be added on the Subscriptions page, with their games entered by hand.
 
+The **Statistics** page shows how far through your plans you are: games completed and in progress, your finish rate, a pie of completed games by service (a game in several of your services counts for the first one on its card), your plans split by status, progress per service, the genres you finish most, and, where How Long To Beat has times, the hours of games you've finished. Completed games that have since left a service still count.
+
 **Steam library** on the Subscriptions page reads the games you own on Steam (Steam's Web API, with your profile link or Steam ID and a free API key from [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey); your profile's Game details must be public). Games you own get an "On Steam" badge and can be filtered with the status filter's "On Steam" option, and games you've played there for 30 minutes or more are marked as played. Each game is marked once, so unmarking it sticks. The library is read again with the daily refresh. Switch Online games aren't matched, since they're old console versions.
 
 **Backup** on the Subscriptions page saves your plans, marks, own services and games, and settings to one `.json` file; **Restore from backup** on another PC (or after a reinstall) loads it back, asking first since it replaces what's there. Catalogues and cached lookups aren't in the file; the app fetches them again.
@@ -65,5 +69,5 @@ Other services can be added on the Subscriptions page, with their games entered 
 
 - `src/main.js`: window, IPC, daily refresh. `src/details.js`: descriptions and screenshots. `src/ratings.js`: Metacritic and How Long To Beat. `src/regions.js`: the country list. `src/backup.js`: backup files. `src/steam.js`: Steam library import. `src/catalog.js`: refresh, fallbacks, history, merging Xbox console/PC duplicates.
 - `src/providers/`: one file per service.
-- `renderer/`: the UI (plain HTML/CSS/JS). `renderer/unify.js` merges the same game across services. The logo is `renderer/logo.svg`; `renderer/icon.png` (window) and `build/icon.png` (exe) are 256 and 512 px renders of it.
+- `renderer/`: the UI (plain HTML/CSS/JS). `renderer/unify.js` merges the same game across services; `renderer/stats.js` works out the Statistics page. The logo is `renderer/logo.svg`; `renderer/icon.png` (window) and `build/icon.png` (exe) are 256 and 512 px renders of it.
 - `data/`: bundled snapshot used until the first refresh. `npm run snapshot` rebuilds it. `scripts/match-covers.js` rebuilds the offline Switch Online cover map; titles whose box art is named differently go in `data/nintendo-cover-aliases.json`.

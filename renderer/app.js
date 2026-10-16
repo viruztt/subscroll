@@ -424,6 +424,133 @@ function renderMine() {
   renderGrid(list, 'Mark games as played, completed or ignored and they will be collected here.');
 }
 
+// ---------- statistics ----------
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs = {}, text) {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  if (text != null) node.textContent = text;
+  return node;
+}
+
+// A ring chart: each slice is a circle stroke dashed to its share
+// (the circle's circumference is 100, so a share is its percentage).
+function donut(slices, centre, caption) {
+  const total = slices.reduce((sum, x) => sum + x.value, 0);
+  const svg = svgEl('svg', { viewBox: '0 0 42 42', class: 'donut', role: 'img' });
+  svg.append(svgEl('circle', { cx: 21, cy: 21, r: 15.915, fill: 'none', stroke: '#2a2f3a', 'stroke-width': 6 }));
+  let offset = 25; // start at 12 o'clock
+  for (const x of slices) {
+    if (!x.value) continue;
+    const pct = (x.value / total) * 100;
+    const ring = svgEl('circle', { cx: 21, cy: 21, r: 15.915, fill: 'none', stroke: x.color, 'stroke-width': 6, 'stroke-dasharray': `${pct} ${100 - pct}`, 'stroke-dashoffset': offset });
+    ring.append(svgEl('title', {}, `${x.label}: ${x.value}`));
+    svg.append(ring);
+    offset -= pct;
+  }
+  svg.append(svgEl('text', { x: 21, y: 20.5, class: 'donut-num' }, centre), svgEl('text', { x: 21, y: 26, class: 'donut-cap' }, caption));
+  const legend = el('ul', { class: 'legend' }, slices.filter((x) => x.value).map((x) => el('li', {},
+    el('span', { class: 'dot', style: `background:${x.color}` }),
+    el('span', { class: 'legend-name' }, x.label),
+    el('span', { class: 'legend-num' }, `${x.value}`, el('span', { class: 'muted' }, ` · ${share(x.value / total)}`)))));
+  return el('div', { class: 'chart' }, svg, legend);
+}
+
+const STATUS_COLOR = { completed: '#f2c94c', played: '#3ccf91', untouched: '#3a404d', ignored: '#6b7280' };
+const pct = (x) => `${Math.round(x * 100)}%`;
+// Shares too small to round up still show as something.
+const share = (x) => (x > 0 && x < 0.005 ? '<1%' : pct(x));
+
+function statsGames() {
+  // Marked games that have since left a service still count.
+  const ids = new Set(games.flatMap((g) => offersOf(g).map((o) => o.id)));
+  const gone = new Map();
+  for (const d of departed) {
+    if (state.marks[d.id] && !ids.has(d.id) && !gone.has(d.id)) gone.set(d.id, { ...d, genreTags: Genres.genresOf(d) });
+  }
+  return [...games, ...gone.values()];
+}
+
+function renderStats() {
+  const content = $('#content');
+  content.replaceChildren();
+  const keys = unlocked();
+  const subscribed = allServices().filter((s) => [...keys].some((k) => k.startsWith(`${s.id}:`))).map((s) => s.id);
+  const st = Stats.compute(statsGames(), {
+    markOf: (g) => markOf(g.id),
+    myServices: (g) => serviceOffers(g).filter((o) => offerIsMine(o, keys)).map((o) => o.service),
+    hours: beatHours,
+    score: mcScore,
+    subscribed,
+  });
+  const { totals } = st;
+  const nameOf = (id) => (id === Stats.OTHER ? 'Not in your plans' : serviceById(id)?.name || id);
+  const colorOf = (id) => (id === Stats.OTHER ? '#4b5263' : serviceById(id)?.color || '#666');
+  const withGames = st.services.filter((r) => r.inPlans);
+  $('#summary').textContent = withGames.length
+    ? `${totals.inPlans} games in your plans across ${withGames.length} service${withGames.length === 1 ? '' : 's'}`
+    : 'Pick your plans on the Subscriptions page to see how far through them you are';
+
+  if (!totals.completed && !totals.played) {
+    content.append(el('div', { class: 'empty' }, 'Mark games as played or completed (or import your Steam library on the Subscriptions page) and your statistics will show up here.'));
+    return;
+  }
+
+  const tile = (value, label, title) => el('div', { class: 'tile', title: title || '' }, el('div', { class: 'tile-num' }, value), el('div', { class: 'tile-label' }, label));
+  content.append(el('div', { class: 'tiles' },
+    tile(totals.completed, 'completed'),
+    tile(totals.played, 'playing', 'Marked as played but not completed'),
+    st.finishRate != null ? tile(pct(st.finishRate), 'finish rate', 'Completed out of every game you have started') : null,
+    st.time.completedTimed ? tile(`${Math.round(st.time.completed)}h`, 'of games finished', `How Long To Beat main-story time of ${st.time.completedTimed} of your completed games`) : null,
+    st.averageScore != null ? tile(st.averageScore, 'average Metacritic', 'Average score of the games you completed') : null,
+    totals.inPlans ? tile(share(st.plans.completed / totals.inPlans), 'of your plans done', `${st.plans.completed} completed out of ${totals.inPlans} games in your plans`) : null,
+    state.steam?.owned ? tile(st.steamOwned, 'owned on Steam', 'Games in your plans that you also own on Steam') : null));
+
+  content.append(el('div', { class: 'chart-row' },
+    el('div', { class: 'panel' },
+      el('h2', {}, 'Completed by service'),
+      el('p', { class: 'muted' }, 'A game in several of your services counts for the first one listed on its card.'),
+      donut(st.completedBy.map((x) => ({ label: nameOf(x.service), value: x.count, color: colorOf(x.service) })), totals.completed, 'completed')),
+    el('div', { class: 'panel' },
+      el('h2', {}, 'Your plans by status'),
+      el('p', { class: 'muted' }, 'Every game in your plans, by how far you got with it.'),
+      totals.inPlans
+        ? donut([
+          { label: 'Completed', value: st.plans.completed, color: STATUS_COLOR.completed },
+          { label: 'Playing', value: st.plans.played, color: STATUS_COLOR.played },
+          { label: 'Ignored', value: st.plans.ignored, color: STATUS_COLOR.ignored },
+          { label: 'Not started', value: st.plans.untouched, color: STATUS_COLOR.untouched },
+        ], totals.inPlans, 'in plans')
+        : el('p', { class: 'muted' }, 'No plans picked yet.'))));
+
+  if (withGames.length) {
+    content.append(el('div', { class: 'panel' },
+      el('h2', {}, 'Progress per service'),
+      withGames.map((r) => el('div', { class: 'svc-progress', style: `--svc:${colorOf(r.service)}` },
+        el('div', { class: 'svc-progress-name' }, nameOf(r.service)),
+        el('div', { class: 'bar', title: `${r.completed} completed, ${r.played} playing, of ${r.inPlans}` },
+          el('span', { class: 'bar-done', style: `width:${r.inPlans ? (r.completed / r.inPlans) * 100 : 0}%` }),
+          el('span', { class: 'bar-playing', style: `width:${r.inPlans ? (r.played / r.inPlans) * 100 : 0}%` })),
+        el('div', { class: 'svc-progress-num' }, `${r.completed} of ${r.inPlans} completed · ${r.played} playing`)))));
+  }
+
+  if (st.genres.length) {
+    const top = st.genres.slice(0, 8);
+    const most = top[0].count;
+    content.append(el('div', { class: 'panel' },
+      el('h2', {}, 'What you finish'),
+      el('p', { class: 'muted' }, 'Genres of your completed games (a game can have more than one).'),
+      top.map((x) => el('div', { class: 'svc-progress' },
+        el('div', { class: 'svc-progress-name' }, x.genre),
+        el('div', { class: 'bar' }, el('span', { class: 'bar-genre', style: `width:${(x.count / most) * 100}%` })),
+        el('div', { class: 'svc-progress-num' }, `${x.count}`)))));
+  }
+
+  if (st.time.playingTimed) {
+    content.append(el('p', { class: 'muted stats-note' }, `The ${st.time.playingTimed} games you're playing that have a How Long To Beat time add up to about ${Math.round(st.time.playing)} hours of main story.`));
+  }
+}
+
 function renderSubs() {
   $('#summary').textContent = 'Pick the plan you have for each service. Everything is saved on this computer.';
   const content = $('#content');
@@ -827,7 +954,7 @@ function roll() {
 
 function renderChrome() {
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.view === ui.view));
-  $('#toolbar').classList.toggle('hidden', ui.view === 'subs');
+  $('#toolbar').classList.toggle('hidden', ui.view === 'subs' || ui.view === 'stats');
 
   const chips = $('#service-chips');
   chips.replaceChildren(...allServices().map((s) => el('button', {
@@ -878,7 +1005,7 @@ function render(keepScroll = false) {
   const top = content.scrollTop;
   if (!keepScroll) ui.shown = PAGE_SIZE;
   renderChrome();
-  ({ browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, subs: renderSubs })[ui.view]();
+  ({ browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, stats: renderStats, subs: renderSubs })[ui.view]();
   if (keepScroll) content.scrollTop = top;
   if (drawerGame) openDrawer(drawerGame);
 }
