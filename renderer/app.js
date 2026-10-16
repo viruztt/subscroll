@@ -489,10 +489,10 @@ function renderStats() {
   const withGames = st.services.filter((r) => r.inPlans);
   $('#summary').textContent = withGames.length
     ? `${totals.inPlans} games in your plans across ${withGames.length} service${withGames.length === 1 ? '' : 's'}`
-    : 'Pick your plans on the Subscriptions page to see how far through them you are';
+    : 'Pick your plans in Settings to see how far through them you are';
 
   if (!totals.completed && !totals.played) {
-    content.append(el('div', { class: 'empty' }, 'Mark games as played or completed (or import your Steam library on the Subscriptions page) and your statistics will show up here.'));
+    content.append(el('div', { class: 'empty' }, 'Mark games as played or completed (or import your Steam library in Settings) and your statistics will show up here.'));
     return;
   }
 
@@ -552,7 +552,7 @@ function renderStats() {
 }
 
 function renderSubs() {
-  $('#summary').textContent = 'Pick the plan you have for each service. Everything is saved on this computer.';
+  $('#summary').textContent = 'Your plans, region, background, Steam and backups. Everything is saved on this computer.';
   const content = $('#content');
   content.replaceChildren();
 

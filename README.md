@@ -18,7 +18,7 @@ A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus, Ni
 2. Double-click it. There's no installer; the exe is the whole app, so keep it wherever you like.
 3. The first time, Windows may say "Windows protected your PC", because the app isn't signed with a paid certificate. Click **More info**, then **Run anyway**.
 
-Your plans and marks stay on your PC and carry over when you download a newer version. To move them to another PC, use **Save backup** on the Subscriptions page.
+Your plans and marks stay on your PC and carry over when you download a newer version. To move them to another PC, use **Save backup** in Settings.
 
 ## Where the game lists come from
 
@@ -39,7 +39,7 @@ A game offered by several services gets one card with a tag for each (dimmed whe
 
 The **Coming soon** page lists announced games with their date: Game Pass from Microsoft's per-plan join dates, Switch Online and Apple Arcade from dates in their Wikipedia lists. PS Plus, EA Play, Ubisoft+ and Netflix don't publish dates in a form the app can read.
 
-Catalogues refresh automatically once a day, including while the window is closed: Subscroll stays in the system tray (right-click the icon to refresh, turn options on or off, or quit) and can start with Windows, minimised to the tray. After each refresh it sends a notification when games join a service in your plans or games in your plans start leaving, leaving out games you've completed or ignored; clicking it opens the right page. These are under **Background** on the Subscriptions page. Every refresh is compared with the previous one, so the "New & departed" page shows what was added and what left.
+Catalogues refresh automatically once a day, including while the window is closed: Subscroll stays in the system tray (right-click the icon to refresh, turn options on or off, or quit) and can start with Windows, minimised to the tray. After each refresh it sends a notification when games join a service in your plans or games in your plans start leaving, leaving out games you've completed or ignored; clicking it opens the right page. These are under **Background** in Settings. Every refresh is compared with the previous one, so the "New & departed" page shows what was added and what left.
 
 Clicking a game shows a short description and a few screenshots. Game Pass gets both from Microsoft's catalogue; PS Plus reads the game's PlayStation Store page; Switch Online games get title screens and gameplay shots from libretro-thumbnails and the opening of the game's Wikipedia article. Looked-up details are cached for 30 days in `details.json`.
 
@@ -47,19 +47,19 @@ The toolbar filters by service, played status, platform, **genre** and **length*
 
 Cards show the **Metacritic** score and the **How Long To Beat** main-story time, and the list can be sorted by score or from shortest to longest. Neither site has a public API, so the app uses the search endpoints their own pages call, looks every game up once in the background (games in your plans first, one game at a time per site with a pause in between) and caches each site's answer for a month in `ratings.json` (two weeks for games it couldn't find). Later launches only look up new games and ones whose answer has expired. If a site refuses or fails, the app backs off, stops asking that site after five failures in a row and tries again next launch; the other site carries on, and its answers are kept. If either site changes its search, the numbers stop updating until the app is fixed; everything else keeps working.
 
-The country picker on the Subscriptions page sets the Xbox market and PlayStation store together. Switch Online only differs in Japan, which gets its Japan-only games (Wikipedia's "JP" column) instead of the western-only ones.
+The country picker in Settings sets the Xbox market and PlayStation store together. Switch Online only differs in Japan, which gets its Japan-only games (Wikipedia's "JP" column) instead of the western-only ones.
 
 Games can be marked played, completed or ignored (⊘, for games you're not interested in). The toolbar can hide completed, ignored or departed games; ignored games stay on the My games page, and the status filter's "Ignored" option shows them too, so you can un-ignore them.
 
 **Roll a game** picks a random game from the plans you have (from everything if none are set), leaving out games you've completed or ignored and following the service and platform filters.
 
-Other services can be added on the Subscriptions page, with their games entered by hand.
+Other services can be added in Settings, with their games entered by hand.
 
 The **Statistics** page shows how far through your plans you are: games completed and in progress, your finish rate, a pie of completed games by service (a game in several of your services counts for the first one on its card), your plans split by status, progress per service, the genres you finish most, and, where How Long To Beat has times, the hours of games you've finished. Completed games that have since left a service still count.
 
-**Steam library** on the Subscriptions page reads the games you own on Steam (Steam's Web API, with your profile link or Steam ID and a free API key from [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey); your profile's Game details must be public). Games you own get an "On Steam" badge and can be filtered with the status filter's "On Steam" option, and games you've played there for 30 minutes or more are marked as played. Each game is marked once, so unmarking it sticks. The library is read again with the daily refresh. Switch Online games aren't matched, since they're old console versions.
+**Steam library** in Settings reads the games you own on Steam (Steam's Web API, with your profile link or Steam ID and a free API key from [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey); your profile's Game details must be public). Games you own get an "On Steam" badge and can be filtered with the status filter's "On Steam" option, and games you've played there for 30 minutes or more are marked as played. Each game is marked once, so unmarking it sticks. The library is read again with the daily refresh. Switch Online games aren't matched, since they're old console versions.
 
-**Backup** on the Subscriptions page saves your plans, marks, own services and games, and settings to one `.json` file; **Restore from backup** on another PC (or after a reinstall) loads it back, asking first since it replaces what's there. Catalogues and cached lookups aren't in the file; the app fetches them again.
+**Backup** in Settings saves your plans, marks, own services and games, and settings to one `.json` file; **Restore from backup** on another PC (or after a reinstall) loads it back, asking first since it replaces what's there. Catalogues and cached lookups aren't in the file; the app fetches them again.
 
 ## Building from source
 
