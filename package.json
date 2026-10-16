@@ -1,8 +1,8 @@
 {
   "name": "subscription-catalogue",
-  "productName": "Subscription Catalogue",
+  "productName": "Subscroll",
   "version": "0.1.0",
-  "description": "See which games are in which video game subscription tier, track what you've played, and what's leaving soon.",
+  "description": "Every game you already pay for, in one place.",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
@@ -13,7 +13,7 @@
     "dist:linux": "electron-builder --linux AppImage"
   },
   "build": {
-    "appId": "local.subscription-catalogue",
+    "appId": "local.subscroll",
     "files": [
       "src/**",
       "renderer/**",
@@ -22,7 +22,8 @@
     ],
     "win": {
       "target": "portable",
-      "artifactName": "SubscriptionCatalogue-${version}.exe"
+      "artifactName": "Subscroll-${version}.exe",
+      "icon": "build/icon.png"
     },
     "mac": {
       "category": "public.app-category.games"

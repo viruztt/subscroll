@@ -60,7 +60,7 @@ async function wikipediaIntro(title, hint) {
   const query = `${title.replace(/\s+SP(\s+\(.*\))?$/, '').replace(/\s+\((NA|JP)\)$/, '')} ${hint} video game`;
   const url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&generator=search' +
     `&gsrlimit=1&gsrsearch=${encodeURIComponent(query)}&prop=extracts&exintro=1&explaintext=1&exsentences=3`;
-  const data = await http.getJson(url, { headers: { 'Api-User-Agent': 'SubscriptionCatalogue/0.1 (desktop app)' } });
+  const data = await http.getJson(url, { headers: { 'Api-User-Agent': 'Subscroll/0.1 (desktop app)' } });
   const page = data.query && data.query.pages && data.query.pages[0];
   if (!page || !page.extract) return null;
   return { text: page.extract.trim(), source: `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/ /g, '_'))}` };

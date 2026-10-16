@@ -379,7 +379,7 @@ function renderSubs() {
 }
 
 function customServicePanel() {
-  const name = el('input', { placeholder: 'Service name, e.g. Ubisoft+ or Apple Arcade' });
+  const name = el('input', { placeholder: 'Service name, e.g. Humble Choice or Prime Gaming' });
   const tiers = el('input', { placeholder: 'Plans, cheapest first, comma separated (optional)' });
   const add = async () => {
     if (!name.value.trim()) return;

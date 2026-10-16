@@ -133,7 +133,7 @@ async function lookupMissing(games, cacheDir, country = 'us', { delayMs = 3500, 
 }
 
 async function fetchLive(settings = {}, cacheDir = null) {
-  const data = await http.getJson(WIKI_URL, { headers: { 'Api-User-Agent': 'SubscriptionCatalogue/0.1 (desktop app)' } });
+  const data = await http.getJson(WIKI_URL, { headers: { 'Api-User-Agent': 'Subscroll/0.1 (desktop app)' } });
   const games = parseWikipedia(data.parse ? data.parse.text : '');
   if (games.length < 100) throw new Error(`Wikipedia list looks incomplete (${games.length} games)`);
   return cacheDir ? applyCached(games, cacheDir) : games;

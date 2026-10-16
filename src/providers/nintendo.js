@@ -162,7 +162,7 @@ function parseWikipedia(html, today = new Date().toISOString().slice(0, 10)) {
 
 async function fetchLive() {
   const data = await getJson(WIKI_URL, {
-    headers: { 'Api-User-Agent': 'SubscriptionCatalogue/0.1 (desktop app)' },
+    headers: { 'Api-User-Agent': 'Subscroll/0.1 (desktop app)' },
   });
   const games = parseWikipedia(data.parse ? data.parse.text : '');
   // A page rewrite could break parsing; refuse a list that's clearly wrong

@@ -25,7 +25,8 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#0f1115',
-    title: 'Subscription Catalogue',
+    title: 'Subscroll',
+    icon: path.join(__dirname, '..', 'renderer', 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -141,6 +142,10 @@ function registerIpc() {
     if (typeof url === 'string' && /^https:\/\//.test(url)) shell.openExternal(url);
   });
 }
+
+// The app was first called "Subscription Catalogue". Keep its data folder
+// so subscriptions, marks and cached lookups survive the rename.
+app.setPath('userData', path.join(app.getPath('appData'), 'Subscription Catalogue'));
 
 app.whenReady().then(() => {
   const dataDir = app.getPath('userData');

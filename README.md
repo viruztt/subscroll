@@ -1,10 +1,12 @@
-# Subscription Catalogue
+# Subscroll
 
-A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus, Nintendo Switch Online, EA Play, Ubisoft+, Netflix Games and Apple Arcade, by tier. You pick the plans you have, mark games as played or completed, and see what's leaving soon. Everything you set is saved locally (`%APPDATA%/subscription-catalogue/state.json` on Windows).
+**Every game you already pay for, in one place.**
+
+A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus, Nintendo Switch Online, EA Play, Ubisoft+, Netflix Games and Apple Arcade, by tier. You pick the plans you have, mark games as played or completed, and see what's leaving soon. Everything you set is saved locally (`%APPDATA%/Subscription Catalogue/state.json` on Windows; the folder keeps the app's original name so nothing is lost).
 
 ## Run it
 
-- **Windows build:** every commit gets a portable build in `dist/`, named `SubscriptionCatalogue-<version>-<commit>.exe`, replacing the previous one; nothing to install. `dist/` isn't tracked by git. The exe isn't code-signed, so Windows SmartScreen warns the first time ("More info" → "Run anyway").
+- **Windows build:** every commit gets a portable build in `dist/`, named `Subscroll-<version>-<commit>.exe`, replacing the previous one; nothing to install. `dist/` isn't tracked by git. The exe isn't code-signed, so Windows SmartScreen warns the first time ("More info" → "Run anyway").
 - **From source (any OS):** `npm install`, then `npm start`. `npm test` runs the tests. `npm run dist:win` / `dist:mac` / `dist:linux` builds a package.
 
 ## Where the game lists come from
@@ -42,5 +44,5 @@ Other services can be added on the Subscriptions page, with their games entered 
 
 - `src/main.js`: window, IPC, daily refresh. `src/details.js`: descriptions and screenshots. `src/ratings.js`: Metacritic and How Long To Beat. `src/regions.js`: the country list. `src/catalog.js`: refresh, fallbacks, history, merging Xbox console/PC duplicates.
 - `src/providers/`: one file per service.
-- `renderer/`: the UI (plain HTML/CSS/JS).
+- `renderer/`: the UI (plain HTML/CSS/JS). The logo is `renderer/logo.svg`; `renderer/icon.png` (window) and `build/icon.png` (exe) are 256 and 512 px renders of it.
 - `data/`: bundled snapshot used until the first refresh. `npm run snapshot` rebuilds it. `scripts/match-covers.js` rebuilds the offline Switch Online cover map; titles whose box art is named differently go in `data/nintendo-cover-aliases.json`.
