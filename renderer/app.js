@@ -729,7 +729,10 @@ let reorderTimer = null;
 function showRatingProgress(p) {
   const status = $('#ratings-status');
   if (!p || p.finished) {
-    status.textContent = p?.failed ? 'Metacritic / How Long To Beat unreachable, will retry later' : '';
+    // A site that stopped answering is asked again on the next run.
+    const names = (p?.stopped || []).map((x) => x.replace(/ \(.*\)$/, ''));
+    status.textContent = names.length ? `${names.join(' and ')} stopped answering, will try again later` : '';
+    status.title = (p?.stopped || []).join('\n');
     return;
   }
   status.textContent = `Fetching scores and times: ${p.done} of ${p.total}`;

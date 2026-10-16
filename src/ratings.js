@@ -9,10 +9,12 @@ const http = require('./providers/http');
 // whole catalogue.
 const HIT_DAYS = 30;
 const MISS_DAYS = 14;
-const CONCURRENCY = 2;
-// Pause after each lookup, so the first pass over a whole catalogue asks
-// each site about once a second rather than as fast as it answers.
-const PAUSE_MS = 1000;
+// Each site is asked one game at a time with a pause in between, so the
+// first pass over a whole catalogue is slow but gentle. When a site stops
+// answering, lookups to it back off, then stop until the next run.
+const PAUSE_MS = { mc: 1000, hltb: 1500 };
+const BACKOFF_MS = 30000;
+const MAX_FAILURES = 5;
 const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 
 // ---- titles ----
@@ -156,12 +158,22 @@ class HowLongToBeat {
       headers['x-hp-key'] = String(session.hpKey);
       headers['x-hp-val'] = String(session.hpVal);
     }
-    const res = await http.fetchRaw(session.url, { method: 'POST', headers, body: JSON.stringify(hltbPayload(title, session)) });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    let res;
+    try {
+      res = await http.fetchRaw(session.url, { method: 'POST', headers, body: JSON.stringify(hltbPayload(title, session)), signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
     if (!res.ok) {
+      const err = new Error(`HTTP ${res.status} from howlongtobeat.com`);
+      // Too many requests: a fresh token won't help, only waiting will.
+      if (res.status === 429) throw err;
       // Tokens expire; get a fresh one once.
       this.session = null;
-      if (!retried && (res.status === 401 || res.status === 403 || res.status === 404)) return this.search(title, year, true);
-      throw new Error(`HTTP ${res.status} from howlongtobeat.com`);
+      if (!retried) return this.search(title, year, true);
+      throw err;
     }
     const data = await res.json();
     const items = (data.data || []).map((g) => ({
@@ -182,18 +194,51 @@ class HowLongToBeat {
 // Same-titled retro games on different systems are different games.
 const lookupKey = (g) => (g.service === 'nso' ? `${g.platforms[0]}|` : '') + key(cleanTitle(g.title));
 
+const SITE_NAMES = { mc: 'Metacritic', hltb: 'How Long To Beat' };
+const sleep = (ms) => (ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
+
+// Each site's answer, stored with the time it was looked up ("mcAt",
+// "hltbAt") so a failure on one site never makes the other look again.
+function applyResult(entry, site, value, now) {
+  if (site === 'mc') {
+    entry.mc = value ? value.score : null;
+    entry.mcUrl = value ? value.url : null;
+  } else {
+    entry.hltb = value && (value.main || value.plus || value.all) ? { main: value.main, plus: value.plus, all: value.all } : null;
+    entry.hltbUrl = value ? value.url : null;
+  }
+  entry[`${site}At`] = now;
+}
+
+// Earlier versions kept one date for both sites, and 0 when either failed;
+// the half that did answer has its link set.
+function migrate(entry, now) {
+  if (!('fetchedAt' in entry)) return entry;
+  const at = entry.fetchedAt;
+  const { fetchedAt: _old, ...rest } = entry;
+  return {
+    ...rest,
+    mcAt: at || (entry.mcUrl != null ? now : 0),
+    hltbAt: at || (entry.hltbUrl != null ? now : 0),
+  };
+}
+
 class Ratings {
-  constructor(dir, { onUpdate = () => {}, onProgress = () => {}, pauseMs = PAUSE_MS } = {}) {
+  constructor(dir, { onUpdate = () => {}, onProgress = () => {}, pauseMs = PAUSE_MS, backoffMs = BACKOFF_MS } = {}) {
     this.file = path.join(dir, 'ratings.json');
     try {
       this.data = JSON.parse(fs.readFileSync(this.file, 'utf8'));
     } catch {
       this.data = {};
     }
+    const now = Date.now();
+    for (const [k, r] of Object.entries(this.data)) this.data[k] = migrate(r, now);
     this.onUpdate = onUpdate;
     this.onProgress = onProgress;
-    this.pauseMs = pauseMs;
+    this.pauseMs = typeof pauseMs === 'number' ? { mc: pauseMs, hltb: pauseMs } : pauseMs;
+    this.backoffMs = backoffMs;
     this.hltb = new HowLongToBeat();
+    this.lookups = { mc: (title, year) => metacritic(title, year), hltb: (title, year) => this.hltb.search(title, year) };
     this.running = null;
     this.pending = null;
   }
@@ -208,10 +253,11 @@ class Ratings {
     return out;
   }
 
-  fresh(r) {
-    if (!r) return false;
-    const found = r.mc != null || r.hltb != null;
-    return Date.now() - r.fetchedAt < (found ? HIT_DAYS : MISS_DAYS) * 86400000;
+  due(r, site, now = Date.now()) {
+    const at = r && r[`${site}At`];
+    if (!at) return true;
+    const found = r[`${site}Url`] != null;
+    return now - at >= (found ? HIT_DAYS : MISS_DAYS) * 86400000;
   }
 
   // Looks up every game without fresh data, `first` ones first. A second
@@ -234,50 +280,72 @@ class Ratings {
     const groups = new Map(); // lookup key -> games sharing it
     for (const g of games) {
       const k = lookupKey(g);
-      if (!k || this.fresh(this.data[k])) continue;
+      if (!k) continue;
       if (!groups.has(k)) groups.set(k, []);
       groups.get(k).push(g);
     }
-    const todo = [...groups.entries()].sort((a, b) => Number(b[1].some(first)) - Number(a[1].some(first)));
-    let done = 0;
-    let failures = 0;
-    let lastSave = Date.now();
-    const total = todo.length;
-    if (!total) return;
-    this.onProgress({ done, total });
-    await http.mapLimit(todo, CONCURRENCY, async ([k, group]) => {
-      if (this.pending || failures > 25) return; // superseded, or the sites are unreachable
-      const g = group[0];
-      const title = cleanTitle(g.title);
-      const year = g.releaseDate ? Number(g.releaseDate.slice(0, 4)) : null;
-      const [mc, hl] = await Promise.allSettled([metacritic(title, year), this.hltb.search(title, year)]);
-      if (mc.status === 'rejected' && hl.status === 'rejected') {
-        failures += 1;
-      } else {
-        failures = 0;
-        const prev = this.data[k] || {};
-        const entry = {
-          mc: mc.status === 'fulfilled' ? (mc.value ? mc.value.score : null) : prev.mc ?? null,
-          mcUrl: mc.status === 'fulfilled' ? (mc.value ? mc.value.url : null) : prev.mcUrl ?? null,
-          hltb: hl.status === 'fulfilled' ? (hl.value && (hl.value.main || hl.value.plus || hl.value.all) ? { main: hl.value.main, plus: hl.value.plus, all: hl.value.all } : null) : prev.hltb ?? null,
-          hltbUrl: hl.status === 'fulfilled' ? (hl.value ? hl.value.url : null) : prev.hltbUrl ?? null,
-          fetchedAt: Date.now(),
-        };
-        // A failed half is retried on the next run.
-        if (mc.status === 'rejected' || hl.status === 'rejected') entry.fetchedAt = 0;
-        this.data[k] = entry;
-        this.onUpdate(Object.fromEntries(group.map((x) => [x.id, entry])));
+    const order = [...groups.keys()].sort((a, b) => Number(groups.get(b).some(first)) - Number(groups.get(a).some(first)));
+    const queues = { mc: [], hltb: [] };
+    const remaining = new Map(); // lookup key -> sites still to answer
+    for (const k of order) {
+      for (const site of Object.keys(queues)) {
+        if (!this.due(this.data[k], site)) continue;
+        queues[site].push(k);
+        remaining.set(k, (remaining.get(k) || 0) + 1);
       }
-      done += 1;
-      this.onProgress({ done, total });
+    }
+    const total = remaining.size;
+    if (!total) return;
+    let done = 0;
+    let lastSave = Date.now();
+    const stopped = [];
+    this.onProgress({ done, total });
+
+    const finish = (k) => {
+      const left = remaining.get(k) - 1;
+      remaining.set(k, left);
+      if (left === 0) {
+        done += 1;
+        this.onProgress({ done, total });
+      }
       if (Date.now() - lastSave > 10000) {
         lastSave = Date.now();
         this.save();
       }
-      if (this.pauseMs) await new Promise((r) => setTimeout(r, this.pauseMs));
-    });
+    };
+
+    // The two sites are asked side by side, each at its own pace.
+    await Promise.all(Object.entries(queues).map(async ([site, keys]) => {
+      let failures = 0;
+      for (const k of keys) {
+        if (this.pending) return; // superseded by a newer list
+        const group = groups.get(k);
+        const g = group[0];
+        const title = cleanTitle(g.title);
+        const year = g.releaseDate ? Number(g.releaseDate.slice(0, 4)) : null;
+        try {
+          const value = await this.lookups[site](title, year);
+          failures = 0;
+          const entry = { ...(this.data[k] || {}) };
+          applyResult(entry, site, value, Date.now());
+          this.data[k] = entry;
+          this.onUpdate(Object.fromEntries(group.map((x) => [x.id, entry])));
+        } catch (err) {
+          // Not stored, so this game is asked again next run.
+          failures += 1;
+          if (failures >= MAX_FAILURES) {
+            stopped.push(`${SITE_NAMES[site]} (${err.message})`);
+            return;
+          }
+          await sleep(this.backoffMs * 2 ** (failures - 1));
+        }
+        finish(k);
+        await sleep(this.pauseMs[site]);
+      }
+    }));
     this.save();
-    this.onProgress({ done: total, total, finished: true, failed: failures > 25 });
+    const busySites = Object.values(queues).filter((q) => q.length).length;
+    this.onProgress({ done, total, finished: true, failed: stopped.length > 0 && stopped.length === busySites, stopped });
   }
 
   save() {

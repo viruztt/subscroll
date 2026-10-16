@@ -115,8 +115,61 @@ test('Background lookups stop when both sites are unreachable', async () => {
   http.setFetch(async () => { throw new Error('offline'); });
   const games = Array.from({ length: 40 }, (_, i) => ({ id: `gamepass:${i}`, service: 'gamepass', title: `Game ${i}`, platforms: ['pc'], tiers: [] }));
   let last = null;
-  const r = new Ratings(fs.mkdtempSync(path.join(os.tmpdir(), 'ratings-')), { pauseMs: 0, onProgress: (p) => { last = p; } });
+  const r = new Ratings(fs.mkdtempSync(path.join(os.tmpdir(), 'ratings-')), { pauseMs: 0, backoffMs: 0, onProgress: (p) => { last = p; } });
   await r.start(games);
   assert.ok(last.finished && last.failed);
   assert.deepStrictEqual(r.forGames(games), {});
+});
+
+test('A site that fails is retried alone, without asking the other again', async () => {
+  const asked = { mc: 0, hltb: 0 };
+  let hltbDown = true;
+  http.setFetch(async (url, opts = {}) => {
+    if (url.includes('metacritic')) {
+      asked.mc += 1;
+      const q = decodeURIComponent(url.split('/search/')[1].split('/web')[0]);
+      return jsonResponse({ data: { items: [{ type: 'game-title', title: q, slug: 'x', criticScoreSummary: { score: 75 } }] } });
+    }
+    if (url === 'https://howlongtobeat.com/') return textResponse('');
+    if (url.includes('/init')) return jsonResponse({ token: 't' });
+    if (opts.method === 'POST') {
+      asked.hltb += 1;
+      if (hltbDown) return jsonResponse({}, 429);
+      const q = JSON.parse(opts.body).searchTerms.join(' ');
+      return jsonResponse({ data: [{ game_id: 1, game_name: q, comp_main: 7200 }] });
+    }
+    throw new Error(`unexpected ${url}`);
+  });
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ratings-'));
+  const games = Array.from({ length: 8 }, (_, i) => ({ id: `gamepass:${i}`, service: 'gamepass', title: `Game ${i}`, platforms: ['pc'], tiers: [] }));
+  let last = null;
+  await new Ratings(dir, { pauseMs: 0, backoffMs: 0, onProgress: (p) => { last = p; } }).start(games);
+  assert.strictEqual(asked.mc, 8);
+  assert.strictEqual(asked.hltb, 5); // gave up after five refusals in a row
+  assert.ok(last.finished && !last.failed);
+  assert.match(last.stopped[0], /^How Long To Beat \(HTTP 429/);
+
+  hltbDown = false;
+  const r = new Ratings(dir, { pauseMs: 0, backoffMs: 0 });
+  await r.start(games);
+  assert.strictEqual(asked.mc, 8); // scores were kept
+  assert.strictEqual(asked.hltb, 13);
+  const got = r.forGames(games)['gamepass:3'];
+  assert.strictEqual(got.mc, 75);
+  assert.deepStrictEqual(got.hltb, { main: 2, plus: null, all: null });
+});
+
+test('Entries saved by earlier versions keep the half that answered', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ratings-'));
+  const recent = Date.now() - 86400000;
+  fs.writeFileSync(path.join(dir, 'ratings.json'), JSON.stringify({
+    gamea: { mc: 68, mcUrl: 'https://mc/a', hltb: null, hltbUrl: null, fetchedAt: 0 },
+    gameb: { mc: 80, mcUrl: 'https://mc/b', hltb: { main: 5 }, hltbUrl: 'https://hltb/b', fetchedAt: recent },
+  }));
+  const r = new Ratings(dir);
+  assert.strictEqual(r.due(r.data.gamea, 'mc'), false);
+  assert.strictEqual(r.due(r.data.gamea, 'hltb'), true);
+  assert.strictEqual(r.due(r.data.gameb, 'mc'), false);
+  assert.strictEqual(r.due(r.data.gameb, 'hltb'), false);
+  assert.strictEqual(r.data.gameb.hltbAt, recent);
 });
