@@ -52,9 +52,11 @@ Games can be marked played, completed or ignored (⊘, for games you're not inte
 
 Other services can be added on the Subscriptions page, with their games entered by hand.
 
+**Backup** on the Subscriptions page saves your plans, marks, own services and games, and settings to one `.json` file; **Restore from backup** on another PC (or after a reinstall) loads it back, asking first since it replaces what's there. Catalogues and cached lookups aren't in the file; the app fetches them again.
+
 ## Layout
 
-- `src/main.js`: window, IPC, daily refresh. `src/details.js`: descriptions and screenshots. `src/ratings.js`: Metacritic and How Long To Beat. `src/regions.js`: the country list. `src/catalog.js`: refresh, fallbacks, history, merging Xbox console/PC duplicates.
+- `src/main.js`: window, IPC, daily refresh. `src/details.js`: descriptions and screenshots. `src/ratings.js`: Metacritic and How Long To Beat. `src/regions.js`: the country list. `src/backup.js`: backup files. `src/catalog.js`: refresh, fallbacks, history, merging Xbox console/PC duplicates.
 - `src/providers/`: one file per service.
 - `renderer/`: the UI (plain HTML/CSS/JS). `renderer/unify.js` merges the same game across services. The logo is `renderer/logo.svg`; `renderer/icon.png` (window) and `build/icon.png` (exe) are 256 and 512 px renders of it.
 - `data/`: bundled snapshot used until the first refresh. `npm run snapshot` rebuilds it. `scripts/match-covers.js` rebuilds the offline Switch Online cover map; titles whose box art is named differently go in `data/nintendo-cover-aliases.json`.

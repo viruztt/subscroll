@@ -11,5 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   onRatings: (fn) => ipcRenderer.on('ratings', (_e, msg) => fn(msg)),
   onCatalogChanged: (fn) => ipcRenderer.on('catalog-changed', () => fn()),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  exportBackup: () => ipcRenderer.invoke('export-backup'),
+  importBackup: () => ipcRenderer.invoke('import-backup'),
   onRefreshProgress: (fn) => ipcRenderer.on('refresh-progress', (_e, msg) => fn(msg)),
 });

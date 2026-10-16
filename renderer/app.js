@@ -431,7 +431,39 @@ function renderSubs() {
   });
 
   content.append(el('div', { class: 'panel' }, el('h2', {}, 'My subscriptions'), rows));
-  content.append(customServicePanel(), customGamePanel(), regionPanel(), sourcesPanel());
+  content.append(customServicePanel(), customGamePanel(), regionPanel(), backupPanel(), sourcesPanel());
+}
+
+// Save plans and marks to a file, or bring them back on another PC.
+function backupPanel() {
+  const games = (n) => `${n} marked game${n === 1 ? '' : 's'}`;
+  const status = el('p', { class: 'muted' });
+  const exportIt = async () => {
+    const r = await api.exportBackup();
+    if (r.ok) status.textContent = `Saved ${games(r.marks)} and your plans to ${r.file}`;
+  };
+  const restore = async () => {
+    const r = await api.importBackup();
+    if (r.error) {
+      status.textContent = r.error;
+    } else if (r.ok) {
+      state = r.state;
+      rebuildGames();
+      render(true);
+      // render() rebuilt this panel; report on the new one.
+      const fresh = document.querySelector('#backup-status');
+      if (fresh) fresh.textContent = `Restored ${games(r.marks)} and your plans.`;
+      return;
+    }
+  };
+  status.id = 'backup-status';
+  return el('div', { class: 'panel' },
+    el('h2', {}, 'Backup'),
+    el('p', { class: 'muted' }, 'Save your plans, marks, settings and your own services and games to a file, to keep it safe or move to another PC. Restoring replaces what is on this PC.'),
+    el('div', { class: 'form' },
+      el('button', { class: 'primary', onclick: exportIt }, 'Save backup…'),
+      el('button', { onclick: restore }, 'Restore from backup…')),
+    status);
 }
 
 function customServicePanel() {

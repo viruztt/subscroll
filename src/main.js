@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, net, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, net, shell } = require('electron');
 const path = require('path');
 const { Store } = require('./store');
 const { Catalog, SERVICES: CATALOG_SERVICES } = require('./catalog');
@@ -8,6 +8,8 @@ const { Ratings } = require('./ratings');
 const { SERVICES, TIER_BADGES, unlockedTiers } = require('./services');
 const { REGIONS, regionById } = require('./regions');
 const http = require('./providers/http');
+const { makeBackup, parseBackup, backupName } = require('./backup');
+const fs = require('fs');
 
 let store;
 let catalog;
@@ -137,6 +139,45 @@ function registerIpc() {
   ipcMain.handle('get-ratings', () => {
     startRatings();
     return { ratings: ratings.forGames(catalogGames()), progress: ratingProgress };
+  });
+  ipcMain.handle('export-backup', async () => {
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      title: 'Save a backup of your plans and marks',
+      defaultPath: path.join(app.getPath('documents'), backupName()),
+      filters: [{ name: 'Subscroll backup', extensions: ['json'] }],
+    });
+    if (canceled || !filePath) return { ok: false };
+    await fs.promises.writeFile(filePath, JSON.stringify(makeBackup(store.get()), null, 1));
+    return { ok: true, file: filePath, marks: Object.keys(store.get().marks).length };
+  });
+  ipcMain.handle('import-backup', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+      title: 'Restore from a backup',
+      properties: ['openFile'],
+      filters: [{ name: 'Subscroll backup', extensions: ['json'] }],
+    });
+    if (canceled || !filePaths.length) return { ok: false };
+    let backup;
+    try {
+      backup = parseBackup(await fs.promises.readFile(filePaths[0], 'utf8'));
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+    const count = (marks) => Object.keys(marks).length;
+    const when = backup.exportedAt ? ` from ${new Date(backup.exportedAt).toLocaleDateString()}` : '';
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'question',
+      buttons: ['Restore', 'Cancel'],
+      defaultId: 0,
+      cancelId: 1,
+      message: `Restore the backup${when}?`,
+      detail: `Your plans, settings and ${count(store.get().marks)} marked games on this PC are replaced by the backup's ${count(backup.state.marks)} marked games.`,
+    });
+    if (response !== 0) return { ok: false };
+    const { settings, ...rest } = backup.state;
+    store.update({ ...rest, ...(settings ? { settings: { ...store.get().settings, ...settings } } : {}) });
+    startRatings();
+    return { ok: true, marks: count(backup.state.marks), state: store.get() };
   });
   ipcMain.handle('open-external', (_e, url) => {
     if (typeof url === 'string' && /^https:\/\//.test(url)) shell.openExternal(url);
