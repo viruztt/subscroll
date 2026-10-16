@@ -36,6 +36,8 @@
         <option value="ignored">Ignored</option>
       </select>
       <select id="platform-filter" title="Platform"></select>
+      <select id="genre-filter" title="Genre"></select>
+      <select id="length-filter" title="How long to beat (main story)"></select>
       <select id="sort" title="Sort">
         <option value="title">A–Z</option>
         <option value="release">Newest release</option>
@@ -44,10 +46,12 @@
         <option value="short">Shortest to beat</option>
         <option value="long">Longest to beat</option>
       </select>
-      <label class="toggle"><input type="checkbox" id="mine-only"> Only my subscriptions</label>
-      <label class="toggle"><input type="checkbox" id="hide-completed"> Hide completed</label>
-      <label class="toggle"><input type="checkbox" id="hide-ignored"> Hide ignored</label>
-      <label class="toggle"><input type="checkbox" id="hide-departed"> Hide departed</label>
+      <div class="toggles">
+        <label class="toggle"><input type="checkbox" id="mine-only"> Only my subscriptions</label>
+        <label class="toggle"><input type="checkbox" id="hide-completed"> Hide completed</label>
+        <label class="toggle"><input type="checkbox" id="hide-ignored"> Hide ignored</label>
+        <label class="toggle"><input type="checkbox" id="hide-departed"> Hide departed</label>
+      </div>
     </header>
     <div class="summary" id="summary"></div>
     <section id="content"></section>
@@ -55,6 +59,7 @@
 
   <div class="drawer hidden" id="drawer"></div>
   <script src="unify.js"></script>
+  <script src="genres.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -10,6 +10,8 @@ const ui = {
   services: new Set(), // empty = all
   status: 'all',
   platform: 'all',
+  genre: 'all',
+  length: 'all',
   sort: 'title',
   mineOnly: false,
   shown: PAGE_SIZE,
@@ -148,7 +150,7 @@ function rebuildGames() {
     for (const d of c.history?.departed || []) departed.push(d);
   }
   for (const g of state.customGames || []) out.push({ ...g, custom: true });
-  games = Unify.unify(out);
+  games = Unify.unify(out).map((g) => ({ ...g, genreTags: Genres.genresOf(g) }));
   markGroups = new Map();
   for (const g of games) {
     const ids = offersOf(g).map((o) => o.id);
@@ -182,6 +184,7 @@ function filtered(list) {
     if (hideIgnored() && markOf(g.id) === 'ignored') return false;
     if (ui.status !== 'all' && markOf(g.id) !== ui.status) return false;
     if (ui.platform !== 'all' && !g.platforms.includes(ui.platform)) return false;
+    if (!fitsGenreAndLength(g)) return false;
     if (q && !g.title.toLowerCase().includes(q)) return false;
     return true;
   });
@@ -193,6 +196,12 @@ const mcScore = (g) => (ratings[g.id]?.mc > 0 ? ratings[g.id].mc : null);
 function beatHours(g) {
   const h = ratings[g.id]?.hltb;
   return h ? h.main ?? h.plus ?? h.all ?? null : null;
+}
+
+// Departed games keep their original fields, so work out genres here too.
+function fitsGenreAndLength(g) {
+  if (ui.genre !== 'all' && !(g.genreTags || Genres.genresOf(g)).includes(ui.genre)) return false;
+  return Genres.fitsLength(beatHours(g), ui.length);
 }
 
 function fmtHours(h) {
@@ -352,7 +361,8 @@ function summaryText(list) {
   const keys = unlocked();
   const mine = list.filter((g) => isMine(g, keys)).length;
   const subs = Object.keys(state.subscriptions).filter((k) => state.subscriptions[k]).length;
-  return subs ? `${list.length} games · ${mine} included in your subscriptions` : `${list.length} games · set your subscriptions to see what you can play`;
+  const base = subs ? `${list.length} games · ${mine} included in your subscriptions` : `${list.length} games · set your subscriptions to see what you can play`;
+  return ui.length !== 'all' ? `${base} · only games with a How Long To Beat time` : base;
 }
 
 function renderBrowse() {
@@ -550,7 +560,8 @@ function openDrawer(g) {
         el('dt', {}, 'Included in'), el('dd', {}, plans.length ? plans : '—'),
         el('dt', {}, 'Platforms'), el('dd', {}, g.platforms.map(platformName).join(', ') || '—'),
         g.versions?.length ? [el('dt', {}, 'Versions'), el('dd', {}, g.versions.join(', '))] : null,
-        g.genres?.length ? [el('dt', {}, 'Genre'), el('dd', {}, g.genres.join(', '))] : null,
+        g.genreTags?.length ? [el('dt', {}, 'Genre'), el('dd', {}, g.genreTags.join(', '))]
+          : g.genres?.length ? [el('dt', {}, 'Genre'), el('dd', {}, g.genres.join(', '))] : null,
         g.releaseDate ? [el('dt', {}, 'Released'), el('dd', {}, fmtDate(g.releaseDate))] : null,
         isComing(g) ? [el('dt', {}, 'Coming'), el('dd', {}, fmtDate(g.comingOn))] : null,
         g.firstSeen && !isComing(g) ? [el('dt', {}, 'Added'), el('dd', {}, fmtDate(g.firstSeen))] : null,
@@ -657,6 +668,7 @@ function rollPool() {
     if (['completed', 'ignored'].includes(markOf(g.id)) || isComing(g)) return false;
     if (ui.services.size && !inServices(g, ui.services)) return false;
     if (ui.platform !== 'all' && !g.platforms.includes(ui.platform)) return false;
+    if (!fitsGenreAndLength(g)) return false;
     return true;
   });
 }
@@ -665,6 +677,8 @@ function rollScope() {
   const parts = [];
   if (ui.services.size) parts.push([...ui.services].map((id) => serviceById(id)?.name || id).join(', '));
   if (ui.platform !== 'all') parts.push(platformName(ui.platform));
+  if (ui.genre !== 'all') parts.push(ui.genre);
+  if (ui.length !== 'all') parts.push(Genres.LENGTHS.find((l) => l.id === ui.length)?.label.toLowerCase());
   return parts.length ? ` (${parts.join(', ')})` : '';
 }
 
@@ -685,7 +699,7 @@ function roll() {
       el('div', { class: 'drawer-panel' },
         el('button', { class: 'close', onclick: closeDrawer, title: 'Close' }, '✕'),
         el('h2', {}, 'Nothing to roll'),
-        el('p', { class: 'muted' }, 'No games match: everything in your subscriptions is completed, or the service and platform filters leave nothing.')));
+        el('p', { class: 'muted' }, 'No games match: everything in your subscriptions is completed, or the filters leave nothing.')));
     $('#drawer').classList.remove('hidden');
     return;
   }
@@ -741,6 +755,16 @@ function renderChrome() {
   const current = ui.platform;
   pf.replaceChildren(el('option', { value: 'all' }, 'Any platform'), ...platformsList().map((p) => el('option', { value: p }, platformName(p))));
   pf.value = current;
+
+  // Only genres some game actually has.
+  const present = new Set(games.flatMap((g) => g.genreTags || []));
+  const gf = $('#genre-filter');
+  gf.replaceChildren(el('option', { value: 'all' }, 'Any genre'), ...Genres.GENRES.filter((n) => present.has(n)).map((n) => el('option', { value: n }, n)));
+  gf.value = present.has(ui.genre) ? ui.genre : 'all';
+  if (gf.value !== ui.genre) ui.genre = 'all';
+  const lf = $('#length-filter');
+  if (!lf.options.length) lf.replaceChildren(el('option', { value: 'all' }, 'Any length'), ...Genres.LENGTHS.map((l) => el('option', { value: l.id }, l.label)));
+  lf.value = ui.length;
 
   const keys = unlocked();
   const leaving = games.filter((g) => leaveInfo(g) && (!ui.mineOnly || isMine(g, keys))).length;
@@ -850,6 +874,8 @@ function wire() {
   });
   $('#status-filter').addEventListener('change', (e) => { ui.status = e.target.value; render(); });
   $('#platform-filter').addEventListener('change', (e) => { ui.platform = e.target.value; render(); });
+  $('#genre-filter').addEventListener('change', (e) => { ui.genre = e.target.value; render(); });
+  $('#length-filter').addEventListener('change', (e) => { ui.length = e.target.value; render(); });
   $('#sort').addEventListener('change', (e) => { ui.sort = e.target.value; render(); });
   $('#mine-only').addEventListener('change', (e) => { ui.mineOnly = e.target.checked; render(); });
   for (const [id, setting] of [['#hide-departed', 'hideDeparted'], ['#hide-completed', 'hideCompleted'], ['#hide-ignored', 'hideIgnored']]) {

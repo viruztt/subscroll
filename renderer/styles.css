@@ -90,6 +90,7 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
   border-bottom: 1px solid var(--line);
 }
 #search { width: 240px; }
+.toolbar select { max-width: 150px; }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip {
   border: 1px solid var(--line);
@@ -109,7 +110,8 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .chip.on { color: var(--text); border-color: var(--svc); background: color-mix(in srgb, var(--svc) 22%, transparent); }
 .toggle { display: flex; align-items: center; gap: 6px; color: var(--muted); }
 #mine-only { margin-left: 0; }
-.toggle:has(#mine-only) { margin-left: auto; }
+/* The checkboxes move to their own line together when the toolbar is narrow. */
+.toggles { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-left: auto; }
 .summary { padding: 10px 20px; color: var(--muted); font-size: 13px; }
 #content { flex: 1; overflow-y: auto; padding: 4px 20px 30px; }
 #content h2 { font-size: 16px; margin: 18px 0 10px; }
