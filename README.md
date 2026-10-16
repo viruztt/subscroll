@@ -2,6 +2,14 @@
 
 **Every game you already pay for, in one place.**
 
+![Browsing the Switch Online library](docs/screenshots/browse.jpg)
+
+| Your played and completed games | Roll a game when you can't decide |
+|---|---|
+| ![My games](docs/screenshots/my-games.png) | ![Roll a game](docs/screenshots/roll.png) |
+
+**Download:** grab `Subscroll-<version>.exe` from [Releases](https://github.com/viruztt/subscroll/releases). It's a portable Windows app, so there's nothing to install.
+
 A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus, Nintendo Switch Online, EA Play, Ubisoft+, Netflix Games and Apple Arcade, by tier. You pick the plans you have, mark games as played or completed, and see what's leaving soon. Everything you set is saved locally (`%APPDATA%/Subscription Catalogue/state.json` on Windows; the folder keeps the app's original name so nothing is lost).
 
 ## Run it
