@@ -13,5 +13,8 @@ contextBridge.exposeInMainWorld('api', {
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   exportBackup: () => ipcRenderer.invoke('export-backup'),
   importBackup: () => ipcRenderer.invoke('import-backup'),
+  importSteam: (profile, key) => ipcRenderer.invoke('import-steam', { profile, key }),
+  forgetSteam: () => ipcRenderer.invoke('forget-steam'),
+  onStateChanged: (fn) => ipcRenderer.on('state-changed', (_e, s) => fn(s)),
   onRefreshProgress: (fn) => ipcRenderer.on('refresh-progress', (_e, msg) => fn(msg)),
 });

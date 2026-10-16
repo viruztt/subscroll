@@ -9,6 +9,7 @@ const { SERVICES, TIER_BADGES, unlockedTiers } = require('./services');
 const { REGIONS, regionById } = require('./regions');
 const http = require('./providers/http');
 const { makeBackup, parseBackup, backupName } = require('./backup');
+const steam = require('./steam');
 const fs = require('fs');
 
 let store;
@@ -65,12 +66,33 @@ async function refreshAll() {
     store.update({ lastRefresh: new Date().toISOString() });
     startRatings();
     enrichArcade();
+    refreshSteam();
     return results;
   })();
   try {
     return await refreshing;
   } finally {
     refreshing = null;
+  }
+}
+
+// ---- Steam library ----
+async function importSteam(profile, key) {
+  const { steam: current = {}, marks } = store.get();
+  const r = await steam.importLibrary({ profile, key }, catalogGames(), current, marks);
+  store.update({ steam: r.steam, marks: { ...store.get().marks, ...r.marks } });
+  return r.summary;
+}
+
+// Playtime changes, so the library is read again with the daily refresh.
+async function refreshSteam() {
+  const { steam: s } = store.get();
+  if (!s?.key || !s?.profile) return;
+  try {
+    await importSteam(s.profile, s.key);
+    win?.webContents.send('state-changed', store.get());
+  } catch {
+    // Tried again with the next refresh; the last import stays.
   }
 }
 
@@ -179,6 +201,16 @@ function registerIpc() {
     startRatings();
     return { ok: true, marks: count(backup.state.marks), state: store.get() };
   });
+  ipcMain.handle('import-steam', async (_e, { profile, key }) => {
+    try {
+      const summary = await importSteam(String(profile || '').trim(), String(key || '').trim() || store.get().steam?.key);
+      return { ok: true, summary, state: store.get() };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+  // Marks stay; only the Steam link, key and owned list go.
+  ipcMain.handle('forget-steam', () => store.update({ steam: null }));
   ipcMain.handle('open-external', (_e, url) => {
     if (typeof url === 'string' && /^https:\/\//.test(url)) shell.openExternal(url);
   });

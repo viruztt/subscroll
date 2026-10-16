@@ -53,6 +53,8 @@ Games can be marked played, completed or ignored (⊘, for games you're not inte
 
 Other services can be added on the Subscriptions page, with their games entered by hand.
 
+**Steam library** on the Subscriptions page reads the games you own on Steam (Steam's Web API, with your profile link or Steam ID and a free API key from [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey); your profile's Game details must be public). Games you own get an "On Steam" badge and can be filtered with the status filter's "On Steam" option, and games you've played there for 30 minutes or more are marked as played. Each game is marked once, so unmarking it sticks. The library is read again with the daily refresh. Switch Online games aren't matched, since they're old console versions.
+
 **Backup** on the Subscriptions page saves your plans, marks, own services and games, and settings to one `.json` file; **Restore from backup** on another PC (or after a reinstall) loads it back, asking first since it replaces what's there. Catalogues and cached lookups aren't in the file; the app fetches them again.
 
 ## Building from source
@@ -61,7 +63,7 @@ Other services can be added on the Subscriptions page, with their games entered 
 
 ## Layout
 
-- `src/main.js`: window, IPC, daily refresh. `src/details.js`: descriptions and screenshots. `src/ratings.js`: Metacritic and How Long To Beat. `src/regions.js`: the country list. `src/backup.js`: backup files. `src/catalog.js`: refresh, fallbacks, history, merging Xbox console/PC duplicates.
+- `src/main.js`: window, IPC, daily refresh. `src/details.js`: descriptions and screenshots. `src/ratings.js`: Metacritic and How Long To Beat. `src/regions.js`: the country list. `src/backup.js`: backup files. `src/steam.js`: Steam library import. `src/catalog.js`: refresh, fallbacks, history, merging Xbox console/PC duplicates.
 - `src/providers/`: one file per service.
 - `renderer/`: the UI (plain HTML/CSS/JS). `renderer/unify.js` merges the same game across services. The logo is `renderer/logo.svg`; `renderer/icon.png` (window) and `build/icon.png` (exe) are 256 and 512 px renders of it.
 - `data/`: bundled snapshot used until the first refresh. `npm run snapshot` rebuilds it. `scripts/match-covers.js` rebuilds the offline Switch Online cover map; titles whose box art is named differently go in `data/nintendo-cover-aliases.json`.

@@ -1,6 +1,8 @@
 /* global api */
 const $ = (sel) => document.querySelector(sel);
 const PAGE_SIZE = 120;
+// Same as PLAYED_MINUTES in src/steam.js.
+const STEAM_PLAYED_MINUTES = 30;
 const SOURCE_LABEL = { live: 'official source', mirror: 'community mirror', bundled: 'bundled list' };
 const SHORT_SOURCE = { live: 'official', mirror: 'mirror', bundled: 'bundled' };
 
@@ -140,6 +142,14 @@ function inMyRegion(g) {
   return (g.regions || ['west']).includes(mine);
 }
 
+// The Steam copy of a game, when the imported library has one. Switch
+// Online games are old console versions, so they never match.
+function steamOf(g) {
+  const owned = state.steam?.owned;
+  if (!owned || g.service === 'nso' || g.custom) return null;
+  return owned[Unify.matchKey(g.title)] || null;
+}
+
 function rebuildGames() {
   departed = [];
   const out = [];
@@ -150,7 +160,7 @@ function rebuildGames() {
     for (const d of c.history?.departed || []) departed.push(d);
   }
   for (const g of state.customGames || []) out.push({ ...g, custom: true });
-  games = Unify.unify(out).map((g) => ({ ...g, genreTags: Genres.genresOf(g) }));
+  games = Unify.unify(out).map((g) => ({ ...g, genreTags: Genres.genresOf(g), steam: steamOf(g) }));
   markGroups = new Map();
   for (const g of games) {
     const ids = offersOf(g).map((o) => o.id);
@@ -182,7 +192,7 @@ function filtered(list) {
     if (hideDeparted() && (g.leftOn || leaveInfo(g)?.past)) return false;
     if (hideCompleted() && markOf(g.id) === 'completed') return false;
     if (hideIgnored() && markOf(g.id) === 'ignored') return false;
-    if (ui.status !== 'all' && markOf(g.id) !== ui.status) return false;
+    if (ui.status === 'steam' ? !g.steam : ui.status !== 'all' && markOf(g.id) !== ui.status) return false;
     if (ui.platform !== 'all' && !g.platforms.includes(ui.platform)) return false;
     if (!fitsGenreAndLength(g)) return false;
     if (q && !g.title.toLowerCase().includes(q)) return false;
@@ -309,6 +319,10 @@ function ignoreButton(g, cls) {
   }, cls.startsWith('mark') ? (ignored ? '⊘ Ignored' : '⊘ Ignore') : '⊘');
 }
 
+function steamText(s) {
+  return s.minutes ? `You own this on Steam, ${fmtHours(s.minutes / 60)} played` : 'You own this on Steam, not played yet';
+}
+
 function card(g, keys) {
   const leave = leaveInfo(g);
   const mine = isMine(g, keys);
@@ -323,6 +337,7 @@ function card(g, keys) {
   if (g.leftOn) badges.push(el('span', { class: 'badge gone' }, `Left ${fmtDate(g.leftOn)}`));
   // Regional versions sharing this card.
   if (g.versions?.length > 1) badges.push(el('span', { class: 'badge region', title: 'Regional versions included' }, g.versions.join(' + ')));
+  if (g.steam) badges.push(el('span', { class: 'badge steam', title: steamText(g.steam) }, 'On Steam'));
   const open = () => { drawerRoll = null; openDrawer(g); };
   return el('article', { class: `card ${mine ? 'mine' : ''} mark-${markOf(g.id)}`, 'data-id': g.id, onclick: open },
     el('div', { class: 'cover-wrap' }, cover(g), el('div', { class: 'badges' }, badges), ignoreButton(g, 'cover-ignore')),
@@ -431,7 +446,49 @@ function renderSubs() {
   });
 
   content.append(el('div', { class: 'panel' }, el('h2', {}, 'My subscriptions'), rows));
-  content.append(customServicePanel(), customGamePanel(), regionPanel(), backupPanel(), sourcesPanel());
+  content.append(customServicePanel(), customGamePanel(), regionPanel(), steamPanel(), backupPanel(), sourcesPanel());
+}
+
+// Steam library import: owned games get a badge, played ones a mark.
+function steamPanel() {
+  const s = state.steam;
+  const profile = el('input', { placeholder: 'Steam profile link or Steam ID', value: s?.profile || '' });
+  const key = el('input', { type: 'password', placeholder: s?.key ? 'API key saved (enter a new one to replace it)' : 'Steam Web API key', autocomplete: 'off' });
+  const status = el('p', { class: 'muted' });
+  status.id = 'steam-status';
+  const games = (n) => `${n} game${n === 1 ? '' : 's'}`;
+  if (s?.importedAt) status.textContent = `Last imported ${new Date(s.importedAt).toLocaleString()}: ${games(s.count)} in your Steam library.`;
+  const button = el('button', { class: 'primary' }, s ? 'Import again' : 'Import');
+  button.onclick = async () => {
+    button.disabled = true;
+    status.textContent = 'Reading your Steam library…';
+    const r = await api.importSteam(profile.value, key.value);
+    button.disabled = false;
+    if (!r.ok) {
+      status.textContent = r.error;
+      return;
+    }
+    state = r.state;
+    rebuildGames();
+    render(true);
+    const { owned, inCatalogue, marked } = r.summary;
+    const fresh = document.querySelector('#steam-status');
+    if (fresh) fresh.textContent = `Found ${games(owned)} on Steam. ${inCatalogue} of them ${inCatalogue === 1 ? 'is' : 'are'} in the services here, and ${marked ? `${marked} ${marked === 1 ? 'was' : 'were'} newly marked as played` : 'none needed marking as played'}.`;
+  };
+  const forget = async () => {
+    state = await api.forgetSteam();
+    rebuildGames();
+    render(true);
+  };
+  const keyLink = el('button', { class: 'link inline', onclick: () => api.openExternal('https://steamcommunity.com/dev/apikey') }, 'steamcommunity.com/dev/apikey');
+  return el('div', { class: 'panel' },
+    el('h2', {}, 'Steam library'),
+    el('p', { class: 'muted' },
+      `Games you own on Steam get an "On Steam" badge, and games you've played there for ${STEAM_PLAYED_MINUTES} minutes or more are marked as played (once, so you can still unmark them). It's read again with the daily refresh. You need a free Web API key from `, keyLink,
+      ' (sign in, type any domain such as localhost, and copy the key), and your Steam profile\'s Game details set to Public.'),
+    el('div', { class: 'form' }, profile, key, button,
+      s ? el('button', { class: 'link danger', onclick: forget }, 'Forget Steam') : null),
+    status);
 }
 
 // Save plans and marks to a file, or bring them back on another PC.
@@ -592,6 +649,7 @@ function openDrawer(g) {
         el('dt', {}, 'Included in'), el('dd', {}, plans.length ? plans : '—'),
         el('dt', {}, 'Platforms'), el('dd', {}, g.platforms.map(platformName).join(', ') || '—'),
         g.versions?.length ? [el('dt', {}, 'Versions'), el('dd', {}, g.versions.join(', '))] : null,
+        g.steam ? [el('dt', {}, 'Steam'), el('dd', {}, el('button', { class: 'link inline', onclick: () => api.openExternal(`https://store.steampowered.com/app/${g.steam.appid}/`) }, steamText(g.steam).replace('You own this on Steam, ', 'Owned, '), ' ↗'))] : null,
         g.genreTags?.length ? [el('dt', {}, 'Genre'), el('dd', {}, g.genreTags.join(', '))]
           : g.genres?.length ? [el('dt', {}, 'Genre'), el('dd', {}, g.genres.join(', '))] : null,
         g.releaseDate ? [el('dt', {}, 'Released'), el('dd', {}, fmtDate(g.releaseDate))] : null,
@@ -824,6 +882,13 @@ function render(keepScroll = false) {
   if (keepScroll) content.scrollTop = top;
   if (drawerGame) openDrawer(drawerGame);
 }
+
+// The daily refresh reads the Steam library again.
+api.onStateChanged((s) => {
+  state = s;
+  rebuildGames();
+  render(true);
+});
 
 // Apple Arcade icons arrive in the background a few at a time.
 api.onCatalogChanged(async () => {
