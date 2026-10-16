@@ -128,6 +128,8 @@ const platformName = (p) => PLATFORM_LABEL[p] || p;
 const hideDeparted = () => !!state.settings.hideDeparted;
 // "My games" is where completed games are collected, so they stay there.
 const hideCompleted = () => !!state.settings.hideCompleted && ui.view !== 'mine';
+// Picking "Ignored" in the status filter shows them anyway, to un-ignore.
+const hideIgnored = () => state.settings.hideIgnored !== false && ui.view !== 'mine' && ui.status !== 'ignored';
 
 function filtered(list) {
   const keys = unlocked();
@@ -137,6 +139,7 @@ function filtered(list) {
     if (ui.mineOnly && !isMine(g, keys)) return false;
     if (hideDeparted() && (g.leftOn || leaveInfo(g)?.past)) return false;
     if (hideCompleted() && markOf(g.id) === 'completed') return false;
+    if (hideIgnored() && markOf(g.id) === 'ignored') return false;
     if (ui.status !== 'all' && markOf(g.id) !== ui.status) return false;
     if (ui.platform !== 'all' && !g.platforms.includes(ui.platform)) return false;
     if (q && !g.title.toLowerCase().includes(q)) return false;
@@ -213,7 +216,7 @@ function stats(g) {
   ];
 }
 
-function markButtons(g) {
+function markButtons(g, wide = false) {
   const mark = markOf(g.id);
   const set = (value) => async (e) => {
     e.stopPropagation();
@@ -225,7 +228,25 @@ function markButtons(g) {
   };
   return el('div', { class: 'marks' },
     el('button', { class: `mark ${mark === 'played' ? 'on' : ''}`, title: 'Mark as played', onclick: set('played') }, '▶ Played'),
-    el('button', { class: `mark ${mark === 'completed' ? 'on done' : ''}`, title: 'Mark as completed', onclick: set('completed') }, '★ Completed'));
+    el('button', { class: `mark ${mark === 'completed' ? 'on done' : ''}`, title: 'Mark as completed', onclick: set('completed') }, '★ Completed'),
+    wide ? ignoreButton(g, 'mark ignore') : null);
+}
+
+// Cards keep it on the cover (shown on hover) to leave room for the others.
+function ignoreButton(g, cls) {
+  const ignored = markOf(g.id) === 'ignored';
+  return el('button', {
+    class: `${cls} ${ignored ? 'on ignored' : ''}`,
+    title: ignored ? 'Ignored: click to stop ignoring' : 'Ignore: not interested, hide it',
+    onclick: async (e) => {
+      e.stopPropagation();
+      const marks = { ...state.marks };
+      if (ignored) delete marks[g.id];
+      else marks[g.id] = 'ignored';
+      await saveState({ marks });
+      render(true);
+    },
+  }, cls.startsWith('mark') ? (ignored ? '⊘ Ignored' : '⊘ Ignore') : '⊘');
 }
 
 function card(g, keys) {
@@ -240,7 +261,7 @@ function card(g, keys) {
   if (g.leftOn) badges.push(el('span', { class: 'badge gone' }, `Left ${fmtDate(g.leftOn)}`));
   const open = () => { drawerRoll = null; openDrawer(g); };
   return el('article', { class: `card ${mine ? 'mine' : ''} mark-${markOf(g.id)}`, 'data-id': g.id, onclick: open },
-    el('div', { class: 'cover-wrap' }, cover(g), el('div', { class: 'badges' }, badges)),
+    el('div', { class: 'cover-wrap' }, cover(g), el('div', { class: 'badges' }, badges), ignoreButton(g, 'cover-ignore')),
     el('div', { class: 'body' },
       el('div', { class: 'title', title: g.title }, g.title),
       el('div', { class: 'meta' }, serviceTag(g), el('span', { class: 'tier' }, tierLabel(g))),
@@ -311,8 +332,9 @@ function renderChanges() {
 function renderMine() {
   const list = sorted(filtered(games.filter((g) => markOf(g.id) !== 'none')));
   const done = list.filter((g) => markOf(g.id) === 'completed').length;
-  $('#summary').textContent = `${list.length} games marked · ${done} completed`;
-  renderGrid(list, 'Mark games as played or completed and they will be collected here.');
+  const ignored = list.filter((g) => markOf(g.id) === 'ignored').length;
+  $('#summary').textContent = `${list.length} games marked · ${done} completed · ${ignored} ignored`;
+  renderGrid(list, 'Mark games as played, completed or ignored and they will be collected here.');
 }
 
 function renderSubs() {
@@ -465,7 +487,7 @@ function openDrawer(g) {
         g.firstSeen ? [el('dt', {}, 'Added'), el('dd', {}, fmtDate(g.firstSeen))] : null,
         ratingRows(g),
         leave ? [el('dt', {}, 'Leaving'), el('dd', {}, leave.date ? fmtDate(leave.date) : 'Soon, no date announced')] : null),
-      markButtons(g),
+      markButtons(g, true),
       detailsSection(g),
       g.storeUrl ? el('button', { class: 'link', onclick: () => api.openExternal(g.storeUrl) }, g.service === 'nso' ? 'Open the Wikipedia list ↗' : 'Open store page ↗') : null,
       g.custom ? el('button', { class: 'link danger', onclick: deleteCustom }, 'Delete this game') : null));
@@ -561,7 +583,7 @@ function rollPool() {
   const hasSubs = keys.size > 0;
   return games.filter((g) => {
     if (hasSubs && !isMine(g, keys)) return false;
-    if (markOf(g.id) === 'completed') return false;
+    if (['completed', 'ignored'].includes(markOf(g.id))) return false;
     if (ui.services.size && !ui.services.has(g.service)) return false;
     if (ui.platform !== 'all' && !g.platforms.includes(ui.platform)) return false;
     return true;
@@ -578,7 +600,7 @@ function rollScope() {
 function rollBar() {
   const subs = unlocked().size > 0;
   return el('div', { class: 'roll-bar' },
-    el('span', { class: 'muted' }, `Rolled from ${drawerRoll.pool} ${subs ? 'games in your subscriptions' : 'games'}${rollScope()}, completed ones left out`),
+    el('span', { class: 'muted' }, `Rolled from ${drawerRoll.pool} ${subs ? 'games in your subscriptions' : 'games'}${rollScope()}, completed and ignored ones left out`),
     el('button', { class: 'primary', onclick: roll }, '🎲 Roll again'));
 }
 
@@ -741,7 +763,7 @@ function wire() {
   $('#platform-filter').addEventListener('change', (e) => { ui.platform = e.target.value; render(); });
   $('#sort').addEventListener('change', (e) => { ui.sort = e.target.value; render(); });
   $('#mine-only').addEventListener('change', (e) => { ui.mineOnly = e.target.checked; render(); });
-  for (const [id, setting] of [['#hide-departed', 'hideDeparted'], ['#hide-completed', 'hideCompleted']]) {
+  for (const [id, setting] of [['#hide-departed', 'hideDeparted'], ['#hide-completed', 'hideCompleted'], ['#hide-ignored', 'hideIgnored']]) {
     $(id).addEventListener('change', async (e) => {
       await saveState({ settings: { ...state.settings, [setting]: e.target.checked } });
       render(true);
@@ -770,6 +792,7 @@ async function init() {
   $('#mine-only').checked = hasSubs;
   $('#hide-departed').checked = hideDeparted();
   $('#hide-completed').checked = !!state.settings.hideCompleted;
+  $('#hide-ignored').checked = state.settings.hideIgnored !== false;
   if (!hasSubs) ui.view = 'subs';
   wire();
   render();

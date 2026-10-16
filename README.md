@@ -25,7 +25,9 @@ Cards show the **Metacritic** score and the **How Long To Beat** main-story time
 
 The country picker on the Subscriptions page sets the Xbox market and PlayStation store together. Switch Online only differs in Japan, which gets its Japan-only games (Wikipedia's "JP" column) instead of the western-only ones.
 
-**Roll a game** picks a random game from the plans you have (from everything if none are set), leaving out games you've completed and following the service and platform filters.
+Games can be marked played, completed or ignored (⊘, for games you're not interested in). The toolbar can hide completed, ignored or departed games; ignored games stay on the My games page, and the status filter's "Ignored" option shows them too, so you can un-ignore them.
+
+**Roll a game** picks a random game from the plans you have (from everything if none are set), leaving out games you've completed or ignored and following the service and platform filters.
 
 Other services (Ubisoft+, EA Play, Apple Arcade…) can be added on the Subscriptions page, with their games entered by hand.
 
