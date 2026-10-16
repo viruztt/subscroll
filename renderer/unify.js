@@ -1,7 +1,8 @@
 // One card per game. The same game in several services (A Way Out in Game
 // Pass, EA Play and PS Plus) becomes one entry that lists every service
-// offering it in `offers`. Switch Online games stay on their own: each is a
-// particular old console version, not the modern release.
+// offering it in `offers`. Switch Online games stay on their own (each is a
+// particular old console version, not the modern release), apart from
+// regional versions of the same game, which share a card.
 (function (root) {
   // Which service's entry leads (its artwork, id and details are used).
   const ORDER = ['gamepass', 'psplus', 'eaplay', 'ubisoftplus', 'netflix', 'applearcade'];
@@ -29,6 +30,33 @@
 
   const coming = (g, today) => !!g.comingOn && g.comingOn > today;
 
+  // Switch Online sometimes lists a game twice, once per region:
+  // "Adventures of Lolo (NA)" and "Adventures of Lolo (JP)".
+  const REGION = /\s*\((NA|US|North America|EU|PAL|Europe|JP|Japan|Japanese(?: version)?)\)\s*$/i;
+  const REGION_NAME = { us: 'NA', 'north america': 'NA', eu: 'PAL', europe: 'PAL', japan: 'JP', japanese: 'JP', 'japanese version': 'JP' };
+  const VERSION_ORDER = ['', 'NA', 'PAL', 'JP'];
+  function regionOf(title) {
+    const m = String(title).match(REGION);
+    if (!m) return '';
+    return REGION_NAME[m[1].toLowerCase()] || m[1].toUpperCase();
+  }
+  const baseTitle = (title) => String(title).replace(REGION, '');
+
+  function mergeVersions(versions) {
+    versions.sort((a, b) => VERSION_ORDER.indexOf(regionOf(a.title)) - VERSION_ORDER.indexOf(regionOf(b.title)));
+    if (versions.length === 1) return { ...versions[0], offers: versions };
+    const lead = versions.find((v) => v.image) || versions[0];
+    const seen = versions.map((v) => v.firstSeen).filter(Boolean).sort();
+    return {
+      ...lead,
+      title: baseTitle(lead.title),
+      offers: [lead, ...versions.filter((v) => v !== lead)],
+      versions: versions.map((v) => regionOf(v.title)).filter(Boolean),
+      tiers: [...new Set(versions.flatMap((v) => v.tiers || []))],
+      firstSeen: seen.length ? seen[seen.length - 1] : null,
+    };
+  }
+
   function merge(offers, today) {
     offers.sort((a, b) => rank(a) - rank(b));
     if (offers.length === 1) return { ...offers[0], offers };
@@ -55,7 +83,17 @@
     const out = [];
     const groups = new Map();
     for (const g of games) {
-      const k = g.service === 'nso' || g.custom ? '' : matchKey(g.title);
+      if (g.service === 'nso') {
+        // Regional versions of one game on one system.
+        const k = `nso|${(g.platforms || [])[0]}|${baseTitle(g.title)}`;
+        if (!groups.has(k)) {
+          groups.set(k, []);
+          out.push(Object.assign(groups.get(k), { nso: true }));
+        }
+        groups.get(k).push(g);
+        continue;
+      }
+      const k = g.custom ? '' : matchKey(g.title);
       if (!k) {
         out.push([g]);
         continue;
@@ -66,7 +104,7 @@
       }
       groups.get(k).push(g);
     }
-    return out.map((offers) => merge(offers, today));
+    return out.map((offers) => (offers.nso ? mergeVersions(offers) : merge(offers, today)));
   }
 
   const api = { unify, matchKey };

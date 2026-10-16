@@ -48,3 +48,20 @@ test('A game already playable somewhere is not "coming"', () => {
   const [soon] = unify([game('gamepass', 'A', 'Later', { comingOn: '2026-12-01' }), game('psplus', '1', 'Later', { comingOn: '2026-11-05' })], '2026-10-16');
   assert.strictEqual(soon.comingOn, '2026-11-05');
 });
+
+test('Regional versions of a Switch Online game share one entry', () => {
+  const nso = (id, title, platform = 'NES') => ({ id: `nso:${id}`, service: 'nso', title, platforms: [platform], tiers: ['base'], image: `${id}.png` });
+  const list = unify([
+    nso('lolo-jp', 'Adventures of Lolo (JP)'),
+    nso('lolo-na', 'Adventures of Lolo (NA)'),
+    nso('gb-lolo', 'Adventures of Lolo', 'Game Boy'),
+    nso('metroid-sp', 'Super Metroid SP (Ridley battle)', 'SNES'),
+    nso('metroid', 'Super Metroid', 'SNES'),
+  ]);
+  assert.strictEqual(list.length, 4);
+  const lolo = list.find((g) => g.platforms[0] === 'NES');
+  assert.strictEqual(lolo.title, 'Adventures of Lolo');
+  assert.strictEqual(lolo.id, 'nso:lolo-na'); // the western version leads
+  assert.deepStrictEqual(lolo.versions, ['NA', 'JP']);
+  assert.strictEqual(lolo.offers.length, 2);
+});

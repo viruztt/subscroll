@@ -312,6 +312,8 @@ function card(g, keys) {
   if (isComing(g)) badges.push(el('span', { class: 'badge coming' }, `Coming ${fmtDate(g.comingOn)}`));
   else if (g.firstSeen && daysUntil(g.firstSeen) >= -30) badges.push(el('span', { class: 'badge new' }, 'New'));
   if (g.leftOn) badges.push(el('span', { class: 'badge gone' }, `Left ${fmtDate(g.leftOn)}`));
+  // Regional versions sharing this card.
+  if (g.versions?.length > 1) badges.push(el('span', { class: 'badge region', title: 'Regional versions included' }, g.versions.join(' + ')));
   const open = () => { drawerRoll = null; openDrawer(g); };
   return el('article', { class: `card ${mine ? 'mine' : ''} mark-${markOf(g.id)}`, 'data-id': g.id, onclick: open },
     el('div', { class: 'cover-wrap' }, cover(g), el('div', { class: 'badges' }, badges), ignoreButton(g, 'cover-ignore')),
@@ -547,6 +549,7 @@ function openDrawer(g) {
       el('dl', {},
         el('dt', {}, 'Included in'), el('dd', {}, plans.length ? plans : '—'),
         el('dt', {}, 'Platforms'), el('dd', {}, g.platforms.map(platformName).join(', ') || '—'),
+        g.versions?.length ? [el('dt', {}, 'Versions'), el('dd', {}, g.versions.join(', '))] : null,
         g.genres?.length ? [el('dt', {}, 'Genre'), el('dd', {}, g.genres.join(', '))] : null,
         g.releaseDate ? [el('dt', {}, 'Released'), el('dd', {}, fmtDate(g.releaseDate))] : null,
         isComing(g) ? [el('dt', {}, 'Coming'), el('dd', {}, fmtDate(g.comingOn))] : null,
