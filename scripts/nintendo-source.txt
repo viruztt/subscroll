@@ -1,6 +1,7 @@
 # Nintendo Switch Online retro library, checked against Nintendo Life and
 # Thumbsticks guides last updated 2026-10-14. Edit freely, then run
-# `npm run snapshot` to rebuild data/nintendo.json.
+# `npm run snapshot` to rebuild data/snapshot/nso.json. The app itself reads
+# the live list from Wikipedia; this file is only the offline fallback.
 # "### SYSTEM | tier" starts a section. Lines are game titles.
 
 ### NES | base

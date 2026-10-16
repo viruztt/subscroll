@@ -94,7 +94,7 @@ function rebuildGames() {
   departed = [];
   const out = [];
   for (const c of catalogs) {
-    for (const g of c.games) out.push({ ...g, firstSeen: c.history?.firstSeen?.[g.id] || null });
+    for (const g of c.games) out.push({ ...g, firstSeen: c.history?.firstSeen?.[g.id] || g.addedOn || null });
     for (const d of c.history?.departed || []) departed.push(d);
   }
   for (const g of state.customGames || []) out.push({ ...g, custom: true });
@@ -370,7 +370,7 @@ function sourcesPanel() {
     el('ul', { class: 'sources' }, rows),
     el('p', { class: 'muted' },
       'Game Pass comes from Microsoft\'s catalogue service, PS Plus from playstation.com\'s game lists. If those are unreachable the app falls back to community mirrors on GitHub. ',
-      'Nintendo publishes no list, so the Switch Online library ships with the app and is updated with new versions.'));
+      'Nintendo publishes no list, so Switch Online comes from Wikipedia\'s "Nintendo Classics" article, with box art from the libretro-thumbnails collection.'));
 }
 
 function openDrawer(g) {
@@ -409,7 +409,7 @@ function openDrawer(g) {
         el('dt', {}, 'Leaving'),
         el('dd', {}, leave && !leave.date ? 'Flagged as leaving soon, date not published. ' : '', el('br'), dateInput)),
       markButtons(g),
-      g.storeUrl ? el('button', { class: 'link', onclick: () => api.openExternal(g.storeUrl) }, 'Open store page ↗') : null,
+      g.storeUrl ? el('button', { class: 'link', onclick: () => api.openExternal(g.storeUrl) }, g.service === 'nso' ? 'Open the Wikipedia list ↗' : 'Open store page ↗') : null,
       g.custom ? el('button', { class: 'link danger', onclick: deleteCustom }, 'Delete this game') : null));
   drawer.classList.remove('hidden');
 }
@@ -444,7 +444,7 @@ function renderChrome() {
   const leaving = games.filter((g) => leaveInfo(g) && (!ui.mineOnly || isMine(g, keys))).length;
   $('#leaving-count').textContent = leaving || '';
 
-  const sync = catalogs.filter((c) => c.service !== 'nso').map((c) => {
+  const sync = catalogs.map((c) => {
     const s = serviceById(c.service);
     const when = c.fetchedAt ? new Date(c.fetchedAt).toLocaleDateString() : '—';
     return el('div', {}, `${s.name}: ${when}`, el('span', { class: 'muted' }, ` (${SOURCE_LABEL[c.source] || c.source})`));

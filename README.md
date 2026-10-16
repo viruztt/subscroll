@@ -13,9 +13,9 @@ A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus and
 |---|---|---|
 | Xbox Game Pass (Essential, Premium, Ultimate, PC) | Microsoft's catalogue service (`catalog.gamepass.com` + `displaycatalog.mp.microsoft.com`), the same lists xbox.com uses | Microsoft's "leaving soon" list flags games, but has no date |
 | PlayStation Plus (Essential monthly games, Extra catalogue, Premium classics) | playstation.com's game lists (`/bin/imagic/gameslist`) | Not published in any feed |
-| Nintendo Switch Online (+ Expansion Pack) | Bundled list in `scripts/nintendo-source.txt` (Nintendo has no feed) | Games almost never leave |
+| Nintendo Switch Online (+ Expansion Pack) | Wikipedia's [Nintendo Classics](https://en.wikipedia.org/wiki/Nintendo_Classics) article, which lists every game per system with the date it was added (Nintendo has no feed). Box art comes from [libretro-thumbnails](https://github.com/libretro-thumbnails) via the GitHub API | Games almost never leave |
 
-If the official source fails, the app falls back to community mirrors on GitHub ([catabox](https://github.com/nanhopper/catabox), [ps-plus-games-list](https://github.com/ppazour/ps-plus-games-list)), and if those fail too it keeps the last list it had. A snapshot ships with the app so it works offline from the first launch.
+If a live source fails, the app falls back to community mirrors on GitHub ([catabox](https://github.com/nanhopper/catabox), [ps-plus-games-list](https://github.com/ppazour/ps-plus-games-list)), and if those fail too it keeps the last list it had. A snapshot ships with the app so it works offline from the first launch.
 
 Catalogues refresh automatically once a day. Every refresh is compared with the previous one, so the "New & departed" page shows what was added and what left. For an exact leaving date (Xbox Wire and the PlayStation Blog announce them monthly), open the game and enter it; it then shows on the card and sorts the "Leaving soon" page.
 
@@ -26,4 +26,4 @@ Other services (Ubisoft+, EA Play, Apple Arcade…) can be added on the Subscrip
 - `src/main.js`: window, IPC, daily refresh. `src/catalog.js`: refresh, fallbacks, history, merging Xbox console/PC duplicates.
 - `src/providers/`: one file per service.
 - `renderer/`: the UI (plain HTML/CSS/JS).
-- `data/`: bundled snapshot. `npm run snapshot` rebuilds it, including `data/nintendo.json` from `scripts/nintendo-source.txt`.
+- `data/`: bundled snapshot used until the first refresh. `npm run snapshot` rebuilds it; the Switch Online part falls back to `scripts/nintendo-source.txt` when Wikipedia can't be reached. `scripts/match-covers.js` rebuilds the offline cover map.

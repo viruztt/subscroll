@@ -3,6 +3,7 @@ const { readJson, writeJson } = require('./store');
 const gamepass = require('./providers/gamepass');
 const psplus = require('./providers/psplus');
 const nintendo = require('./providers/nintendo');
+const covers = require('./providers/covers');
 
 const SNAPSHOT_DIR = path.join(__dirname, '..', 'data', 'snapshot');
 const MAX_DEPARTED = 300;
@@ -10,10 +11,14 @@ const MAX_DEPARTED = 300;
 const PROVIDERS = {
   gamepass: { live: gamepass.fetchLive, mirror: gamepass.fetchMirror },
   psplus: { live: psplus.fetchLive, mirror: psplus.fetchMirror },
+  nso: { live: nintendo.fetchLive },
 };
+const SERVICES = Object.keys(PROVIDERS);
 
 // Xbox lists console and Windows versions as separate products. Fold them
-// into one entry per game so a title shows (and gets marked) once.
+// into one entry per game so a title shows (and gets marked) once. Retro
+// games share titles across systems (Dr. Mario on NES and Game Boy), so the
+// Switch Online library is left alone.
 const plainKey = (title) => title.toLowerCase().replace(/[™®©]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 const WINDOWS_SUFFIX = /\s*[-–:(]?\s*(for )?(windows( 10| 11)?( edition)?|pc)\)?\s*$/i;
 
@@ -26,7 +31,7 @@ const isWindowsVariant = (g) => titleKey(g.title) !== plainKey(g.title);
 function mergeDuplicates(games) {
   const byKey = new Map();
   for (const g of games) {
-    const key = `${g.service}:${titleKey(g.title)}`;
+    const key = g.service === 'nso' ? g.id : `${g.service}:${titleKey(g.title)}`;
     const prev = byKey.get(key);
     if (!prev) {
       byKey.set(key, { ...g, altIds: [] });
@@ -90,9 +95,6 @@ class Catalog {
   }
 
   load(service) {
-    if (service === 'nso') {
-      return { service, source: 'bundled', fetchedAt: null, games: nintendo.load(), history: { firstSeen: {}, departed: [] } };
-    }
     if (!this.cache[service]) {
       const cached = readJson(this.fileFor(service), null);
       if (cached) {
@@ -112,18 +114,18 @@ class Catalog {
   }
 
   loadAll() {
-    return ['gamepass', 'psplus', 'nso'].map((s) => this.load(s));
+    return SERVICES.map((s) => this.load(s));
   }
 
   // Tries the official source first, then the community mirror. Returns a
   // summary; on total failure the previous catalogue stays in place.
   async refresh(service, settings) {
     const provider = PROVIDERS[service];
-    if (!provider) return { service, ok: true, source: 'bundled', count: this.load(service).games.length };
     const errors = [];
-    for (const source of ['live', 'mirror']) {
+    for (const source of ['live', 'mirror'].filter((s) => provider[s])) {
       try {
-        const games = mergeDuplicates(await provider[source](settings));
+        let games = mergeDuplicates(await provider[source](settings));
+        if (service === 'nso') games = await covers.apply(games, path.join(this.dir, 'covers'));
         if (games.length === 0) throw new Error('empty list');
         const prev = this.load(service);
         const { history, added, removed } = applyHistory(prev, games);

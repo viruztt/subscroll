@@ -7,6 +7,7 @@ const http = require('../src/providers/http');
 const gamepass = require('../src/providers/gamepass');
 const psplus = require('../src/providers/psplus');
 const nintendo = require('../src/providers/nintendo');
+const covers = require('../src/providers/covers');
 const { Catalog, mergeDuplicates, titleKey } = require('../src/catalog');
 const { unlockedTiers } = require('../src/services');
 
@@ -69,7 +70,70 @@ test('PS Plus: catalogue and classics merge into tiers', () => {
 test('Nintendo source parses sections and tiers', () => {
   const games = nintendo.parseSource('### NES | base\nMetroid\n\n### N64 | expansion\n# comment\nSuper Mario 64\n');
   assert.deepStrictEqual(games.map((g) => [g.title, g.tiers[0], g.platforms[0]]), [['Metroid', 'base', 'NES'], ['Super Mario 64', 'expansion', 'N64']]);
-  assert.ok(nintendo.load().length > 300);
+  assert.ok(fixture('../../data/snapshot/nso.json').games.length > 300);
+});
+
+test('Wikipedia Nintendo Classics tables: systems, shared dates, Japan-only games skipped', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'fixtures', 'wikipedia-classics.html'), 'utf8');
+  const games = nintendo.parseWikipedia(html);
+  assert.deepStrictEqual(games.map((g) => [g.platforms[0], g.title, g.tiers[0], g.addedOn]), [
+    ['NES', 'Balloon Fight', 'base', '2018-09-19'],
+    ['NES', 'Dr. Mario', 'base', '2018-09-19'],
+    ['NES', "Fire 'n Ice", 'base', '2018-09-19'],
+    ['Game Boy', 'Dr. Mario', 'base', '2023-02-08'],
+    ['Game Boy', 'Game & Watch Gallery 3', 'base', '2023-03-16'],
+    ['N64', 'Super Mario 64', 'expansion', '2021-10-25'],
+  ]);
+  // Same ids as the bundled list, so marks survive switching sources.
+  assert.strictEqual(games[0].id, 'nso:nes:balloon-fight');
+});
+
+test('Wikipedia result that looks broken is rejected', async () => {
+  http.setFetch(async () => jsonResponse({ parse: { text: '<p>nothing here</p>' } }));
+  await assert.rejects(nintendo.fetchLive(), /incomplete/);
+});
+
+test('Covers: No-Intro names, region preference, aliases and GitHub listing', async () => {
+  const listings = {
+    'Nintendo_-_Super_Nintendo_Entertainment_System': [
+      'Legend of Zelda, The - A Link to the Past (Europe).png',
+      'Legend of Zelda, The - A Link to the Past (USA).png',
+      'Legend of Zelda, The - A Link to the Past (USA) (Beta).png',
+      'Mario to Wario (Japan) (En).png',
+    ],
+  };
+  const index = covers.buildIndex(listings);
+  assert.match(covers.match(index, 'SNES', 'The Legend of Zelda: A Link to the Past'), /A%20Link%20to%20the%20Past%20\(USA\)\.png$/);
+  assert.match(covers.match(index, 'SNES', 'Mario & Wario'), /Mario%20to%20Wario/);
+  assert.strictEqual(covers.match(index, 'SNES', 'Unknown Game'), null);
+
+  const calls = [];
+  http.setFetch(async (url) => {
+    calls.push(url);
+    if (url.endsWith('/git/trees/master')) return jsonResponse({ tree: [{ path: 'Named_Boxarts', type: 'tree', sha: 'abc' }] });
+    if (url.endsWith('/git/trees/abc')) return jsonResponse({ tree: [{ path: 'Super Metroid (Japan, USA) (En).png', type: 'blob' }] });
+    throw new Error('offline');
+  });
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'covers-'));
+  const game = { id: 'nso:snes:super-metroid', service: 'nso', title: 'Super Metroid', platforms: ['SNES'], image: null };
+  const [withCover] = await covers.apply([game], dir);
+  assert.match(withCover.image, /^https:\/\/raw\.githubusercontent\.com\/libretro-thumbnails\/.*Super%20Metroid/);
+  // Listings are cached, so a second run makes no requests.
+  const before = calls.length;
+  await covers.apply([game], dir);
+  assert.strictEqual(calls.length, before);
+});
+
+test('Covers fall back to the bundled map when GitHub is unreachable', async () => {
+  http.setFetch(async () => { throw new Error('offline'); });
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'covers-'));
+  const [g] = await covers.apply([{ id: 'nso:n64:super-mario-64', service: 'nso', title: 'Super Mario 64', platforms: ['N64'], image: null }], dir);
+  assert.match(g.image, /Super%20Mario%2064/);
+});
+
+test('Retro games with the same title on two systems stay separate', () => {
+  const games = nintendo.parseSource('### NES | base\nDr. Mario\n### Game Boy | base\nDr. Mario\n');
+  assert.strictEqual(mergeDuplicates(games).length, 2);
 });
 
 test('Windows duplicates fold into one game', () => {

@@ -47,7 +47,7 @@ async function refreshAll() {
   refreshing = (async () => {
     const settings = store.get().settings;
     const results = [];
-    for (const service of ['gamepass', 'psplus']) {
+    for (const service of ['gamepass', 'psplus', 'nso']) {
       win?.webContents.send('refresh-progress', { service, state: 'running' });
       const result = await catalog.refresh(service, settings);
       results.push(result);
