@@ -8,14 +8,15 @@
 |---|---|
 | ![My games](docs/screenshots/my-games.png) | ![Roll a game](docs/screenshots/roll.png) |
 
-**Download:** grab `Subscroll-<version>.exe` from [Releases](https://github.com/viruztt/subscroll/releases). It's a portable Windows app, so there's nothing to install.
+A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus, Nintendo Switch Online, EA Play, Ubisoft+, Netflix Games and Apple Arcade, by tier. You pick the plans you have, mark games as played or completed, and see what's leaving soon. Everything you set is saved on your PC, in `%APPDATA%\Subscription Catalogue` (the app's earlier name).
 
-A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus, Nintendo Switch Online, EA Play, Ubisoft+, Netflix Games and Apple Arcade, by tier. You pick the plans you have, mark games as played or completed, and see what's leaving soon. Everything you set is saved locally (`%APPDATA%/Subscription Catalogue/state.json` on Windows; the folder keeps the app's original name so nothing is lost).
+## Install
 
-## Run it
+1. Download the latest `Subscroll-<version>.exe` from [Releases](https://github.com/viruztt/subscroll/releases).
+2. Double-click it. There's no installer; the exe is the whole app, so keep it wherever you like.
+3. The first time, Windows may say "Windows protected your PC", because the app isn't signed with a paid certificate. Click **More info**, then **Run anyway**.
 
-- **Windows build:** every commit gets a portable build in `dist/`, named `Subscroll-<version>-<commit>.exe`, replacing the previous one; nothing to install. `dist/` isn't tracked by git. The exe isn't code-signed, so Windows SmartScreen warns the first time ("More info" → "Run anyway").
-- **From source (any OS):** `npm install`, then `npm start`. `npm test` runs the tests. `npm run dist:win` / `dist:mac` / `dist:linux` builds a package.
+Your plans and marks stay on your PC and carry over when you download a newer version. To move them to another PC, use **Save backup** on the Subscriptions page.
 
 ## Where the game lists come from
 
@@ -53,6 +54,10 @@ Games can be marked played, completed or ignored (⊘, for games you're not inte
 Other services can be added on the Subscriptions page, with their games entered by hand.
 
 **Backup** on the Subscriptions page saves your plans, marks, own services and games, and settings to one `.json` file; **Restore from backup** on another PC (or after a reinstall) loads it back, asking first since it replaces what's there. Catalogues and cached lookups aren't in the file; the app fetches them again.
+
+## Building from source
+
+`npm install`, then `npm start` runs the app (Windows, macOS or Linux). `npm test` runs the tests, and `npm run dist:win` / `dist:mac` / `dist:linux` builds a package into `dist/`, which git ignores. Development builds are named `Subscroll-<version>-<commit>.exe`.
 
 ## Layout
 
