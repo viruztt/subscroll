@@ -19,11 +19,15 @@ If a live source fails, the app falls back to community mirrors on GitHub ([cata
 
 Catalogues refresh automatically once a day. Every refresh is compared with the previous one, so the "New & departed" page shows what was added and what left. For an exact leaving date (Xbox Wire and the PlayStation Blog announce them monthly), open the game and enter it; it then shows on the card and sorts the "Leaving soon" page.
 
+Clicking a game shows a short description and a few screenshots. Game Pass gets both from Microsoft's catalogue; PS Plus reads the game's PlayStation Store page; Switch Online games get title screens and gameplay shots from libretro-thumbnails and the opening of the game's Wikipedia article. Looked-up details are cached for 30 days in `details.json`.
+
+**Roll a game** picks a random game from the plans you have (from everything if none are set), leaving out games you've completed and following the service and platform filters.
+
 Other services (Ubisoft+, EA Play, Apple Arcade…) can be added on the Subscriptions page, with their games entered by hand.
 
 ## Layout
 
-- `src/main.js`: window, IPC, daily refresh. `src/catalog.js`: refresh, fallbacks, history, merging Xbox console/PC duplicates.
+- `src/main.js`: window, IPC, daily refresh. `src/details.js`: descriptions and screenshots. `src/catalog.js`: refresh, fallbacks, history, merging Xbox console/PC duplicates.
 - `src/providers/`: one file per service.
 - `renderer/`: the UI (plain HTML/CSS/JS).
 - `data/`: bundled snapshot used until the first refresh. `npm run snapshot` rebuilds it. `scripts/match-covers.js` rebuilds the offline Switch Online cover map; titles whose box art is named differently go in `data/nintendo-cover-aliases.json`.

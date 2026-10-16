@@ -42,6 +42,8 @@ function mergeDuplicates(games) {
     byKey.set(key, {
       ...primary,
       image: primary.image || other.image,
+      description: primary.description || other.description,
+      screenshots: primary.screenshots && primary.screenshots.length ? primary.screenshots : other.screenshots,
       platforms: [...new Set([...primary.platforms, ...other.platforms])],
       tiers: [...new Set([...primary.tiers, ...other.tiers])],
       leavingSoon: primary.leavingSoon || other.leavingSoon,

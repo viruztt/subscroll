@@ -34,9 +34,15 @@ function parseProduct(p) {
   const market = (p.MarketProperties || [])[0] || {};
   const props = p.Properties || {};
   const genres = props.Categories || (props.Category ? [props.Category] : []);
+  const screenshots = (loc.Images || [])
+    .filter((i) => i.ImagePurpose === 'Screenshot' && i.Uri)
+    .slice(0, 4)
+    .map((i) => `${i.Uri.startsWith('//') ? 'https:' : ''}${i.Uri}?w=960`);
   return {
     title: loc.ProductTitle || p.ProductId,
     image: pickImage(loc.Images),
+    description: loc.ShortDescription || (loc.ProductDescription || '').split('\n')[0] || null,
+    screenshots,
     genres,
     releaseDate: market.OriginalReleaseDate ? market.OriginalReleaseDate.slice(0, 10) : null,
   };
@@ -95,7 +101,7 @@ async function fetchLive({ market = 'US', language = 'en-us' } = {}) {
 
   return ids.map((id) => {
     const m = members.get(id);
-    const d = details.get(id) || { title: id, image: null, genres: [], releaseDate: null };
+    const d = details.get(id) || { title: id, image: null, genres: [], releaseDate: null, description: null, screenshots: [] };
     return {
       id: `gamepass:${id}`,
       service: 'gamepass',
@@ -106,6 +112,8 @@ async function fetchLive({ market = 'US', language = 'en-us' } = {}) {
       leavingSoon: leaving.has(id),
       genres: d.genres,
       releaseDate: d.releaseDate,
+      description: d.description,
+      screenshots: d.screenshots,
       storeUrl: storeUrl(id),
     };
   });
@@ -126,13 +134,24 @@ function normalizeMirror(data) {
       leavingSoon: !!g.leavingSoon,
       genres: g.genres || [],
       releaseDate: g.releaseDate || null,
+      description: g.shortDescription || g.description || null,
+      screenshots: (g.screenshots || []).slice(0, 4),
       storeUrl: storeUrl(g.id),
     };
   });
+}
+
+// One product's details, for games cached before the catalogue carried
+// descriptions.
+async function fetchProduct(id, { market = 'US', language = 'en-us' } = {}) {
+  const data = await getJson(`https://displaycatalog.mp.microsoft.com/v7.0/products?bigIds=${id}&market=${market}&languages=${language}`);
+  const p = (data.Products || [])[0];
+  if (!p) throw new Error(`No product ${id}`);
+  return parseProduct(p);
 }
 
 async function fetchMirror() {
   return normalizeMirror(await getJson(MIRROR_URL, { timeoutMs: 60000 }));
 }
 
-module.exports = { fetchLive, fetchMirror, normalizeMirror, siglIds, parseProduct, buildMembership, MIRROR_URL };
+module.exports = { fetchLive, fetchMirror, fetchProduct, normalizeMirror, siglIds, parseProduct, buildMembership, MIRROR_URL };

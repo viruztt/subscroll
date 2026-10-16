@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('api', {
   updateState: (patch) => ipcRenderer.invoke('update-state', patch),
   getCatalog: () => ipcRenderer.invoke('get-catalog'),
   refresh: () => ipcRenderer.invoke('refresh'),
+  getDetails: (game) => ipcRenderer.invoke('get-details', game),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   onRefreshProgress: (fn) => ipcRenderer.on('refresh-progress', (_e, msg) => fn(msg)),
 });

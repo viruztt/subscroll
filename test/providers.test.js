@@ -21,6 +21,8 @@ test('Game Pass mirror: tiers, PC Game Pass and leaving soon', () => {
   const resist = games.find((g) => g.title === '1000xRESIST');
   assert.deepStrictEqual(resist.tiers.sort(), ['pc', 'premium', 'ultimate']);
   assert.match(resist.storeUrl, /xbox\.com\/games\/store\/x\/9NPDN9R45JX4$/);
+  assert.match(resist.description, /sci-fi adventure/);
+  assert.ok(resist.screenshots.length > 0 && resist.screenshots.length <= 4);
 });
 
 test('Game Pass live: lists, leaving soon and product details', async () => {
@@ -40,7 +42,15 @@ test('Game Pass live: lists, leaving soon and product details', async () => {
       return jsonResponse({
         Products: ids.map((ProductId) => ({
           ProductId,
-          LocalizedProperties: [{ ProductTitle: `Game ${ProductId}`, Images: [{ ImagePurpose: 'Poster', Uri: `//img/${ProductId}` }] }],
+          LocalizedProperties: [{
+            ProductTitle: `Game ${ProductId}`,
+            ShortDescription: `About ${ProductId}`,
+            Images: [
+              { ImagePurpose: 'Poster', Uri: `//img/${ProductId}` },
+              { ImagePurpose: 'Screenshot', Uri: `//shot/${ProductId}/1` },
+              { ImagePurpose: 'Screenshot', Uri: `//shot/${ProductId}/2` },
+            ],
+          }],
           MarketProperties: [{ OriginalReleaseDate: '2024-03-01T00:00:00Z' }],
           Properties: { Categories: ['Action'] },
         })),
@@ -55,6 +65,8 @@ test('Game Pass live: lists, leaving soon and product details', async () => {
   assert.deepStrictEqual(byId['gamepass:C'].platforms, ['pc']);
   assert.strictEqual(byId['gamepass:A'].image, 'https://img/A');
   assert.strictEqual(byId['gamepass:A'].releaseDate, '2024-03-01');
+  assert.strictEqual(byId['gamepass:A'].description, 'About A');
+  assert.deepStrictEqual(byId['gamepass:A'].screenshots, ['https://shot/A/1?w=960', 'https://shot/A/2?w=960']);
 });
 
 test('PS Plus: catalogue and classics merge into tiers', () => {

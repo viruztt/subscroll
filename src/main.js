@@ -2,11 +2,13 @@ const { app, BrowserWindow, ipcMain, net, shell } = require('electron');
 const path = require('path');
 const { Store } = require('./store');
 const { Catalog } = require('./catalog');
+const { DetailsCache } = require('./details');
 const { SERVICES, TIER_BADGES } = require('./services');
 const http = require('./providers/http');
 
 let store;
 let catalog;
+let details;
 let win;
 
 // Use Chromium's network stack: honours system proxy settings and certificates.
@@ -77,6 +79,7 @@ function registerIpc() {
     const results = await refreshAll();
     return { results, catalog: catalogPayload() };
   });
+  ipcMain.handle('get-details', (_e, game) => details.get(game, store.get().settings));
   ipcMain.handle('open-external', (_e, url) => {
     if (typeof url === 'string' && /^https:\/\//.test(url)) shell.openExternal(url);
   });
@@ -86,6 +89,7 @@ app.whenReady().then(() => {
   const dataDir = app.getPath('userData');
   store = new Store(dataDir);
   catalog = new Catalog(dataDir);
+  details = new DetailsCache(dataDir);
   registerIpc();
   createWindow();
   app.on('activate', () => {

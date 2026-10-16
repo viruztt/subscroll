@@ -6,6 +6,8 @@ function setFetch(fn) {
   fetchImpl = fn;
 }
 
+const fetchRaw = (url, opts) => fetchImpl(url, opts);
+
 async function getJson(url, { timeoutMs = 20000, headers = {} } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -41,4 +43,4 @@ function chunk(arr, size) {
   return out;
 }
 
-module.exports = { setFetch, getJson, mapLimit, chunk };
+module.exports = { setFetch, fetchRaw, getJson, mapLimit, chunk };

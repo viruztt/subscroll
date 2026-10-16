@@ -21,6 +21,9 @@ let catalogs = [];
 let games = []; // flattened catalogue + custom games
 let departed = [];
 let drawerGame = null;
+let drawerRoll = null; // set while the drawer shows a rolled game
+let rollTimer = null;
+const detailsCache = new Map(); // game id -> details, or a pending promise
 
 // ---------- helpers ----------
 function el(tag, attrs = {}, ...children) {
@@ -179,7 +182,8 @@ function card(g, keys) {
   }
   if (g.firstSeen && daysUntil(g.firstSeen) >= -30) badges.push(el('span', { class: 'badge new' }, 'New'));
   if (g.leftOn) badges.push(el('span', { class: 'badge gone' }, `Left ${fmtDate(g.leftOn)}`));
-  return el('article', { class: `card ${mine ? 'mine' : ''} mark-${markOf(g.id)}`, onclick: () => openDrawer(g) },
+  const open = () => { drawerRoll = null; openDrawer(g); };
+  return el('article', { class: `card ${mine ? 'mine' : ''} mark-${markOf(g.id)}`, onclick: open },
     el('div', { class: 'cover-wrap' }, cover(g), el('div', { class: 'badges' }, badges)),
     el('div', { class: 'body' },
       el('div', { class: 'title', title: g.title }, g.title),
@@ -397,6 +401,7 @@ function openDrawer(g) {
     el('div', { class: 'drawer-backdrop', onclick: close }),
     el('div', { class: 'drawer-panel' },
       el('button', { class: 'close', onclick: close, title: 'Close' }, '✕'),
+      drawerRoll ? rollBar() : null,
       cover(g),
       el('h2', {}, g.title),
       el('div', { class: 'meta' }, serviceTag(g), el('span', { class: 'tier' }, tierLabel(g))),
@@ -409,6 +414,7 @@ function openDrawer(g) {
         el('dt', {}, 'Leaving'),
         el('dd', {}, leave && !leave.date ? 'Flagged as leaving soon, date not published. ' : '', el('br'), dateInput)),
       markButtons(g),
+      detailsSection(g),
       g.storeUrl ? el('button', { class: 'link', onclick: () => api.openExternal(g.storeUrl) }, g.service === 'nso' ? 'Open the Wikipedia list ↗' : 'Open store page ↗') : null,
       g.custom ? el('button', { class: 'link danger', onclick: deleteCustom }, 'Delete this game') : null));
   drawer.classList.remove('hidden');
@@ -416,7 +422,140 @@ function openDrawer(g) {
 
 function closeDrawer() {
   drawerGame = null;
+  drawerRoll = null;
+  clearTimeout(rollTimer);
   $('#drawer').classList.add('hidden');
+}
+
+// ---------- description + screenshots ----------
+function loadDetails(g) {
+  if (!detailsCache.has(g.id)) {
+    const pending = api.getDetails(g)
+      .catch(() => ({ description: null, screenshots: [] }))
+      .then((d) => {
+        detailsCache.set(g.id, d);
+        // Fill in the drawer if this game is still the one open.
+        const slot = document.querySelector(`#drawer .details[data-id="${CSS.escape(g.id)}"]`);
+        if (slot) slot.replaceWith(detailsSection(g));
+      });
+    detailsCache.set(g.id, pending);
+  }
+  return detailsCache.get(g.id);
+}
+
+function detailsSection(g) {
+  const d = loadDetails(g);
+  const slot = el('section', { class: 'details', 'data-id': g.id });
+  if (d instanceof Promise) {
+    slot.append(el('p', { class: 'muted loading' }, 'Loading description and screenshots…'));
+    return slot;
+  }
+  if (d.description) {
+    slot.append(el('p', { class: 'description' }, d.description));
+    if (d.descriptionSource) {
+      slot.append(el('button', { class: 'link small', onclick: () => api.openExternal(d.descriptionSource) }, 'From Wikipedia ↗'));
+    }
+  } else {
+    slot.append(el('p', { class: 'muted' }, 'No description found for this game.'));
+  }
+  const shots = d.screenshots || [];
+  if (shots.length) {
+    const gallery = el('div', { class: `shots ${g.service === 'nso' ? 'retro' : ''}` });
+    for (const src of shots) {
+      const img = el('img', { src, loading: 'lazy', alt: 'Screenshot', onclick: () => openLightbox(src, g) });
+      // Not every retro game has a title screen or snap; drop missing ones.
+      img.addEventListener('error', () => {
+        img.remove();
+        if (!gallery.querySelector('img')) gallery.remove();
+      }, { once: true });
+      gallery.append(img);
+    }
+    slot.append(gallery);
+  }
+  return slot;
+}
+
+function openLightbox(src, g) {
+  const box = el('div', { class: `lightbox ${g.service === 'nso' ? 'retro' : ''}`, onclick: () => box.remove() },
+    el('img', { src, alt: '' }));
+  document.body.append(box);
+}
+
+// ---------- roll a random game ----------
+
+// Games you could start right now: the ones in your plans (everything if no
+// plans are set), minus completed ones, narrowed by the service and platform
+// filters.
+function rollPool() {
+  const keys = unlocked();
+  const hasSubs = keys.size > 0;
+  return games.filter((g) => {
+    if (hasSubs && !isMine(g, keys)) return false;
+    if (markOf(g.id) === 'completed') return false;
+    if (ui.services.size && !ui.services.has(g.service)) return false;
+    if (ui.platform !== 'all' && !g.platforms.includes(ui.platform)) return false;
+    return true;
+  });
+}
+
+function rollScope() {
+  const parts = [];
+  if (ui.services.size) parts.push([...ui.services].map((id) => serviceById(id)?.name || id).join(', '));
+  if (ui.platform !== 'all') parts.push(platformName(ui.platform));
+  return parts.length ? ` (${parts.join(', ')})` : '';
+}
+
+function rollBar() {
+  const subs = unlocked().size > 0;
+  return el('div', { class: 'roll-bar' },
+    el('span', { class: 'muted' }, `Rolled from ${drawerRoll.pool} ${subs ? 'games in your subscriptions' : 'games'}${rollScope()}, completed ones left out`),
+    el('button', { class: 'primary', onclick: roll }, '🎲 Roll again'));
+}
+
+function roll() {
+  const pool = rollPool();
+  clearTimeout(rollTimer);
+  if (pool.length === 0) {
+    drawerGame = null;
+    $('#drawer').replaceChildren(
+      el('div', { class: 'drawer-backdrop', onclick: closeDrawer }),
+      el('div', { class: 'drawer-panel' },
+        el('button', { class: 'close', onclick: closeDrawer, title: 'Close' }, '✕'),
+        el('h2', {}, 'Nothing to roll'),
+        el('p', { class: 'muted' }, 'No games match: everything in your subscriptions is completed, or the service and platform filters leave nothing.')));
+    $('#drawer').classList.remove('hidden');
+    return;
+  }
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  loadDetails(pick); // start fetching while the dice spin
+  drawerGame = null;
+  drawerRoll = null;
+  const face = el('div', { class: 'roll-face' });
+  const name = el('div', { class: 'roll-name' });
+  $('#drawer').replaceChildren(
+    el('div', { class: 'drawer-backdrop', onclick: closeDrawer }),
+    el('div', { class: 'drawer-panel rolling' }, el('div', { class: 'roll-dice' }, '🎲'), face, name));
+  $('#drawer').classList.remove('hidden');
+  // Flick through random covers, slowing down, then land on the pick.
+  let step = 0;
+  const steps = 14;
+  const flick = () => {
+    const g = step >= steps ? pick : pool[Math.floor(Math.random() * pool.length)];
+    // The title tile sits under the art, so a cover still loading isn't blank.
+    face.replaceChildren(el('div', { class: 'cover-wrap' }, placeholder(g), g.image ? cover(g) : null));
+    name.textContent = g.title;
+    step += 1;
+    clearTimeout(rollTimer);
+    if (step > steps) {
+      rollTimer = setTimeout(() => {
+        drawerRoll = { pool: pool.length };
+        openDrawer(pick);
+      }, 450);
+      return;
+    }
+    rollTimer = setTimeout(flick, 45 + step * step * 1.6);
+  };
+  flick();
 }
 
 function renderChrome() {
@@ -503,8 +642,12 @@ function wire() {
   $('#sort').addEventListener('change', (e) => { ui.sort = e.target.value; render(); });
   $('#mine-only').addEventListener('change', (e) => { ui.mineOnly = e.target.checked; render(); });
   $('#refresh-btn').addEventListener('click', refresh);
+  $('#roll-btn').addEventListener('click', roll);
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeDrawer();
+    if (e.key !== 'Escape') return;
+    const box = document.querySelector('.lightbox');
+    if (box) box.remove();
+    else closeDrawer();
   });
 }
 

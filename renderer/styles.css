@@ -193,7 +193,7 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .drawer-panel {
   position: absolute;
   right: 0; top: 0; bottom: 0;
-  width: 380px;
+  width: 440px;
   max-width: 100%;
   background: var(--panel);
   border-left: 1px solid var(--line);
@@ -210,3 +210,59 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .drawer-panel dd { margin: 0; }
 .drawer-panel .marks { margin-top: 4px; }
 .close { position: absolute; right: 14px; top: 12px; background: none; border: 0; font-size: 18px; color: var(--muted); }
+
+/* roll a game */
+.roll {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 35%, var(--panel-2)), var(--panel-2));
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--line));
+  border-radius: 8px;
+  padding: 10px;
+  font-weight: 600;
+}
+.roll:hover { border-color: var(--accent); }
+.drawer-panel.rolling { align-items: center; justify-content: center; text-align: center; }
+.roll-dice { font-size: 42px; animation: spin .5s linear infinite; }
+.roll-face { width: 200px; }
+.roll-face .cover { width: 100%; height: 100%; border-radius: 8px; }
+.roll-name { font-weight: 600; min-height: 2.6em; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.roll-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-right: 28px;
+  border-radius: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  font-size: 12px;
+}
+.roll-bar .primary { align-self: flex-start; }
+
+/* description + screenshots */
+.details { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line); padding-top: 12px; }
+.details p { margin: 0; }
+.description { line-height: 1.5; }
+.link.small { font-size: 12px; padding: 0; }
+.shots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.shots img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--panel-2);
+  cursor: zoom-in;
+}
+.shots.retro img { aspect-ratio: 4 / 3; object-fit: contain; image-rendering: pixelated; background: #000; }
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000d;
+  cursor: zoom-out;
+}
+.lightbox img { max-width: 92vw; max-height: 92vh; border-radius: 6px; }
+.lightbox.retro img { width: min(92vw, 122vh); height: auto; image-rendering: pixelated; }
