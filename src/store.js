@@ -8,7 +8,7 @@ const DEFAULT_STATE = {
   leaveDates: {}, // gameId -> 'YYYY-MM-DD', entered by the user
   customServices: [], // { id, name, color, tiers: [{ id, name, includes }] }
   customGames: [], // same shape as catalogue games, service = a custom service id
-  settings: { region: 'US', market: 'US', language: 'en-us', psLocale: 'en-us', autoRefreshHours: 24, hideDeparted: false },
+  settings: { region: 'US', market: 'US', language: 'en-us', psLocale: 'en-us', autoRefreshHours: 24, hideDeparted: false, hideCompleted: false },
 };
 
 // The region picker sets every store code at once. Settings saved before it

@@ -126,6 +126,8 @@ const PLATFORM_LABEL = { console: 'Xbox console', pc: 'PC' };
 const platformName = (p) => PLATFORM_LABEL[p] || p;
 
 const hideDeparted = () => !!state.settings.hideDeparted;
+// "My games" is where completed games are collected, so they stay there.
+const hideCompleted = () => !!state.settings.hideCompleted && ui.view !== 'mine';
 
 function filtered(list) {
   const keys = unlocked();
@@ -134,6 +136,7 @@ function filtered(list) {
     if (ui.services.size && !ui.services.has(g.service)) return false;
     if (ui.mineOnly && !isMine(g, keys)) return false;
     if (hideDeparted() && (g.leftOn || leaveInfo(g)?.past)) return false;
+    if (hideCompleted() && markOf(g.id) === 'completed') return false;
     if (ui.status !== 'all' && markOf(g.id) !== ui.status) return false;
     if (ui.platform !== 'all' && !g.platforms.includes(ui.platform)) return false;
     if (q && !g.title.toLowerCase().includes(q)) return false;
@@ -738,10 +741,12 @@ function wire() {
   $('#platform-filter').addEventListener('change', (e) => { ui.platform = e.target.value; render(); });
   $('#sort').addEventListener('change', (e) => { ui.sort = e.target.value; render(); });
   $('#mine-only').addEventListener('change', (e) => { ui.mineOnly = e.target.checked; render(); });
-  $('#hide-departed').addEventListener('change', async (e) => {
-    await saveState({ settings: { ...state.settings, hideDeparted: e.target.checked } });
-    render();
-  });
+  for (const [id, setting] of [['#hide-departed', 'hideDeparted'], ['#hide-completed', 'hideCompleted']]) {
+    $(id).addEventListener('change', async (e) => {
+      await saveState({ settings: { ...state.settings, [setting]: e.target.checked } });
+      render(true);
+    });
+  }
   $('#refresh-btn').addEventListener('click', refresh);
   $('#roll-btn').addEventListener('click', roll);
   document.addEventListener('keydown', (e) => {
@@ -764,6 +769,7 @@ async function init() {
   ui.mineOnly = hasSubs;
   $('#mine-only').checked = hasSubs;
   $('#hide-departed').checked = hideDeparted();
+  $('#hide-completed').checked = !!state.settings.hideCompleted;
   if (!hasSubs) ui.view = 'subs';
   wire();
   render();
