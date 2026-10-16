@@ -224,7 +224,7 @@ function markButtons(g, wide = false) {
     if (mark === value) delete marks[g.id];
     else marks[g.id] = value;
     await saveState({ marks });
-    render();
+    render(true);
   };
   return el('div', { class: 'marks' },
     el('button', { class: `mark ${mark === 'played' ? 'on' : ''}`, title: 'Mark as played', onclick: set('played') }, '▶ Played'),
@@ -346,7 +346,7 @@ function renderSubs() {
     const current = state.subscriptions[s.id] || '';
     const pick = async (tierId) => {
       await saveState({ subscriptions: { ...state.subscriptions, [s.id]: tierId || undefined } });
-      render();
+      render(true);
     };
     const cat = catalogs.find((c) => c.service === s.id);
     const count = cat ? cat.games.length : (state.customGames || []).filter((g) => g.service === s.id).length;
@@ -374,7 +374,7 @@ function customServicePanel() {
     list.forEach((t, i) => { t.includes = list.slice(0, i + 1).map((x) => x.id); });
     const hue = Math.floor(Math.random() * 360);
     await saveState({ customServices: [...(state.customServices || []), { id, name: name.value.trim(), color: `hsl(${hue} 60% 45%)`, tiers: list, custom: true }] });
-    render();
+    render(true);
   };
   return el('div', { class: 'panel' },
     el('h2', {}, 'Add another service'),
@@ -392,7 +392,7 @@ async function removeCustomService(s) {
     subscriptions,
   });
   rebuildGames();
-  render();
+  render(true);
 }
 
 function customGamePanel() {
@@ -418,7 +418,7 @@ function customGamePanel() {
     await saveState(patch);
     rebuildGames();
     title.value = '';
-    render();
+    render(true);
   };
   return el('div', { class: 'panel' },
     el('h2', {}, 'Add a game to your own service'),
@@ -469,7 +469,7 @@ function openDrawer(g) {
     await saveState({ customGames: state.customGames.filter((c) => c.id !== g.id) });
     rebuildGames();
     close();
-    render();
+    render(true);
   };
   drawer.replaceChildren(
     el('div', { class: 'drawer-backdrop', onclick: close }),
@@ -683,10 +683,15 @@ function renderChrome() {
   $('#sync').replaceChildren(...sync);
 }
 
+// keepScroll: redraw in place (after marking a game, new results…) rather
+// than starting the list from the top.
 function render(keepScroll = false) {
+  const content = $('#content');
+  const top = content.scrollTop;
   if (!keepScroll) ui.shown = PAGE_SIZE;
   renderChrome();
   ({ browse: renderBrowse, leaving: renderLeaving, changes: renderChanges, mine: renderMine, subs: renderSubs })[ui.view]();
+  if (keepScroll) content.scrollTop = top;
   if (drawerGame) openDrawer(drawerGame);
 }
 
