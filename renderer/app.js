@@ -231,7 +231,7 @@ function renderBrowse() {
 function renderLeaving() {
   const list = filtered(games.filter((g) => leaveInfo(g)));
   list.sort((a, b) => (leaveInfo(a).date || '9999').localeCompare(leaveInfo(b).date || '9999') || a.title.localeCompare(b.title));
-  $('#summary').textContent = `${list.length} games leaving. Xbox flags these itself but gives no exact date; open a game to add the date when it's announced.`;
+  $('#summary').textContent = `${list.length} games leaving. Xbox flags these itself but gives no exact date.`;
   renderGrid(list, 'Nothing is flagged as leaving right now.');
 }
 
@@ -381,14 +381,6 @@ function openDrawer(g) {
   drawerGame = g;
   const drawer = $('#drawer');
   const leave = leaveInfo(g);
-  const dateInput = el('input', { type: 'date', value: state.leaveDates[g.id] || '' });
-  dateInput.addEventListener('change', async () => {
-    const leaveDates = { ...state.leaveDates };
-    if (dateInput.value) leaveDates[g.id] = dateInput.value;
-    else delete leaveDates[g.id];
-    await saveState({ leaveDates });
-    render();
-  });
   const plans = plansFor(g).map((t) => t.name).join(', ');
   const close = closeDrawer;
   const deleteCustom = async () => {
@@ -411,8 +403,7 @@ function openDrawer(g) {
         g.genres?.length ? [el('dt', {}, 'Genre'), el('dd', {}, g.genres.join(', '))] : null,
         g.releaseDate ? [el('dt', {}, 'Released'), el('dd', {}, fmtDate(g.releaseDate))] : null,
         g.firstSeen ? [el('dt', {}, 'Added'), el('dd', {}, fmtDate(g.firstSeen))] : null,
-        el('dt', {}, 'Leaving'),
-        el('dd', {}, leave && !leave.date ? 'Flagged as leaving soon, date not published. ' : '', el('br'), dateInput)),
+        leave ? [el('dt', {}, 'Leaving'), el('dd', {}, leave.date ? fmtDate(leave.date) : 'Soon, no date announced')] : null),
       markButtons(g),
       detailsSection(g),
       g.storeUrl ? el('button', { class: 'link', onclick: () => api.openExternal(g.storeUrl) }, g.service === 'nso' ? 'Open the Wikipedia list ↗' : 'Open store page ↗') : null,

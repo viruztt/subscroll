@@ -4,7 +4,7 @@ A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus and
 
 ## Run it
 
-- **Windows build:** every commit gets a portable build in `dist/`, named `SubscriptionCatalogue-<version>-<commit>.exe`; run the newest one, nothing to install. `dist/` isn't tracked by git. The exe isn't code-signed, so Windows SmartScreen warns the first time ("More info" → "Run anyway").
+- **Windows build:** every commit gets a portable build in `dist/`, named `SubscriptionCatalogue-<version>-<commit>.exe`, replacing the previous one; nothing to install. `dist/` isn't tracked by git. The exe isn't code-signed, so Windows SmartScreen warns the first time ("More info" → "Run anyway").
 - **From source (any OS):** `npm install`, then `npm start`. `npm test` runs the tests. `npm run dist:win` / `dist:mac` / `dist:linux` builds a package.
 
 ## Where the game lists come from
@@ -17,7 +17,7 @@ A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus and
 
 If a live source fails, the app falls back to community mirrors on GitHub ([catabox](https://github.com/nanhopper/catabox), [ps-plus-games-list](https://github.com/ppazour/ps-plus-games-list)), and if those fail too it keeps the last list it had. A snapshot ships with the app so it works offline from the first launch.
 
-Catalogues refresh automatically once a day. Every refresh is compared with the previous one, so the "New & departed" page shows what was added and what left. For an exact leaving date (Xbox Wire and the PlayStation Blog announce them monthly), open the game and enter it; it then shows on the card and sorts the "Leaving soon" page.
+Catalogues refresh automatically once a day. Every refresh is compared with the previous one, so the "New & departed" page shows what was added and what left.
 
 Clicking a game shows a short description and a few screenshots. Game Pass gets both from Microsoft's catalogue; PS Plus reads the game's PlayStation Store page; Switch Online games get title screens and gameplay shots from libretro-thumbnails and the opening of the game's Wikipedia article. Looked-up details are cached for 30 days in `details.json`.
 
