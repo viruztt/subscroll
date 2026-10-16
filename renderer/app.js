@@ -113,12 +113,15 @@ function platformsList() {
 const PLATFORM_LABEL = { console: 'Xbox console', pc: 'PC' };
 const platformName = (p) => PLATFORM_LABEL[p] || p;
 
+const hideDeparted = () => !!state.settings.hideDeparted;
+
 function filtered(list) {
   const keys = unlocked();
   const q = ui.search.trim().toLowerCase();
   return list.filter((g) => {
     if (ui.services.size && !ui.services.has(g.service)) return false;
     if (ui.mineOnly && !isMine(g, keys)) return false;
+    if (hideDeparted() && (g.leftOn || leaveInfo(g)?.past)) return false;
     if (ui.status !== 'all' && markOf(g.id) !== ui.status) return false;
     if (ui.platform !== 'all' && !g.platforms.includes(ui.platform)) return false;
     if (q && !g.title.toLowerCase().includes(q)) return false;
@@ -239,15 +242,16 @@ function renderChanges() {
   const added = sorted(filtered(games.filter((g) => g.firstSeen)));
   const gone = filtered(departed);
   const content = $('#content');
-  $('#summary').textContent = 'Changes found by comparing each refresh with the last one.';
+  $('#summary').textContent = hideDeparted()
+    ? 'Games found by comparing each refresh with the last one. Departed games are hidden.'
+    : 'Changes found by comparing each refresh with the last one.';
   content.replaceChildren();
   const keys = unlocked();
   const section = (title, list, empty) => el('div', {},
     el('h2', {}, title),
     list.length ? el('div', { class: 'grid' }, list.slice(0, 240).map((g) => card(g, keys))) : el('div', { class: 'empty small' }, empty));
-  content.append(
-    section(`Recently added (${added.length})`, added, 'Nothing new yet. New games show up here after the next refresh finds them.'),
-    section(`Left the service (${gone.length})`, gone, 'No departures recorded yet.'));
+  content.append(section(`Recently added (${added.length})`, added, 'Nothing new yet. New games show up here after the next refresh finds them.'));
+  if (!hideDeparted()) content.append(section(`Left the service (${gone.length})`, gone, 'No departures recorded yet.'));
 }
 
 function renderMine() {
@@ -632,6 +636,10 @@ function wire() {
   $('#platform-filter').addEventListener('change', (e) => { ui.platform = e.target.value; render(); });
   $('#sort').addEventListener('change', (e) => { ui.sort = e.target.value; render(); });
   $('#mine-only').addEventListener('change', (e) => { ui.mineOnly = e.target.checked; render(); });
+  $('#hide-departed').addEventListener('change', async (e) => {
+    await saveState({ settings: { ...state.settings, hideDeparted: e.target.checked } });
+    render();
+  });
   $('#refresh-btn').addEventListener('click', refresh);
   $('#roll-btn').addEventListener('click', roll);
   document.addEventListener('keydown', (e) => {
@@ -650,6 +658,7 @@ async function init() {
   const hasSubs = Object.values(state.subscriptions).some(Boolean);
   ui.mineOnly = hasSubs;
   $('#mine-only').checked = hasSubs;
+  $('#hide-departed').checked = hideDeparted();
   if (!hasSubs) ui.view = 'subs';
   wire();
   render();

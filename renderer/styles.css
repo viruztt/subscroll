@@ -103,7 +103,9 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
   margin-right: 6px;
 }
 .chip.on { color: var(--text); border-color: var(--svc); background: color-mix(in srgb, var(--svc) 22%, transparent); }
-.toggle { display: flex; align-items: center; gap: 6px; color: var(--muted); margin-left: auto; }
+.toggle { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+#mine-only { margin-left: 0; }
+.toggle:has(#mine-only) { margin-left: auto; }
 .summary { padding: 10px 20px; color: var(--muted); font-size: 13px; }
 #content { flex: 1; overflow-y: auto; padding: 4px 20px 30px; }
 #content h2 { font-size: 16px; margin: 18px 0 10px; }

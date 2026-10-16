@@ -59,11 +59,22 @@ function today() {
 
 // Compare a fresh list with the previous one: stamp newly seen games and
 // remember the ones that disappeared, so the app can show "new" and "left".
-function applyHistory(prev, games) {
+// Where a list came from: the official source for a given region, or a
+// mirror (which always uses its own region).
+function originOf(service, source, settings = {}) {
+  if (source !== 'live') return source;
+  const region = { gamepass: settings.market, psplus: settings.psLocale }[service];
+  return region ? `live:${region}` : 'live';
+}
+
+function applyHistory(prev, games, origin) {
   const history = { firstSeen: {}, departed: [], ...(prev && prev.history) };
-  // A bundled snapshot may come from a different region; the first real
-  // refresh after it becomes the baseline instead of a wave of false changes.
-  const comparable = prev && prev.source !== 'bundled';
+  // Lists from different sources or regions differ by a few hundred games,
+  // so switching between them would look like a wave of arrivals and
+  // departures. The first list from a new origin becomes the baseline.
+  const prevOrigin = prev && (prev.origin || prev.source);
+  const comparable = prev && prev.source !== 'bundled' && (origin === undefined || prevOrigin === origin ||
+    (!prev.origin && prevOrigin === 'live' && origin.startsWith('live')));
   const ids = new Set(games.map((g) => g.id));
   const added = [];
   const removed = [];
@@ -130,8 +141,9 @@ class Catalog {
         if (service === 'nso') games = await covers.apply(games, path.join(this.dir, 'covers'));
         if (games.length === 0) throw new Error('empty list');
         const prev = this.load(service);
-        const { history, added, removed } = applyHistory(prev, games);
-        const entry = { service, source, fetchedAt: new Date().toISOString(), games, history };
+        const origin = originOf(service, source, settings);
+        const { history, added, removed } = applyHistory(prev, games, origin);
+        const entry = { service, source, origin, fetchedAt: new Date().toISOString(), games, history };
         writeJson(this.fileFor(service), entry);
         this.cache[service] = entry;
         return { service, ok: true, source, count: games.length, added, removed, errors };

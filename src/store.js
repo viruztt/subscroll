@@ -7,8 +7,19 @@ const DEFAULT_STATE = {
   leaveDates: {}, // gameId -> 'YYYY-MM-DD', entered by the user
   customServices: [], // { id, name, color, tiers: [{ id, name, includes }] }
   customGames: [], // same shape as catalogue games, service = a custom service id
-  settings: { market: 'US', language: 'en-us', psLocale: 'en-us', autoRefreshHours: 24 },
+  settings: { market: 'US', language: 'en-us', psLocale: 'en-us', autoRefreshHours: 24, hideDeparted: false },
 };
+
+// Microsoft and Sony use ISO country codes: the UK is GB ("en-gb"), and an
+// unknown code makes the official lists fail.
+function normalizeSettings(s) {
+  const out = { ...s };
+  if (typeof out.market === 'string') out.market = out.market.trim().toUpperCase().replace(/^UK$/, 'GB');
+  for (const k of ['language', 'psLocale']) {
+    if (typeof out[k] === 'string') out[k] = out[k].trim().toLowerCase().replace(/_/g, '-').replace(/-uk$/, '-gb');
+  }
+  return out;
+}
 
 function readJson(file, fallback) {
   try {
@@ -33,7 +44,7 @@ class Store {
     this.state = {
       ...structuredClone(DEFAULT_STATE),
       ...saved,
-      settings: { ...DEFAULT_STATE.settings, ...(saved.settings || {}) },
+      settings: normalizeSettings({ ...DEFAULT_STATE.settings, ...(saved.settings || {}) }),
     };
   }
 
@@ -43,9 +54,10 @@ class Store {
 
   update(patch) {
     this.state = { ...this.state, ...patch };
+    if (patch.settings) this.state.settings = normalizeSettings(this.state.settings);
     writeJson(this.file, this.state);
     return this.state;
   }
 }
 
-module.exports = { Store, readJson, writeJson, DEFAULT_STATE };
+module.exports = { Store, readJson, writeJson, normalizeSettings, DEFAULT_STATE };

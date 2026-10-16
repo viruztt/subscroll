@@ -8,7 +8,8 @@ const gamepass = require('../src/providers/gamepass');
 const psplus = require('../src/providers/psplus');
 const nintendo = require('../src/providers/nintendo');
 const covers = require('../src/providers/covers');
-const { Catalog, mergeDuplicates, titleKey } = require('../src/catalog');
+const { Catalog, mergeDuplicates, titleKey, applyHistory } = require('../src/catalog');
+const { normalizeSettings } = require('../src/store');
 const { unlockedTiers } = require('../src/services');
 
 const fixture = (name) => JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', name), 'utf8'));
@@ -190,6 +191,22 @@ test('Refresh falls back to mirror and records added/departed games', async () =
   const saved = new Catalog(dir).load('psplus');
   assert.ok(saved.history.firstSeen['psplus:P3']);
   assert.strictEqual(saved.history.departed[0].title, 'One');
+});
+
+test('Switching source or region starts a new baseline instead of fake departures', () => {
+  const prev = { source: 'live', origin: 'live:GB', games: [{ id: 'a', title: 'A' }, { id: 'b', title: 'B' }], history: { firstSeen: {}, departed: [] } };
+  const fromMirror = applyHistory(prev, [{ id: 'a', title: 'A' }], 'mirror');
+  assert.deepStrictEqual(fromMirror.removed, []);
+  assert.strictEqual(fromMirror.history.departed.length, 0);
+  const otherRegion = applyHistory(prev, [{ id: 'a', title: 'A' }], 'live:US');
+  assert.deepStrictEqual(otherRegion.removed, []);
+  const same = applyHistory(prev, [{ id: 'a', title: 'A' }], 'live:GB');
+  assert.deepStrictEqual(same.removed, ['B']);
+});
+
+test('UK region codes become the GB codes Microsoft and Sony use', () => {
+  assert.deepStrictEqual(normalizeSettings({ market: 'uk', language: 'en-UK', psLocale: 'en_uk' }), { market: 'GB', language: 'en-gb', psLocale: 'en-gb' });
+  assert.strictEqual(normalizeSettings({ market: 'us' }).market, 'US');
 });
 
 test('Refresh keeps the previous list when every source fails', async () => {
