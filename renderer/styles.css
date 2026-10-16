@@ -69,6 +69,7 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 #nav button.active { background: var(--panel-2); color: var(--text); font-weight: 600; }
 #nav .count { background: var(--warn); color: #111; border-radius: 10px; padding: 0 7px; font-size: 12px; font-weight: 700; }
 #nav .count:empty { display: none; }
+#nav #toplay-count { background: var(--accent); color: #0a1a33; }
 .sync { margin-top: auto; font-size: 12px; display: flex; flex-direction: column; gap: 3px; padding: 0 8px; }
 .refresh {
   background: var(--panel-2);
@@ -295,7 +296,7 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 #ratings-status:empty { display: none; }
 
 /* ignore */
-.cover-ignore {
+.cover-btn {
   position: absolute;
   right: 8px;
   bottom: 8px;
@@ -310,7 +311,14 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
   opacity: 0;
   transition: opacity .12s;
 }
-.card:hover .cover-ignore, .cover-ignore.on { opacity: 1; }
+.card:hover .cover-btn, .cover-btn.on { opacity: 1; }
+.cover-toplay { right: 44px; font-size: 15px; }
+.cover-toplay:hover, .cover-toplay.on { background: var(--accent); color: #0a1a33; }
+.mark.on.toplay-on, .mark.toplay.on { color: #0a1a33; background: var(--accent); border-color: var(--accent); font-weight: 600; }
+.badge.toplay { background: var(--accent); color: #0a1a33; }
+.section-head { display: flex; align-items: baseline; gap: 12px; margin: 18px 0 10px; }
+.section-head:first-child { margin-top: 4px; }
+.section-head h3 { margin: 0; font-size: 16px; }
 .cover-ignore:hover { background: #6b7280; }
 .cover-ignore.on { background: #6b7280; }
 .tag.dim { opacity: .45; }

@@ -4,7 +4,7 @@
 // those again.
 const FORMAT = 'subscroll-backup';
 const VERSION = 1;
-const MARKS = new Set(['played', 'completed', 'ignored']);
+const MARKS = new Set(['played', 'completed', 'ignored', 'wishlist']);
 const FIELDS = ['subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings'];
 
 function makeBackup(state, now = new Date()) {

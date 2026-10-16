@@ -1,6 +1,6 @@
 // Numbers for the Statistics page. The app passes its merged game list and
 // a few helpers, so this stays plain arithmetic (and testable):
-//   markOf(game)     'played' | 'completed' | 'ignored' | 'none'
+//   markOf(game)     'played' | 'completed' | 'ignored' | 'wishlist' | 'none'
 //   myServices(game) services offering it in your plans, lead service first
 //   hours(game)      How Long To Beat main-story hours, or null
 //   score(game)      Metacritic score, or null
@@ -10,7 +10,7 @@
   function compute(games, { markOf, myServices, hours, score, subscribed = [] }) {
     const totals = { inPlans: 0, completed: 0, played: 0, ignored: 0 };
     // Games in your plans, by status.
-    const plans = { completed: 0, played: 0, ignored: 0, untouched: 0 };
+    const plans = { completed: 0, played: 0, wishlist: 0, ignored: 0, untouched: 0 };
     const services = new Map(subscribed.map((s) => [s, { service: s, inPlans: 0, played: 0, completed: 0 }]));
     const completedBy = new Map();
     const genres = new Map();

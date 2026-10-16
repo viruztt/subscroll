@@ -71,6 +71,7 @@ const steamable = (games) => unify(games.filter((g) => g.service !== 'nso'));
 function playedMarks(games, index, marks, done = []) {
   const skip = new Set(done);
   const add = {};
+  const clear = [];
   const keys = [];
   let owned = 0;
   for (const g of steamable(games)) {
@@ -79,11 +80,13 @@ function playedMarks(games, index, marks, done = []) {
     if (!s) continue;
     owned += 1;
     if (s.minutes < PLAYED_MINUTES || skip.has(k)) continue;
-    if ((g.offers || [g]).some((o) => marks[o.id])) continue;
+    // A game on the To play list that you've since played moves on.
+    if ((g.offers || [g]).some((o) => marks[o.id] && marks[o.id] !== 'wishlist')) continue;
     add[g.id] = 'played';
+    clear.push(...(g.offers || [g]).map((o) => o.id).filter((id) => id !== g.id && marks[id]));
     keys.push(k);
   }
-  return { add, keys, owned };
+  return { add, clear, keys, owned };
 }
 
 async function importLibrary({ profile, key }, games, current = {}, marks = {}) {
@@ -91,7 +94,7 @@ async function importLibrary({ profile, key }, games, current = {}, marks = {}) 
   const steamId = await resolveSteamId(profile, key);
   const owned = await fetchOwned(steamId, key);
   const index = ownedIndex(owned);
-  const { add, keys, owned: inCatalogue } = playedMarks(games, index, marks, current.marked);
+  const { add, clear, keys, owned: inCatalogue } = playedMarks(games, index, marks, current.marked);
   return {
     steam: {
       profile, key, steamId,
@@ -101,6 +104,7 @@ async function importLibrary({ profile, key }, games, current = {}, marks = {}) 
       marked: [...new Set([...(current.marked || []), ...keys])],
     },
     marks: add,
+    clear,
     summary: { owned: owned.length, inCatalogue, marked: Object.keys(add).length },
   };
 }

@@ -37,3 +37,24 @@ test('Alert text', () => {
   ]);
   assert.deepStrictEqual(messages({ added: [], leaving: [] }), []);
 });
+
+test('Alerts: a To play game that arrives in your plans is announced as ready', () => {
+  const { wishlist, arrived, messages: msgs } = require('../src/alerts');
+  const marks = { 'gp:9': 'wishlist', 'ps:8': 'wishlist', 'gp:1': 'wishlist' };
+  const before = wishlist([
+    { id: 'gp:9', service: 'gamepass', title: 'Coming Game', tiers: ['ultimate'], comingOn: '2026-10-20' },
+    { id: 'ps:8', service: 'psplus', title: 'Other Plan Game', tiers: ['premium'] },
+    { id: 'gp:1', service: 'gamepass', title: 'Hades', tiers: ['ultimate'] },
+  ], { keys, marks, today: '2026-10-16' });
+  assert.deepStrictEqual([...before.waiting.values()], ['Coming Game', 'Other Plan Game']);
+  const after = wishlist([
+    { id: 'gp:9', service: 'gamepass', title: 'Coming Game', tiers: ['ultimate'] },
+    { id: 'ps:8', service: 'psplus', title: 'Other Plan Game', tiers: ['premium'] },
+    { id: 'gp:1', service: 'gamepass', title: 'Hades', tiers: ['ultimate'] },
+  ], { keys, marks, today: '2026-10-20' });
+  const ready = arrived(before.waiting, after);
+  assert.deepStrictEqual(ready, ['Coming Game']);
+  assert.deepStrictEqual(msgs({ added: ['Coming Game'], leaving: [], ready }), [
+    { view: 'toplay', title: 'Ready to play from your list: 1 game', body: 'Coming Game' },
+  ]);
+});

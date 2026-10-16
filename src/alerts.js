@@ -1,10 +1,33 @@
 // What to tell the user after a refresh: games that just joined a service
 // in their plans, and games in their plans that started leaving. Games
 // they've completed or ignored are left out.
-const { unify } = require('../renderer/unify');
+const { unify, matchKey } = require('../renderer/unify');
+
+const mineIn = (keys) => (o) => (o.tiers || []).some((t) => keys.has(`${o.service}:${t}`));
+const coming = (o, today) => !!o.comingOn && o.comingOn > today;
+
+// Games on the To play list, split into ones you can play now in your plans
+// and ones still waiting (coming soon, or only in services you don't have).
+function wishlist(games, { keys, marks, today }) {
+  const isMine = mineIn(keys);
+  const ready = new Map();
+  const waiting = new Map();
+  for (const g of unify(games)) {
+    const offers = g.offers || [g];
+    if (!offers.some((o) => marks[o.id] === 'wishlist')) continue;
+    const now = offers.some((o) => isMine(o) && !coming(o, today));
+    (now ? ready : waiting).set(matchKey(g.title) || g.id, g.title);
+  }
+  return { ready, waiting };
+}
+
+// To-play games that were waiting before the refresh and are playable now.
+function arrived(waitingBefore, after) {
+  return [...waitingBefore.keys()].filter((k) => after.ready.has(k)).map((k) => after.ready.get(k));
+}
 
 function pickAlerts({ games, newIds, keys, marks, alertedLeaving = [] }) {
-  const isMine = (o) => (o.tiers || []).some((t) => keys.has(`${o.service}:${t}`));
+  const isMine = mineIn(keys);
   const seen = new Set(alertedLeaving);
   const added = [];
   const leaving = [];
@@ -32,12 +55,15 @@ function listTitles(titles, max = 3) {
   return `${titles.slice(0, max).join(', ')} and ${titles.length - max} more`;
 }
 
-function messages({ added, leaving }) {
+function messages({ added, leaving, ready = [] }) {
   const out = [];
   const games = (n) => `${n} game${n === 1 ? '' : 's'}`;
+  if (ready.length) out.push({ view: 'toplay', title: `Ready to play from your list: ${games(ready.length)}`, body: listTitles(ready) });
+  // A game on your list that just arrived is announced once, as ready.
+  added = added.filter((t) => !ready.includes(t));
   if (added.length) out.push({ view: 'changes', title: `New in your plans: ${games(added.length)}`, body: listTitles(added) });
   if (leaving.length) out.push({ view: 'leaving', title: `Leaving your plans soon: ${games(leaving.length)}`, body: listTitles(leaving) });
   return out;
 }
 
-module.exports = { pickAlerts, messages, listTitles };
+module.exports = { pickAlerts, messages, listTitles, wishlist, arrived };

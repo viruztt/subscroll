@@ -71,6 +71,13 @@ test('Steam import explains a private profile, a bad key and an unknown name', a
   await assert.rejects(steam.importLibrary({ profile: 'me', key: '' }, catalogue), /API key/);
 });
 
+test('Steam import moves a To play game you have played on to played', async () => {
+  fakeSteam(library);
+  const r = await steam.importLibrary({ profile: '76561190000000001', key: 'KEY' }, catalogue, {}, { 'eaplay:2': 'wishlist' });
+  assert.deepStrictEqual(r.marks, { 'gamepass:1': 'played' });
+  assert.deepStrictEqual(r.clear, ['eaplay:2']);
+});
+
 test('An empty Steam library is fine', async () => {
   fakeSteam({ game_count: 0 });
   const r = await steam.importLibrary({ profile: '76561190000000001', key: 'KEY' }, catalogue);

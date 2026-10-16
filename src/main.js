@@ -75,6 +75,7 @@ async function refreshAll() {
   refreshing = (async () => {
     const settings = store.get().settings;
     const before = new Set(catalogGames().map((g) => g.id));
+    const waitingBefore = wishlistNow().waiting;
     const results = [];
     for (const service of CATALOG_SERVICES) {
       win?.webContents.send('refresh-progress', { service, state: 'running' });
@@ -86,7 +87,7 @@ async function refreshAll() {
     startRatings();
     enrichArcade();
     refreshSteam();
-    sendAlerts(results, before);
+    sendAlerts(results, before, waitingBefore);
     win?.webContents.send('catalog-changed');
     return results;
   })();
@@ -117,12 +118,18 @@ function notify({ title, body, view }) {
 
 // Only games that joined in this refresh count as new; a service seen for
 // the first time (or from a new source) is a baseline, not news.
-function sendAlerts(results, before) {
+function wishlistNow() {
+  const { subscriptions, customServices, marks } = store.get();
+  return alerts.wishlist(catalogGames(), { keys: unlockedTiers(subscriptions, customServices), marks, today: new Date().toISOString().slice(0, 10) });
+}
+
+function sendAlerts(results, before, waitingBefore = new Map()) {
   const { settings, subscriptions, customServices, marks, alertedLeaving } = store.get();
   const changed = new Set(results.filter((r) => r.ok && r.added?.length).map((r) => r.service));
   const games = catalogGames();
   const newIds = new Set(games.filter((g) => changed.has(g.service) && !before.has(g.id)).map((g) => g.id));
   const picked = alerts.pickAlerts({ games, newIds, keys: unlockedTiers(subscriptions, customServices), marks, alertedLeaving });
+  picked.ready = alerts.arrived(waitingBefore, wishlistNow());
   // Remember what's leaving now, so each game is announced once.
   store.update({ alertedLeaving: picked.leavingIds });
   // The window shows the same news when it's open.
@@ -183,7 +190,9 @@ function scheduleRefresh() {
 async function importSteam(profile, key) {
   const { steam: current = {}, marks } = store.get();
   const r = await steam.importLibrary({ profile, key }, catalogGames(), current, marks);
-  store.update({ steam: r.steam, marks: { ...store.get().marks, ...r.marks } });
+  const next = { ...store.get().marks, ...r.marks };
+  for (const id of r.clear) delete next[id];
+  store.update({ steam: r.steam, marks: next });
   return r.summary;
 }
 

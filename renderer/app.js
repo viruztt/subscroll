@@ -188,7 +188,8 @@ function filtered(list) {
   const q = ui.search.trim().toLowerCase();
   return list.filter((g) => {
     if (ui.services.size && !inServices(g, ui.services)) return false;
-    if (ui.mineOnly && !isMine(g, keys)) return false;
+    // The To play list shows games outside your plans too, to see where they are.
+    if (ui.mineOnly && ui.view !== 'toplay' && !isMine(g, keys)) return false;
     if (hideDeparted() && (g.leftOn || leaveInfo(g)?.past)) return false;
     if (hideCompleted() && markOf(g.id) === 'completed') return false;
     if (hideIgnored() && markOf(g.id) === 'ignored') return false;
@@ -302,7 +303,22 @@ function markButtons(g, wide = false) {
   return el('div', { class: 'marks' },
     el('button', { class: `mark ${mark === 'played' ? 'on' : ''}`, title: 'Mark as played', onclick: set('played') }, '▶ Played'),
     el('button', { class: `mark ${mark === 'completed' ? 'on done' : ''}`, title: 'Mark as completed', onclick: set('completed') }, '★ Completed'),
+    wide ? toPlayButton(g, 'mark toplay') : null,
     wide ? ignoreButton(g, 'mark ignore') : null);
+}
+
+// Games you want to play, available now or coming. Playing one replaces it.
+function toPlayButton(g, cls) {
+  const on = markOf(g.id) === 'wishlist';
+  return el('button', {
+    class: `${cls} ${on ? 'on' : ''}`,
+    title: on ? 'On your To play list: click to remove' : 'Add to your To play list',
+    onclick: async (e) => {
+      e.stopPropagation();
+      await setMark(g.id, on ? null : 'wishlist');
+      render(true);
+    },
+  }, cls.startsWith('mark') ? (on ? '✓ To play' : '＋ To play') : (on ? '✓' : '＋'));
 }
 
 // Cards keep it on the cover (shown on hover) to leave room for the others.
@@ -337,10 +353,11 @@ function card(g, keys) {
   if (g.leftOn) badges.push(el('span', { class: 'badge gone' }, `Left ${fmtDate(g.leftOn)}`));
   // Regional versions sharing this card.
   if (g.versions?.length > 1) badges.push(el('span', { class: 'badge region', title: 'Regional versions included' }, g.versions.join(' + ')));
+  if (markOf(g.id) === 'wishlist') badges.push(el('span', { class: 'badge toplay' }, 'To play'));
   if (g.steam) badges.push(el('span', { class: 'badge steam', title: steamText(g.steam) }, 'On Steam'));
   const open = () => { drawerRoll = null; openDrawer(g); };
   return el('article', { class: `card ${mine ? 'mine' : ''} mark-${markOf(g.id)}`, 'data-id': g.id, onclick: open },
-    el('div', { class: 'cover-wrap' }, cover(g), el('div', { class: 'badges' }, badges), ignoreButton(g, 'cover-ignore')),
+    el('div', { class: 'cover-wrap' }, cover(g), el('div', { class: 'badges' }, badges), toPlayButton(g, 'cover-btn cover-toplay'), ignoreButton(g, 'cover-btn cover-ignore')),
     el('div', { class: 'body' },
       el('div', { class: 'title', title: g.title }, g.title),
       serviceMeta(g, keys),
@@ -424,6 +441,34 @@ function renderMine() {
   renderGrid(list, 'Mark games as played, completed or ignored and they will be collected here.');
 }
 
+// Your To play list, grouped by when and where you can play each game.
+function renderToPlay() {
+  const content = $('#content');
+  content.replaceChildren();
+  const keys = unlocked();
+  const ids = new Set(games.flatMap((g) => offersOf(g).map((o) => o.id)));
+  const gone = new Map();
+  for (const d of departed) if (state.marks[d.id] === 'wishlist' && !ids.has(d.id)) gone.set(d.id, d);
+  const list = sorted(filtered(games.filter((g) => markOf(g.id) === 'wishlist')));
+  const groups = [
+    ['Ready to play', 'In your plans now.', list.filter((g) => !isComing(g) && isMine(g, keys))],
+    ['Coming soon', 'Announced, with the date it arrives.', list.filter(isComing).sort((a, b) => a.comingOn.localeCompare(b.comingOn))],
+    ['In other services', "Available, but not in the plans you have.", list.filter((g) => !isComing(g) && !isMine(g, keys))],
+    ['No longer available', 'Left every service that had it.', [...gone.values()]],
+  ];
+  const total = list.length + gone.size;
+  $('#summary').textContent = total ? `${total} game${total === 1 ? '' : 's'} to play · ${groups[0][2].length} ready now` : '';
+  if (!total) {
+    content.append(el('div', { class: 'empty' }, 'Click ＋ on a game\'s cover (or "To play" in its details) to keep it here, whether it\'s out now or coming soon.'));
+    return;
+  }
+  for (const [title, hint, items] of groups) {
+    if (!items.length) continue;
+    content.append(el('div', { class: 'section-head' }, el('h3', {}, title, el('span', { class: 'muted' }, ` ${items.length}`)), el('span', { class: 'muted' }, hint)),
+      el('div', { class: 'grid' }, items.map((g) => card(g, keys))));
+  }
+}
+
 // ---------- statistics ----------
 const SVG_NS = 'http://www.w3.org/2000/svg';
 function svgEl(tag, attrs = {}, text) {
@@ -456,7 +501,7 @@ function donut(slices, centre, caption) {
   return el('div', { class: 'chart' }, svg, legend);
 }
 
-const STATUS_COLOR = { completed: '#f2c94c', played: '#3ccf91', untouched: '#3a404d', ignored: '#6b7280' };
+const STATUS_COLOR = { completed: '#f2c94c', played: '#3ccf91', wishlist: '#6aa8ff', untouched: '#3a404d', ignored: '#6b7280' };
 const pct = (x) => `${Math.round(x * 100)}%`;
 // Shares too small to round up still show as something.
 const share = (x) => (x > 0 && x < 0.005 ? '<1%' : pct(x));
@@ -518,6 +563,7 @@ function renderStats() {
         ? donut([
           { label: 'Completed', value: st.plans.completed, color: STATUS_COLOR.completed },
           { label: 'Playing', value: st.plans.played, color: STATUS_COLOR.played },
+          { label: 'To play', value: st.plans.wishlist, color: STATUS_COLOR.wishlist },
           { label: 'Ignored', value: st.plans.ignored, color: STATUS_COLOR.ignored },
           { label: 'Not started', value: st.plans.untouched, color: STATUS_COLOR.untouched },
         ], totals.inPlans, 'in plans')
@@ -1005,6 +1051,8 @@ function renderChrome() {
   const leaving = games.filter((g) => leaveInfo(g) && (!ui.mineOnly || isMine(g, keys))).length;
   $('#leaving-count').textContent = leaving || '';
   $('#coming-count').textContent = games.filter((g) => isComing(g) && (!ui.mineOnly || isMine(g, keys))).length || '';
+  // Games on your To play list you can start now.
+  $('#toplay-count').textContent = games.filter((g) => markOf(g.id) === 'wishlist' && !isComing(g) && isMine(g, keys)).length || '';
 
   const sync = catalogs.map((c) => {
     const s = serviceById(c.service);
@@ -1023,7 +1071,7 @@ function render(keepScroll = false) {
   const top = content.scrollTop;
   if (!keepScroll) ui.shown = PAGE_SIZE;
   renderChrome();
-  ({ browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, stats: renderStats, subs: renderSubs })[ui.view]();
+  ({ browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, toplay: renderToPlay, stats: renderStats, subs: renderSubs })[ui.view]();
   if (keepScroll) content.scrollTop = top;
   if (drawerGame) openDrawer(drawerGame);
 }

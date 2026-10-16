@@ -7,7 +7,7 @@ const games = [
   { id: 'b', mine: ['gamepass'], mark: 'completed', h: 20, sc: null, genreTags: ['RPG', 'Shooter'] },
   { id: 'c', mine: ['psplus'], mark: 'played', h: 30, genreTags: [] },
   { id: 'd', mine: ['psplus'], mark: 'ignored' },
-  { id: 'e', mine: ['psplus'], mark: 'none', steam: { appid: 1 } },
+  { id: 'e', mine: ['psplus'], mark: 'wishlist', steam: { appid: 1 } },
   { id: 'f', mine: [], mark: 'completed', h: null, sc: 60, genreTags: ['Puzzle'] }, // left the service
   { id: 'g', mine: [], mark: 'none' },
 ];
@@ -22,7 +22,7 @@ const st = compute(games, {
 
 test('Statistics: totals and your plans by status', () => {
   assert.deepStrictEqual(st.totals, { inPlans: 5, completed: 3, played: 1, ignored: 1 });
-  assert.deepStrictEqual(st.plans, { completed: 2, played: 1, ignored: 1, untouched: 1 });
+  assert.deepStrictEqual(st.plans, { completed: 2, played: 1, wishlist: 1, ignored: 1, untouched: 0 });
   assert.strictEqual(st.finishRate, 3 / 4);
   assert.strictEqual(st.steamOwned, 1);
 });
