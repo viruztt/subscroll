@@ -34,14 +34,17 @@ test('Search results match exactly, then without the edition, closest year first
 
 test('Metacritic: game results only, score and page link', async () => {
   http.setFetch(async (url) => {
-    assert.match(url, /^https:\/\/backend\.metacritic\.com\/finder\/metacritic\/search\/Hades\/web\?apiKey=/);
+    assert.match(url, /^https:\/\/backend\.metacritic\.com\/finder\/metacritic\/search\/(Hades|9%20Kings)\/web\?apiKey=/);
     return jsonResponse({ data: { items: [
       { type: 'person', title: 'Hades' },
       { type: 'game-title', title: 'Hades II', slug: 'hades-ii', releaseDate: '2025-09-25', criticScoreSummary: { score: 95 } },
       { type: 'game-title', title: 'Hades', slug: 'hades', releaseDate: '2020-09-17', criticScoreSummary: { score: 93 } },
+      { type: 'game-title', title: '9 Kings', slug: '9-kings', criticScoreSummary: { score: 0 } },
     ] } });
   });
   assert.deepStrictEqual(await metacritic('Hades', 2020), { score: 93, url: 'https://www.metacritic.com/game/hades/' });
+  // Not enough reviews yet: no score rather than 0.
+  assert.deepStrictEqual(await metacritic('9 Kings', null), { score: null, url: 'https://www.metacritic.com/game/9-kings/' });
 });
 
 test('How Long To Beat: finds the search endpoint and token, then searches', async () => {

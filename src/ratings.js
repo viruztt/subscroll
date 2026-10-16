@@ -73,7 +73,8 @@ async function metacritic(title, year) {
       url: i.slug ? `https://www.metacritic.com/game/${i.slug}/` : null,
     }));
   const hit = pickMatch(items, title, year);
-  return hit ? { score: Number.isFinite(hit.score) ? hit.score : null, url: hit.url } : null;
+  // Games without enough reviews come back with a score of 0.
+  return hit ? { score: hit.score > 0 ? hit.score : null, url: hit.url } : null;
 }
 
 // ---- How Long To Beat ----

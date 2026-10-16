@@ -141,7 +141,8 @@ function filtered(list) {
   });
 }
 
-const mcScore = (g) => ratings[g.id]?.mc ?? null;
+// 0 means Metacritic hasn't scored it (older results were saved that way).
+const mcScore = (g) => (ratings[g.id]?.mc > 0 ? ratings[g.id].mc : null);
 // Main story time, or the closest thing HLTB has for games without a story.
 function beatHours(g) {
   const h = ratings[g.id]?.hltb;
@@ -472,8 +473,10 @@ function ratingRows(g) {
   const r = ratings[g.id];
   const link = (url, ...children) => (url ? el('button', { class: 'link inline', onclick: () => api.openExternal(url) }, ...children) : el('span', {}, ...children));
   const rows = [];
-  if (r?.mc != null) {
+  if (r?.mc > 0) {
     rows.push(el('dt', {}, 'Metacritic'), el('dd', {}, link(r.mcUrl, el('span', { class: `score ${scoreClass(r.mc)}` }, r.mc), ' ↗')));
+  } else if (r?.mcUrl) {
+    rows.push(el('dt', {}, 'Metacritic'), el('dd', {}, link(r.mcUrl, 'Not scored yet ↗')));
   }
   if (r?.hltb) {
     const parts = [['Main', r.hltb.main], ['+ Extras', r.hltb.plus], ['100%', r.hltb.all]]
