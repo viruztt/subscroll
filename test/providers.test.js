@@ -87,17 +87,19 @@ test('Bundled Switch Online snapshot has every system and most covers', () => {
   assert.ok(games.filter((g) => g.image).length / games.length > 0.95);
 });
 
-test('Wikipedia Nintendo Classics tables: systems, shared dates, two-row headers, removed and Japan-only games skipped', () => {
+test('Wikipedia Nintendo Classics tables: systems, shared dates, two-row headers, removed games skipped, regions kept', () => {
   const html = fs.readFileSync(path.join(__dirname, 'fixtures', 'wikipedia-classics.html'), 'utf8');
   const games = nintendo.parseWikipedia(html);
-  assert.deepStrictEqual(games.map((g) => [g.platforms[0], g.title, g.tiers[0], g.addedOn]), [
-    ['NES', 'Balloon Fight', 'base', '2018-09-19'],
-    ['NES', 'Dr. Mario', 'base', '2018-09-19'],
-    ['NES', "Fire 'n Ice", 'base', '2018-09-19'],
-    ['Game Boy', 'Dr. Mario', 'base', '2023-02-08'],
-    ['Game Boy', 'Game & Watch Gallery 3', 'base', '2023-03-16'],
-    ['N64', 'Super Mario 64', 'expansion', '2021-10-25'],
-    ['N64', 'Super Mario 64 SP', 'expansion', '2021-10-25'],
+  assert.deepStrictEqual(games.map((g) => [g.platforms[0], g.title, g.tiers[0], g.addedOn, g.regions.join('+')]), [
+    ['NES', 'Balloon Fight', 'base', '2018-09-19', 'west+jp'],
+    ['NES', 'Dr. Mario', 'base', '2018-09-19', 'west+jp'],
+    ['NES', "Fire 'n Ice", 'base', '2018-09-19', 'west'],
+    ['NES', 'Ninja JaJaMaru-kun', 'base', '2018-10-10', 'jp'],
+    ['Game Boy', 'Dr. Mario', 'base', '2023-02-08', 'west+jp'],
+    ['Game Boy', 'Game & Watch Gallery 3', 'base', '2023-03-16', 'west+jp'],
+    ['N64', 'Super Mario 64', 'expansion', '2021-10-25', 'west+jp'],
+    ['N64', 'Japan Only 64', 'expansion', '2021-10-25', 'jp'],
+    ['N64', 'Super Mario 64 SP', 'expansion', '2021-10-25', 'west+jp'],
   ]);
   // Same ids as the bundled list, so marks survive switching sources.
   assert.strictEqual(games[0].id, 'nso:nes:balloon-fight');
@@ -205,8 +207,10 @@ test('Switching source or region starts a new baseline instead of fake departure
 });
 
 test('UK region codes become the GB codes Microsoft and Sony use', () => {
-  assert.deepStrictEqual(normalizeSettings({ market: 'uk', language: 'en-UK', psLocale: 'en_uk' }), { market: 'GB', language: 'en-gb', psLocale: 'en-gb' });
+  assert.deepStrictEqual(normalizeSettings({ market: 'uk', language: 'en-UK', psLocale: 'en_uk' }), { region: 'GB', market: 'GB', language: 'en-gb', psLocale: 'en-gb' });
   assert.strictEqual(normalizeSettings({ market: 'us' }).market, 'US');
+  // Picking a country sets every store code.
+  assert.deepStrictEqual(normalizeSettings({ region: 'DE', market: 'US', language: 'en-us', psLocale: 'en-us' }), { region: 'DE', market: 'DE', language: 'en-gb', psLocale: 'de-de' });
 });
 
 test('Refresh keeps the previous list when every source fails', async () => {

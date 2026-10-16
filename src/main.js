@@ -3,12 +3,15 @@ const path = require('path');
 const { Store } = require('./store');
 const { Catalog } = require('./catalog');
 const { DetailsCache } = require('./details');
-const { SERVICES, TIER_BADGES } = require('./services');
+const { Ratings } = require('./ratings');
+const { SERVICES, TIER_BADGES, unlockedTiers } = require('./services');
+const { REGIONS, regionById } = require('./regions');
 const http = require('./providers/http');
 
 let store;
 let catalog;
 let details;
+let ratings;
 let win;
 
 // Use Chromium's network stack: honours system proxy settings and certificates.
@@ -56,6 +59,7 @@ async function refreshAll() {
       win?.webContents.send('refresh-progress', { service, state: result.ok ? 'done' : 'failed', result });
     }
     store.update({ lastRefresh: new Date().toISOString() });
+    startRatings();
     return results;
   })();
   try {
@@ -65,8 +69,35 @@ async function refreshAll() {
   }
 }
 
+// ---- Metacritic / How Long To Beat, looked up in the background ----
+function catalogGames() {
+  const nintendo = regionById(store.get().settings.region)?.nintendo || 'west';
+  return catalog.loadAll()
+    .flatMap((c) => c.games)
+    .filter((g) => g.service !== 'nso' || (g.regions || ['west']).includes(nintendo));
+}
+
+function startRatings() {
+  const { subscriptions, customServices } = store.get();
+  const keys = unlockedTiers(subscriptions, customServices);
+  // Games in the user's plans are looked up first.
+  ratings.start(catalogGames(), (g) => g.tiers.some((t) => keys.has(`${g.service}:${t}`)));
+}
+
+// Results reach the window in batches rather than one message per game.
+let ratingBatch = {};
+let ratingProgress = null;
+let ratingTimer = null;
+function flushRatings() {
+  clearTimeout(ratingTimer);
+  ratingTimer = null;
+  win?.webContents.send('ratings', { updates: ratingBatch, progress: ratingProgress });
+  ratingBatch = {};
+}
+const queueRatings = () => { if (!ratingTimer) ratingTimer = setTimeout(flushRatings, 1500); };
+
 function registerIpc() {
-  ipcMain.handle('get-services', () => ({ services: SERVICES, tierBadges: TIER_BADGES }));
+  ipcMain.handle('get-services', () => ({ services: SERVICES, tierBadges: TIER_BADGES, regions: REGIONS }));
   ipcMain.handle('get-state', () => store.get());
   ipcMain.handle('update-state', (_e, patch) => {
     // Only user-owned fields can be written from the window.
@@ -80,6 +111,10 @@ function registerIpc() {
     return { results, catalog: catalogPayload() };
   });
   ipcMain.handle('get-details', (_e, game) => details.get(game, store.get().settings));
+  ipcMain.handle('get-ratings', () => {
+    startRatings();
+    return { ratings: ratings.forGames(catalogGames()), progress: ratingProgress };
+  });
   ipcMain.handle('open-external', (_e, url) => {
     if (typeof url === 'string' && /^https:\/\//.test(url)) shell.openExternal(url);
   });
@@ -90,6 +125,14 @@ app.whenReady().then(() => {
   store = new Store(dataDir);
   catalog = new Catalog(dataDir);
   details = new DetailsCache(dataDir);
+  ratings = new Ratings(dataDir, {
+    onUpdate: (updates) => { Object.assign(ratingBatch, updates); queueRatings(); },
+    onProgress: (progress) => {
+      ratingProgress = progress;
+      if (progress.finished) flushRatings();
+      else queueRatings();
+    },
+  });
   registerIpc();
   createWindow();
   app.on('activate', () => {

@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('api', {
   getCatalog: () => ipcRenderer.invoke('get-catalog'),
   refresh: () => ipcRenderer.invoke('refresh'),
   getDetails: (game) => ipcRenderer.invoke('get-details', game),
+  getRatings: () => ipcRenderer.invoke('get-ratings'),
+  onRatings: (fn) => ipcRenderer.on('ratings', (_e, msg) => fn(msg)),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   onRefreshProgress: (fn) => ipcRenderer.on('refresh-progress', (_e, msg) => fn(msg)),
 });

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { regionById } = require('./regions');
 
 const DEFAULT_STATE = {
   subscriptions: {}, // serviceId -> tierId
@@ -7,17 +8,21 @@ const DEFAULT_STATE = {
   leaveDates: {}, // gameId -> 'YYYY-MM-DD', entered by the user
   customServices: [], // { id, name, color, tiers: [{ id, name, includes }] }
   customGames: [], // same shape as catalogue games, service = a custom service id
-  settings: { market: 'US', language: 'en-us', psLocale: 'en-us', autoRefreshHours: 24, hideDeparted: false },
+  settings: { region: 'US', market: 'US', language: 'en-us', psLocale: 'en-us', autoRefreshHours: 24, hideDeparted: false },
 };
 
-// Microsoft and Sony use ISO country codes: the UK is GB ("en-gb"), and an
-// unknown code makes the official lists fail.
+// The region picker sets every store code at once. Settings saved before it
+// existed had free-text codes; Microsoft and Sony use ISO country codes, so
+// the UK is GB ("en-gb"), and an unknown code makes the official lists fail.
 function normalizeSettings(s) {
   const out = { ...s };
   if (typeof out.market === 'string') out.market = out.market.trim().toUpperCase().replace(/^UK$/, 'GB');
   for (const k of ['language', 'psLocale']) {
     if (typeof out[k] === 'string') out[k] = out[k].trim().toLowerCase().replace(/_/g, '-').replace(/-uk$/, '-gb');
   }
+  if (!out.region && regionById(out.market)) out.region = out.market;
+  const region = regionById(out.region);
+  if (region) Object.assign(out, { market: region.market, language: region.language, psLocale: region.psLocale });
   return out;
 }
 

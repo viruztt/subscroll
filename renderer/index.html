@@ -19,6 +19,7 @@
     </nav>
     <button class="roll" id="roll-btn" title="Pick a random game from your subscriptions">🎲 Roll a game</button>
     <div class="sync" id="sync"></div>
+    <div class="sync muted" id="ratings-status"></div>
     <button class="refresh" id="refresh-btn">Refresh catalogues</button>
   </aside>
 
@@ -37,6 +38,9 @@
         <option value="title">A–Z</option>
         <option value="release">Newest release</option>
         <option value="added">Recently added</option>
+        <option value="score">Metacritic score</option>
+        <option value="short">Shortest to beat</option>
+        <option value="long">Longest to beat</option>
       </select>
       <label class="toggle"><input type="checkbox" id="mine-only"> Only my subscriptions</label>
       <label class="toggle"><input type="checkbox" id="hide-departed"> Hide departed</label>

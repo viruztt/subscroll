@@ -16,11 +16,13 @@ const ui = {
 
 let services = [];
 let tierBadges = {};
+let regions = [];
 let state = null;
 let catalogs = [];
 let games = []; // flattened catalogue + custom games
 let departed = [];
 let drawerGame = null;
+let ratings = {}; // game id -> { mc, mcUrl, hltb: { main, plus, all }, hltbUrl }
 let drawerRoll = null; // set while the drawer shows a rolled game
 let rollTimer = null;
 const detailsCache = new Map(); // game id -> details, or a pending promise
@@ -93,11 +95,21 @@ async function saveState(patch) {
 }
 
 // ---------- data ----------
+// Switch Online lists some games (or regional versions) only in Japan or
+// only outside it. Lists saved before regions were tracked are western.
+function inMyRegion(g) {
+  if (g.service !== 'nso') return true;
+  const mine = regions.find((r) => r.id === state.settings.region)?.nintendo || 'west';
+  return (g.regions || ['west']).includes(mine);
+}
+
 function rebuildGames() {
   departed = [];
   const out = [];
   for (const c of catalogs) {
-    for (const g of c.games) out.push({ ...g, firstSeen: c.history?.firstSeen?.[g.id] || g.addedOn || null });
+    for (const g of c.games) {
+      if (inMyRegion(g)) out.push({ ...g, firstSeen: c.history?.firstSeen?.[g.id] || g.addedOn || null });
+    }
     for (const d of c.history?.departed || []) departed.push(d);
   }
   for (const g of state.customGames || []) out.push({ ...g, custom: true });
@@ -129,9 +141,32 @@ function filtered(list) {
   });
 }
 
+const mcScore = (g) => ratings[g.id]?.mc ?? null;
+// Main story time, or the closest thing HLTB has for games without a story.
+function beatHours(g) {
+  const h = ratings[g.id]?.hltb;
+  return h ? h.main ?? h.plus ?? h.all ?? null : null;
+}
+
+function fmtHours(h) {
+  if (h == null) return '';
+  if (h < 1) return `${Math.max(1, Math.round(h * 60))}m`;
+  return h < 10 ? `${Math.round(h * 2) / 2}h` : `${Math.round(h)}h`;
+}
+
 function sorted(list) {
   const byTitle = (a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
+  // Games without a score or time go last, whichever way the list runs.
+  const byValue = (fn, dir) => (a, b) => {
+    const x = fn(a);
+    const y = fn(b);
+    if (x == null || y == null) return (x == null) - (y == null) || byTitle(a, b);
+    return (x - y) * dir || byTitle(a, b);
+  };
   const copy = [...list];
+  if (ui.sort === 'score') return copy.sort(byValue(mcScore, -1));
+  if (ui.sort === 'short') return copy.sort(byValue(beatHours, 1));
+  if (ui.sort === 'long') return copy.sort(byValue(beatHours, -1));
   if (ui.sort === 'release') copy.sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || '') || byTitle(a, b));
   else if (ui.sort === 'added') copy.sort((a, b) => (b.firstSeen || '').localeCompare(a.firstSeen || '') || byTitle(a, b));
   else copy.sort(byTitle);
@@ -160,6 +195,20 @@ function cover(g) {
   return img;
 }
 
+function scoreClass(score) {
+  if (score >= 75) return 'good';
+  return score >= 50 ? 'mixed' : 'bad';
+}
+
+function stats(g) {
+  const score = mcScore(g);
+  const h = beatHours(g);
+  return [
+    score != null ? el('span', { class: `score ${scoreClass(score)}`, title: 'Metacritic score' }, score) : null,
+    h != null ? el('span', { class: 'hltb', title: 'How Long To Beat: main story' }, `⏱ ${fmtHours(h)}`) : null,
+  ];
+}
+
 function markButtons(g) {
   const mark = markOf(g.id);
   const set = (value) => async (e) => {
@@ -186,11 +235,12 @@ function card(g, keys) {
   if (g.firstSeen && daysUntil(g.firstSeen) >= -30) badges.push(el('span', { class: 'badge new' }, 'New'));
   if (g.leftOn) badges.push(el('span', { class: 'badge gone' }, `Left ${fmtDate(g.leftOn)}`));
   const open = () => { drawerRoll = null; openDrawer(g); };
-  return el('article', { class: `card ${mine ? 'mine' : ''} mark-${markOf(g.id)}`, onclick: open },
+  return el('article', { class: `card ${mine ? 'mine' : ''} mark-${markOf(g.id)}`, 'data-id': g.id, onclick: open },
     el('div', { class: 'cover-wrap' }, cover(g), el('div', { class: 'badges' }, badges)),
     el('div', { class: 'body' },
       el('div', { class: 'title', title: g.title }, g.title),
       el('div', { class: 'meta' }, serviceTag(g), el('span', { class: 'tier' }, tierLabel(g))),
+      el('div', { class: 'stats' }, stats(g)),
       markButtons(g)));
 }
 
@@ -350,21 +400,23 @@ function customGamePanel() {
 }
 
 function regionPanel() {
-  const s = state.settings;
-  const input = (key, placeholder) => {
-    const i = el('input', { value: s[key], placeholder, class: 'short' });
-    i.addEventListener('change', async () => {
-      await saveState({ settings: { ...state.settings, [key]: i.value.trim() } });
-    });
-    return i;
-  };
+  const current = state.settings.region || '';
+  const select = el('select', {},
+    current ? null : el('option', { value: '' }, `Custom (${state.settings.market})`),
+    regions.map((r) => el('option', { value: r.id }, r.name)));
+  select.value = current;
+  const note = el('span', { class: 'muted' });
+  select.addEventListener('change', async () => {
+    await saveState({ settings: { ...state.settings, region: select.value } });
+    rebuildGames();
+    note.textContent = 'Refreshing the lists for this country…';
+    await refresh();
+    note.textContent = '';
+  });
   return el('div', { class: 'panel' },
     el('h2', {}, 'Region'),
-    el('p', { class: 'muted' }, 'Catalogues differ a little by country. Changes apply on the next refresh.'),
-    el('div', { class: 'form' },
-      el('label', {}, 'Xbox market ', input('market', 'US')),
-      el('label', {}, 'Xbox language ', input('language', 'en-us')),
-      el('label', {}, 'PlayStation locale ', input('psLocale', 'en-us'))));
+    el('p', { class: 'muted' }, 'Game Pass and PS Plus catalogues differ a little by country. Switch Online only differs in Japan, which has some games the rest of the world doesn\'t (and the other way round).'),
+    el('div', { class: 'form' }, el('label', {}, 'Country ', select), note));
 }
 
 function sourcesPanel() {
@@ -407,12 +459,29 @@ function openDrawer(g) {
         g.genres?.length ? [el('dt', {}, 'Genre'), el('dd', {}, g.genres.join(', '))] : null,
         g.releaseDate ? [el('dt', {}, 'Released'), el('dd', {}, fmtDate(g.releaseDate))] : null,
         g.firstSeen ? [el('dt', {}, 'Added'), el('dd', {}, fmtDate(g.firstSeen))] : null,
+        ratingRows(g),
         leave ? [el('dt', {}, 'Leaving'), el('dd', {}, leave.date ? fmtDate(leave.date) : 'Soon, no date announced')] : null),
       markButtons(g),
       detailsSection(g),
       g.storeUrl ? el('button', { class: 'link', onclick: () => api.openExternal(g.storeUrl) }, g.service === 'nso' ? 'Open the Wikipedia list ↗' : 'Open store page ↗') : null,
       g.custom ? el('button', { class: 'link danger', onclick: deleteCustom }, 'Delete this game') : null));
   drawer.classList.remove('hidden');
+}
+
+function ratingRows(g) {
+  const r = ratings[g.id];
+  const link = (url, ...children) => (url ? el('button', { class: 'link inline', onclick: () => api.openExternal(url) }, ...children) : el('span', {}, ...children));
+  const rows = [];
+  if (r?.mc != null) {
+    rows.push(el('dt', {}, 'Metacritic'), el('dd', {}, link(r.mcUrl, el('span', { class: `score ${scoreClass(r.mc)}` }, r.mc), ' ↗')));
+  }
+  if (r?.hltb) {
+    const parts = [['Main', r.hltb.main], ['+ Extras', r.hltb.plus], ['100%', r.hltb.all]]
+      .filter(([, h]) => h != null)
+      .map(([label, h]) => `${label} ${fmtHours(h)}`);
+    rows.push(el('dt', {}, 'Time to beat'), el('dd', {}, link(r.hltbUrl, parts.join(' · '), ' ↗')));
+  }
+  return rows;
 }
 
 function closeDrawer() {
@@ -593,6 +662,35 @@ function render(keepScroll = false) {
   if (drawerGame) openDrawer(drawerGame);
 }
 
+// ---------- Metacritic / How Long To Beat ----------
+let reorderTimer = null;
+
+function showRatingProgress(p) {
+  const status = $('#ratings-status');
+  if (!p || p.finished) {
+    status.textContent = p?.failed ? 'Metacritic / How Long To Beat unreachable, will retry later' : '';
+    return;
+  }
+  status.textContent = `Fetching scores and times: ${p.done} of ${p.total}`;
+}
+
+api.onRatings(({ updates, progress }) => {
+  Object.assign(ratings, updates);
+  showRatingProgress(progress);
+  // Patch cards in place so browsing isn't interrupted.
+  for (const id of Object.keys(updates)) {
+    for (const node of document.querySelectorAll(`.card[data-id="${CSS.escape(id)}"] .stats`)) {
+      const g = games.find((x) => x.id === id);
+      if (g) node.replaceChildren(...stats(g).filter(Boolean));
+    }
+  }
+  if (drawerGame && updates[drawerGame.id]) openDrawer(drawerGame);
+  // Lists sorted by score or length reorder now and then as results arrive.
+  if (['score', 'short', 'long'].includes(ui.sort) && !reorderTimer) {
+    reorderTimer = setTimeout(() => { reorderTimer = null; render(true); }, 5000);
+  }
+});
+
 // ---------- refresh ----------
 async function refresh() {
   const btn = $('#refresh-btn');
@@ -602,6 +700,7 @@ async function refresh() {
     const { results, catalog } = await api.refresh();
     catalogs = catalog;
     rebuildGames();
+    ratings = (await api.getRatings()).ratings;
     const failed = results.filter((r) => !r.ok);
     btn.textContent = failed.length ? 'Some lists failed, retry' : 'Refresh catalogues';
     if (failed.length) btn.title = failed.map((r) => `${r.service}: ${r.errors.join('; ')}`).join('\n');
@@ -651,10 +750,13 @@ function wire() {
 }
 
 async function init() {
-  ({ services, tierBadges } = await api.getServices());
+  ({ services, tierBadges, regions } = await api.getServices());
   state = await api.getState();
   catalogs = await api.getCatalog();
   rebuildGames();
+  const r = await api.getRatings();
+  ratings = r.ratings;
+  showRatingProgress(r.progress);
   const hasSubs = Object.values(state.subscriptions).some(Boolean);
   ui.mineOnly = hasSubs;
   $('#mine-only').checked = hasSubs;

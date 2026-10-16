@@ -23,7 +23,7 @@ const SYSTEMS = [
 
 const slug = (s) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-function makeGame(system, tier, title, addedOn = null) {
+function makeGame(system, tier, title, addedOn = null, regions = ['west', 'jp']) {
   return {
     id: `nso:${slug(system)}:${slug(title)}`,
     service: 'nso',
@@ -36,6 +36,7 @@ function makeGame(system, tier, title, addedOn = null) {
     releaseDate: null,
     addedOn,
     storeUrl: null,
+    regions, // 'west' (Americas, Europe, Oceania) and/or 'jp'
   };
 }
 
@@ -130,20 +131,23 @@ function parseWikipedia(html) {
     if (gameCol === -1) continue;
     // Region availability column: named NA/PAL, or failing that the first
     // column holding only Yes/No values (the western one comes before JP).
+    const yesNo = (i) => i !== gameCol && dataRows.length > 0 && dataRows.every((r) => /^(yes|no)\b/i.test(r.cells[i] || ''));
     let westCol = cols.findIndex((c) => /\bna\b/.test(c) || /\bpal\b/.test(c) || c.includes('west'));
-    if (westCol === -1) {
-      westCol = cols.findIndex((_, i) => i !== gameCol && dataRows.length > 0 &&
-        dataRows.every((r) => /^(yes|no)\b/i.test(r.cells[i] || '')));
-    }
+    if (westCol === -1) westCol = cols.findIndex((_, i) => yesNo(i));
+    let jpCol = cols.findIndex((c) => /\bjp\b|japan/.test(c));
+    if (jpCol === -1) jpCol = cols.findIndex((_, i) => i !== westCol && yesNo(i));
 
     for (const row of dataRows) {
       const title = (row.cells[gameCol] || '').trim();
       if (!title) continue;
       // Delisted games stay in the article, marked "(removed on …)".
       if (/\(removed\b[^)]*\)/i.test(title)) continue;
-      // Skip games only offered in Japan.
-      if (westCol !== -1 && /^no\b/i.test(row.cells[westCol] || '')) continue;
-      const game = makeGame(sys.system, sys.tier, title, dateCol !== -1 ? toIsoDate(row.cells[dateCol] || '') : null);
+      // Some games, or regional versions of them, are offered only in
+      // Japan or only outside it.
+      const offered = (col) => col === -1 || !/^no\b/i.test(row.cells[col] || '');
+      const regions = [offered(westCol) && 'west', offered(jpCol) && 'jp'].filter(Boolean);
+      if (!regions.length) continue;
+      const game = makeGame(sys.system, sys.tier, title, dateCol !== -1 ? toIsoDate(row.cells[dateCol] || '') : null, regions);
       if (seen.has(game.id)) continue;
       seen.add(game.id);
       game.storeUrl = WIKI_PAGE;

@@ -268,3 +268,15 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 }
 .lightbox img { max-width: 92vw; max-height: 92vh; border-radius: 6px; }
 .lightbox.retro img { width: min(92vw, 122vh); height: auto; image-rendering: pixelated; }
+
+/* Metacritic / How Long To Beat */
+.stats { display: flex; gap: 6px; align-items: center; font-size: 12px; min-height: 20px; }
+.stats:empty { display: none; }
+.score { display: inline-block; min-width: 26px; text-align: center; padding: 1px 5px; border-radius: 5px; font-weight: 700; color: #111; }
+.score.good { background: #66cc33; }
+.score.mixed { background: #ffcc33; }
+.score.bad { background: #ff6874; }
+.hltb { color: var(--muted); }
+.link.inline { padding: 0; font-size: inherit; }
+#ratings-status { font-size: 11px; }
+#ratings-status:empty { display: none; }
