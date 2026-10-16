@@ -4,7 +4,7 @@ A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus and
 
 ## Run it
 
-- **Windows build:** unzip `dist/SubscriptionCatalogue-0.1.0-win-x64.zip` and run `Subscription Catalogue.exe`. It isn't code-signed, so Windows SmartScreen will warn the first time ("More info" → "Run anyway").
+- **Windows build:** every commit gets a portable build in `dist/`, named `SubscriptionCatalogue-<version>-<commit>.exe`; run the newest one, nothing to install. `dist/` isn't tracked by git. The exe isn't code-signed, so Windows SmartScreen warns the first time ("More info" → "Run anyway").
 - **From source (any OS):** `npm install`, then `npm start`. `npm test` runs the tests. `npm run dist:win` / `dist:mac` / `dist:linux` builds a package.
 
 ## Where the game lists come from

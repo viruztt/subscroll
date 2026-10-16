@@ -8,15 +8,25 @@
     "start": "electron .",
     "test": "node --test test/*.test.js",
     "snapshot": "node scripts/build-snapshot.js",
-    "dist:win": "electron-builder --win zip",
+    "dist:win": "electron-builder --win portable --x64",
     "dist:mac": "electron-builder --mac dmg",
     "dist:linux": "electron-builder --linux AppImage"
   },
   "build": {
     "appId": "local.subscription-catalogue",
-    "files": ["src/**", "renderer/**", "data/**", "package.json"],
-    "win": { "target": "zip" },
-    "mac": { "category": "public.app-category.games" }
+    "files": [
+      "src/**",
+      "renderer/**",
+      "data/**",
+      "package.json"
+    ],
+    "win": {
+      "target": "portable",
+      "artifactName": "SubscriptionCatalogue-${version}.exe"
+    },
+    "mac": {
+      "category": "public.app-category.games"
+    }
   },
   "license": "MIT",
   "devDependencies": {
