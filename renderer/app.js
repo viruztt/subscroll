@@ -573,7 +573,25 @@ function renderSubs() {
   });
 
   content.append(el('div', { class: 'panel' }, el('h2', {}, 'My subscriptions'), rows));
-  content.append(customServicePanel(), customGamePanel(), regionPanel(), steamPanel(), backupPanel(), sourcesPanel());
+  content.append(customServicePanel(), customGamePanel(), regionPanel(), backgroundPanel(), steamPanel(), backupPanel(), sourcesPanel());
+}
+
+// Tray, start with Windows and alerts.
+function backgroundPanel() {
+  const toggle = (key, label, hint, fallback) => {
+    const box = el('input', { type: 'checkbox' });
+    box.checked = state.settings[key] ?? fallback;
+    box.addEventListener('change', () => saveState({ settings: { ...state.settings, [key]: box.checked } }));
+    return el('label', { class: 'check-row' }, box, el('span', {}, el('strong', {}, label), el('span', { class: 'muted' }, ` ${hint}`)));
+  };
+  const windows = navigator.userAgent.includes('Windows');
+  return el('div', { class: 'panel' },
+    el('h2', {}, 'Background'),
+    el('p', { class: 'muted' }, 'Subscroll can keep running in the system tray and check the lists once a day, so you hear about new and leaving games without opening it.'),
+    el('div', { class: 'checks' },
+      toggle('closeToTray', 'Keep running in the tray when the window is closed.', 'Quit from the tray icon\'s menu.', true),
+      windows ? toggle('startWithWindows', 'Start with Windows.', 'Starts in the tray, without opening the window.', false) : null,
+      toggle('alerts', 'Alerts.', 'A notification when games join a service in your plans, or games in your plans start leaving. Completed and ignored games are left out.', true)));
 }
 
 // Steam library import: owned games get a badge, played ones a mark.
@@ -1009,6 +1027,13 @@ function render(keepScroll = false) {
   if (keepScroll) content.scrollTop = top;
   if (drawerGame) openDrawer(drawerGame);
 }
+
+// A click on an alert opens the page it's about.
+api.onShowView((view) => {
+  ui.view = view;
+  $('#content').scrollTop = 0;
+  render();
+});
 
 // The daily refresh reads the Steam library again.
 api.onStateChanged((s) => {

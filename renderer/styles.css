@@ -340,3 +340,8 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .bar-playing { background: var(--ok); }
 .bar-genre { background: var(--accent); }
 .stats-note { max-width: 980px; }
+
+.checks { display: grid; gap: 10px; padding: 4px 0 2px; }
+.check-row { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.check-row input { margin-top: 3px; }
+.check-row strong { font-weight: 600; }

@@ -16,5 +16,6 @@ contextBridge.exposeInMainWorld('api', {
   importSteam: (profile, key) => ipcRenderer.invoke('import-steam', { profile, key }),
   forgetSteam: () => ipcRenderer.invoke('forget-steam'),
   onStateChanged: (fn) => ipcRenderer.on('state-changed', (_e, s) => fn(s)),
+  onShowView: (fn) => ipcRenderer.on('show-view', (_e, view) => fn(view)),
   onRefreshProgress: (fn) => ipcRenderer.on('refresh-progress', (_e, msg) => fn(msg)),
 });

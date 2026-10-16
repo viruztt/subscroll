@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, net, shell } = require('electron');
+const { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, net, shell } = require('electron');
 const path = require('path');
 const { Store } = require('./store');
 const { Catalog, SERVICES: CATALOG_SERVICES } = require('./catalog');
@@ -10,6 +10,7 @@ const { REGIONS, regionById } = require('./regions');
 const http = require('./providers/http');
 const { makeBackup, parseBackup, backupName } = require('./backup');
 const steam = require('./steam');
+const alerts = require('./alerts');
 const fs = require('fs');
 
 let store;
@@ -17,19 +18,26 @@ let catalog;
 let details;
 let ratings;
 let win;
+let tray;
+let quitting = false;
 
 // Use Chromium's network stack: honours system proxy settings and certificates.
 http.setFetch((url, opts) => net.fetch(url, opts));
 
+const ICON = path.join(__dirname, '..', 'renderer', 'icon.png');
+// Started with Windows: stay in the tray until the user opens the window.
+const startHidden = process.argv.includes('--hidden');
+
 function createWindow() {
   win = new BrowserWindow({
+    show: !startHidden,
     width: 1360,
     height: 880,
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#0f1115',
     title: 'Subscroll',
-    icon: path.join(__dirname, '..', 'renderer', 'icon.png'),
+    icon: ICON,
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -38,6 +46,16 @@ function createWindow() {
     },
   });
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  // Closing the window keeps the app in the tray, refreshing in the background.
+  win.on('close', (e) => {
+    if (quitting || !tray || !store.get().settings.closeToTray) return;
+    e.preventDefault();
+    win.hide();
+    if (!store.get().trayHintShown) {
+      store.update({ trayHintShown: true });
+      notify({ title: 'Subscroll is still running', body: 'It keeps checking your services in the background. Right-click the tray icon to quit.' });
+    }
+  });
   // Store links open in the user's browser, never inside the app.
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//.test(url)) shell.openExternal(url);
@@ -56,6 +74,7 @@ async function refreshAll() {
   if (refreshing) return refreshing;
   refreshing = (async () => {
     const settings = store.get().settings;
+    const before = new Set(catalogGames().map((g) => g.id));
     const results = [];
     for (const service of CATALOG_SERVICES) {
       win?.webContents.send('refresh-progress', { service, state: 'running' });
@@ -67,13 +86,97 @@ async function refreshAll() {
     startRatings();
     enrichArcade();
     refreshSteam();
+    sendAlerts(results, before);
+    win?.webContents.send('catalog-changed');
     return results;
   })();
+  updateTray();
   try {
     return await refreshing;
   } finally {
     refreshing = null;
+    updateTray();
   }
+}
+
+// ---- Tray, start with Windows, alerts ----
+function showWindow(view) {
+  if (!win) createWindow();
+  if (view) win.webContents.send('show-view', view);
+  win.show();
+  if (win.isMinimized()) win.restore();
+  win.focus();
+}
+
+function notify({ title, body, view }) {
+  if (!Notification.isSupported()) return;
+  const n = new Notification({ title, body, icon: ICON });
+  n.on('click', () => showWindow(view));
+  n.show();
+}
+
+// Only games that joined in this refresh count as new; a service seen for
+// the first time (or from a new source) is a baseline, not news.
+function sendAlerts(results, before) {
+  const { settings, subscriptions, customServices, marks, alertedLeaving } = store.get();
+  const changed = new Set(results.filter((r) => r.ok && r.added?.length).map((r) => r.service));
+  const games = catalogGames();
+  const newIds = new Set(games.filter((g) => changed.has(g.service) && !before.has(g.id)).map((g) => g.id));
+  const picked = alerts.pickAlerts({ games, newIds, keys: unlockedTiers(subscriptions, customServices), marks, alertedLeaving });
+  // Remember what's leaving now, so each game is announced once.
+  store.update({ alertedLeaving: picked.leavingIds });
+  // The window shows the same news when it's open.
+  if (!settings.alerts || (win?.isVisible() && win.isFocused())) return;
+  for (const m of alerts.messages(picked)) notify(m);
+}
+
+function createTray() {
+  tray = new Tray(nativeImage.createFromPath(ICON).resize({ width: 32, height: 32 }));
+  tray.on('click', () => showWindow());
+  updateTray();
+}
+
+function updateTray() {
+  if (!tray) return;
+  const { settings, lastRefresh } = store.get();
+  tray.setToolTip(lastRefresh ? `Subscroll: lists checked ${new Date(lastRefresh).toLocaleString()}` : 'Subscroll');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Open Subscroll', click: () => showWindow() },
+    { label: refreshing ? 'Refreshing…' : 'Refresh now', enabled: !refreshing, click: () => refreshAll().catch(() => {}) },
+    { type: 'separator' },
+    { label: 'Start with Windows', type: 'checkbox', checked: !!settings.startWithWindows, visible: process.platform === 'win32', click: (item) => setSettings({ startWithWindows: item.checked }) },
+    { label: 'Alerts', type: 'checkbox', checked: settings.alerts !== false, click: (item) => setSettings({ alerts: item.checked }) },
+    { type: 'separator' },
+    { label: 'Quit', click: () => { quitting = true; app.quit(); } },
+  ]));
+}
+
+function setSettings(patch) {
+  store.update({ settings: { ...store.get().settings, ...patch } });
+  applyLoginItem();
+  updateTray();
+  win?.webContents.send('state-changed', store.get());
+}
+
+// The portable exe unpacks itself to a temp folder each run, so the login
+// item points at the exe the user actually has. Each build has its own file
+// name, so this is set again on every launch.
+function applyLoginItem() {
+  if (process.platform !== 'win32' || !app.isPackaged) return;
+  const exe = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+  const on = !!store.get().settings.startWithWindows;
+  app.setLoginItemSettings({ openAtLogin: on, path: exe, args: ['--hidden'] });
+}
+
+// Lists refresh on schedule even while the window is closed.
+function scheduleRefresh() {
+  const check = () => {
+    const { settings, lastRefresh } = store.get();
+    const hours = Number(settings.autoRefreshHours) || 24;
+    if (!lastRefresh || Date.now() - new Date(lastRefresh) > hours * 3600000) refreshAll().catch(() => {});
+  };
+  setTimeout(check, 60 * 1000);
+  setInterval(check, 30 * 60 * 1000);
 }
 
 // ---- Steam library ----
@@ -150,7 +253,12 @@ function registerIpc() {
     // Only user-owned fields can be written from the window.
     const allowed = ['subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings'];
     const clean = Object.fromEntries(Object.entries(patch || {}).filter(([k]) => allowed.includes(k)));
-    return store.update(clean);
+    const next = store.update(clean);
+    if (clean.settings) {
+      applyLoginItem();
+      updateTray();
+    }
+    return next;
   });
   ipcMain.handle('get-catalog', () => catalogPayload());
   ipcMain.handle('refresh', async () => {
@@ -220,7 +328,20 @@ function registerIpc() {
 // so subscriptions, marks and cached lookups survive the rename.
 app.setPath('userData', path.join(app.getPath('appData'), 'Subscription Catalogue'));
 
+// One copy at a time: starting it again (or from Windows startup) shows
+// the window that's already running.
+const firstCopy = app.requestSingleInstanceLock();
+if (!firstCopy) {
+  app.quit();
+} else {
+  app.on('second-instance', () => showWindow());
+}
+
+app.setAppUserModelId('Subscroll');
+app.on('before-quit', () => { quitting = true; });
+
 app.whenReady().then(() => {
+  if (!firstCopy) return;
   const dataDir = app.getPath('userData');
   store = new Store(dataDir);
   catalog = new Catalog(dataDir);
@@ -235,6 +356,9 @@ app.whenReady().then(() => {
   });
   registerIpc();
   createWindow();
+  createTray();
+  applyLoginItem();
+  scheduleRefresh();
   setTimeout(enrichArcade, 5000);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -242,5 +366,5 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin' && !tray) app.quit();
 });
