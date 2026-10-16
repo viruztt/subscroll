@@ -81,7 +81,8 @@ const hasCatalogDetails = (game) => game.service === 'gamepass' && !!(game.descr
 
 async function fetchDetails(game, settings = {}) {
   if (hasCatalogDetails(game)) {
-    return { description: game.description || null, screenshots: (game.screenshots || []).slice(0, MAX_SCREENSHOTS) };
+    // Lists saved before duplicates were removed can repeat a screenshot.
+    return { description: game.description || null, screenshots: [...new Set(game.screenshots || [])].slice(0, MAX_SCREENSHOTS) };
   }
   if (game.service === 'gamepass') {
     // Catalogue saved by an older version, without descriptions.

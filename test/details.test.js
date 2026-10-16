@@ -79,9 +79,9 @@ test('PS Plus falls back to Wikipedia when the store page fails', async () => {
 
 test('Game Pass details come from the catalogue without any request', async () => {
   http.setFetch(async () => { throw new Error('should not fetch'); });
-  const d = await fetchDetails({ id: 'gamepass:X', service: 'gamepass', title: 'X', description: 'Short.', screenshots: ['a', 'b', 'c', 'd', 'e'] });
+  const d = await fetchDetails({ id: 'gamepass:X', service: 'gamepass', title: 'X', description: 'Short.', screenshots: ['a', 'a', 'b', 'c', 'd', 'e'] });
   assert.strictEqual(d.description, 'Short.');
-  assert.strictEqual(d.screenshots.length, 4);
+  assert.deepStrictEqual(d.screenshots, ['a', 'b', 'c', 'd']);
 });
 
 test('Game Pass games cached without details look them up once', async () => {

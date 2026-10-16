@@ -34,10 +34,11 @@ function parseProduct(p) {
   const market = (p.MarketProperties || [])[0] || {};
   const props = p.Properties || {};
   const genres = props.Categories || (props.Category ? [props.Category] : []);
-  const screenshots = (loc.Images || [])
+  // The same screenshot is often listed more than once (per device type).
+  const screenshots = [...new Set((loc.Images || [])
     .filter((i) => i.ImagePurpose === 'Screenshot' && i.Uri)
-    .slice(0, 4)
-    .map((i) => `${i.Uri.startsWith('//') ? 'https:' : ''}${i.Uri}?w=960`);
+    .map((i) => `${i.Uri.startsWith('//') ? 'https:' : ''}${i.Uri}?w=960`))]
+    .slice(0, 4);
   return {
     title: loc.ProductTitle || p.ProductId,
     image: pickImage(loc.Images),

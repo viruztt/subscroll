@@ -49,6 +49,7 @@ test('Game Pass live: lists, leaving soon and product details', async () => {
             Images: [
               { ImagePurpose: 'Poster', Uri: `//img/${ProductId}` },
               { ImagePurpose: 'Screenshot', Uri: `//shot/${ProductId}/1` },
+              { ImagePurpose: 'Screenshot', Uri: `//shot/${ProductId}/1` },
               { ImagePurpose: 'Screenshot', Uri: `//shot/${ProductId}/2` },
             ],
           }],
