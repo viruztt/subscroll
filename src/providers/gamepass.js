@@ -41,6 +41,7 @@ function parseProduct(p) {
     .slice(0, 4);
   return {
     title: loc.ProductTitle || p.ProductId,
+    kind: p.ProductKind || null,
     image: pickImage(loc.Images),
     description: loc.ShortDescription || (loc.ProductDescription || '').split('\n')[0] || null,
     screenshots,
@@ -87,7 +88,45 @@ async function fetchLive({ market = 'US', language = 'en-us' } = {}) {
     }
   }
 
-  const ids = [...members.keys()];
+  // Games announced with a future date (a bonus: the list works without).
+  let upcoming = new Map();
+  try {
+    upcoming = comingSoon(await getJson(`https://catalog.gamepass.com/pcsubscriptions?market=${market}&language=${language}`));
+  } catch {
+    // Keep going without upcoming games.
+  }
+
+  const ids = [...new Set([...members.keys(), ...upcoming.keys()])];
+  const details = await fetchProducts(ids, { market, language });
+
+  return ids.map((id) => {
+    const m = members.get(id) || { tiers: new Set(), platforms: new Set() };
+    const soon = upcoming.get(id);
+    if (soon) {
+      soon.tiers.forEach((t) => m.tiers.add(t));
+      soon.platforms.forEach((p) => m.platforms.add(p));
+    }
+    const d = details.get(id) || { title: id, image: null, genres: [], releaseDate: null, description: null, screenshots: [] };
+    return {
+      id: `gamepass:${id}`,
+      service: 'gamepass',
+      title: d.title,
+      image: d.image,
+      platforms: [...m.platforms],
+      tiers: [...m.tiers],
+      leavingSoon: leaving.has(id),
+      comingOn: soon ? soon.date : null,
+      genres: d.genres,
+      releaseDate: d.releaseDate,
+      description: d.description,
+      screenshots: d.screenshots,
+      storeUrl: storeUrl(id),
+    };
+  });
+}
+
+// Product details (title, art, description…) for many store ids at once.
+async function fetchProducts(ids, { market = 'US', language = 'en-us' } = {}) {
   const details = new Map();
   await mapLimit(chunk(ids, 20), 4, async (batch) => {
     const url = `https://displaycatalog.mp.microsoft.com/v7.0/products?bigIds=${batch.join(',')}` +
@@ -99,25 +138,41 @@ async function fetchLive({ market = 'US', language = 'en-us' } = {}) {
       // Missing details just mean a title without artwork.
     }
   });
+  return details;
+}
 
-  return ids.map((id) => {
-    const m = members.get(id);
-    const d = details.get(id) || { title: id, image: null, genres: [], releaseDate: null, description: null, screenshots: [] };
-    return {
-      id: `gamepass:${id}`,
-      service: 'gamepass',
-      title: d.title,
-      image: d.image,
-      platforms: [...m.platforms],
-      tiers: [...m.tiers],
-      leavingSoon: leaving.has(id),
-      genres: d.genres,
-      releaseDate: d.releaseDate,
-      description: d.description,
-      screenshots: d.screenshots,
-      storeUrl: storeUrl(id),
-    };
-  });
+// pcsubscriptions has, per product and plan, the date it joins ("EntranceDate").
+// A date in the coming months means the game is announced but not playable
+// yet. Microsoft uses far-future dates as "unknown", so those are skipped.
+const PLAN_OF = [[/^pc/i, 'pc', 'pc'], [/^(standard|premium)/i, 'premium', 'console'], [/^(core|essential)/i, 'essential', 'console'], [/^ultimate/i, 'ultimate', 'console']];
+
+function comingSoon(data, now = Date.now()) {
+  const out = new Map();
+  for (const [id, product] of Object.entries(data || {})) {
+    if (!product || typeof product !== 'object') continue;
+    for (const [field, meta] of Object.entries(product)) {
+      if (!/SubMetadata$/.test(field) || !meta || !meta.EntranceDate) continue;
+      const when = Date.parse(meta.EntranceDate);
+      if (!(when > now && when < now + 366 * 86400000)) continue;
+      const plan = PLAN_OF.find(([re]) => re.test(field));
+      const [, tier, platform] = plan || [null, 'ultimate', 'console'];
+      const entry = out.get(id) || { date: null, tiers: new Set(), platforms: new Set() };
+      const iso = new Date(when).toISOString().slice(0, 10);
+      if (!entry.date || iso < entry.date) entry.date = iso;
+      entry.tiers.add(tier);
+      if (tier === 'ultimate' || tier === 'pc') entry.tiers.add('ultimate');
+      entry.platforms.add(platform);
+      out.set(id, entry);
+    }
+  }
+  return out;
+}
+
+// Microsoft's store-wide list names -> product ids (EA Play, Ubisoft+…).
+async function fetchSubscriptionLists(market = 'US') {
+  const data = await getJson(`https://catalog.gamepass.com/subscriptions?market=${market}`);
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Unexpected subscriptions format');
+  return data;
 }
 
 function normalizeMirror(data) {
@@ -155,4 +210,4 @@ async function fetchMirror() {
   return normalizeMirror(await getJson(MIRROR_URL, { timeoutMs: 60000 }));
 }
 
-module.exports = { fetchLive, fetchMirror, fetchProduct, normalizeMirror, siglIds, parseProduct, buildMembership, MIRROR_URL };
+module.exports = { fetchLive, fetchMirror, fetchProduct, fetchProducts, fetchSubscriptionLists, comingSoon, storeUrl, normalizeMirror, siglIds, parseProduct, buildMembership, MIRROR_URL };

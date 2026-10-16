@@ -77,17 +77,20 @@ function psStoreUrl(url, locale) {
   return url && locale ? url.replace(/\/[a-z]{2}-[a-z]{2}\/concept\//i, `/${locale}/concept/`) : url;
 }
 
-const hasCatalogDetails = (game) => game.service === 'gamepass' && !!(game.description || (game.screenshots || []).length);
+// Services whose lists already carry descriptions and screenshots.
+const FROM_CATALOG = ['gamepass', 'eaplay', 'ubisoftplus', 'netflix', 'applearcade'];
+const MICROSOFT_STORE = ['gamepass', 'eaplay', 'ubisoftplus'];
+const hasCatalogDetails = (game) => FROM_CATALOG.includes(game.service) && !!(game.description || (game.screenshots || []).length);
 
 async function fetchDetails(game, settings = {}) {
   if (hasCatalogDetails(game)) {
     // Lists saved before duplicates were removed can repeat a screenshot.
     return { description: game.description || null, screenshots: [...new Set(game.screenshots || [])].slice(0, MAX_SCREENSHOTS) };
   }
-  if (game.service === 'gamepass') {
+  if (MICROSOFT_STORE.includes(game.service)) {
     // Catalogue saved by an older version, without descriptions.
     try {
-      const p = await gamepass.fetchProduct(game.id.replace(/^gamepass:/, ''), settings);
+      const p = await gamepass.fetchProduct(game.id.split(':')[1], settings);
       return { description: p.description, screenshots: p.screenshots };
     } catch {
       return { description: null, screenshots: [] };
@@ -102,9 +105,9 @@ async function fetchDetails(game, settings = {}) {
     }
   }
   if (game.service === 'nso') out.screenshots = retroScreenshots(game.image);
-  if (!out.description && (game.service === 'nso' || game.service === 'psplus')) {
+  if (!out.description && ['nso', 'psplus', 'applearcade', 'netflix'].includes(game.service)) {
     try {
-      const hint = game.service === 'nso' ? SYSTEM_WORDS[game.platforms[0]] || '' : 'PlayStation';
+      const hint = game.service === 'nso' ? SYSTEM_WORDS[game.platforms[0]] || '' : { psplus: 'PlayStation', applearcade: 'Apple Arcade', netflix: 'Netflix' }[game.service];
       const wiki = await wikipediaIntro(game.title, hint);
       if (wiki) {
         out.description = wiki.text;

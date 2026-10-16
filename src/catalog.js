@@ -4,6 +4,9 @@ const gamepass = require('./providers/gamepass');
 const psplus = require('./providers/psplus');
 const nintendo = require('./providers/nintendo');
 const covers = require('./providers/covers');
+const msextras = require('./providers/msextras');
+const netflix = require('./providers/netflix');
+const arcade = require('./providers/applearcade');
 
 const SNAPSHOT_DIR = path.join(__dirname, '..', 'data', 'snapshot');
 const MAX_DEPARTED = 300;
@@ -12,6 +15,10 @@ const PROVIDERS = {
   gamepass: { live: gamepass.fetchLive, mirror: gamepass.fetchMirror },
   psplus: { live: psplus.fetchLive, mirror: psplus.fetchMirror },
   nso: { live: nintendo.fetchLive },
+  eaplay: { live: msextras.fetchEaPlay },
+  ubisoftplus: { live: msextras.fetchUbisoftPlus },
+  netflix: { live: netflix.fetchLive },
+  applearcade: { live: arcade.fetchLive },
 };
 const SERVICES = Object.keys(PROVIDERS);
 
@@ -63,7 +70,10 @@ function today() {
 // mirror (which always uses its own region).
 function originOf(service, source, settings = {}) {
   if (source !== 'live') return source;
-  const region = { gamepass: settings.market, psplus: settings.psLocale }[service];
+  const region = {
+    gamepass: settings.market, psplus: settings.psLocale, eaplay: settings.market,
+    ubisoftplus: settings.market, netflix: settings.region || settings.market,
+  }[service];
   return region ? `live:${region}` : 'live';
 }
 
@@ -130,6 +140,20 @@ class Catalog {
     return SERVICES.map((s) => this.load(s));
   }
 
+  appStoreDir() {
+    return path.join(this.dir, 'appstore');
+  }
+
+  // Re-applies App Store details found since the last refresh.
+  reapplyArcade() {
+    const entry = this.load('applearcade');
+    if (!entry.games.length) return entry;
+    const next = { ...entry, games: arcade.applyCached(entry.games, this.appStoreDir()) };
+    if (entry.source !== 'bundled') writeJson(this.fileFor('applearcade'), next);
+    this.cache.applearcade = next;
+    return next;
+  }
+
   // Tries the official source first, then the community mirror. Returns a
   // summary; on total failure the previous catalogue stays in place.
   async refresh(service, settings) {
@@ -139,6 +163,7 @@ class Catalog {
       try {
         let games = mergeDuplicates(await provider[source](settings));
         if (service === 'nso') games = await covers.apply(games, path.join(this.dir, 'covers'));
+        if (service === 'applearcade') games = arcade.applyCached(games, this.appStoreDir());
         if (games.length === 0) throw new Error('empty list');
         const prev = this.load(service);
         const origin = originOf(service, source, settings);
@@ -155,4 +180,4 @@ class Catalog {
   }
 }
 
-module.exports = { Catalog, mergeDuplicates, applyHistory, titleKey };
+module.exports = { Catalog, SERVICES, mergeDuplicates, applyHistory, titleKey };

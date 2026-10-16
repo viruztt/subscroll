@@ -9,8 +9,9 @@ const SERVICES = [
     tiers: [
       { id: 'essential', name: 'Essential', includes: ['essential'] },
       { id: 'premium', name: 'Premium', includes: ['premium', 'essential'] },
-      { id: 'pc', name: 'PC Game Pass', includes: ['pc'] },
-      { id: 'ultimate', name: 'Ultimate', includes: ['ultimate', 'premium', 'essential', 'pc'] },
+      { id: 'pc', name: 'PC Game Pass', includes: ['pc', 'eaplay:eaplay'] },
+      // Ultimate and PC Game Pass include EA Play; Ultimate also Ubisoft+ Classics.
+      { id: 'ultimate', name: 'Ultimate', includes: ['ultimate', 'premium', 'essential', 'pc', 'eaplay:eaplay', 'ubisoftplus:classics'] },
     ],
   },
   {
@@ -34,6 +35,37 @@ const SERVICES = [
       { id: 'expansion', name: '+ Expansion Pack', includes: ['expansion', 'base'] },
     ],
   },
+  {
+    id: 'eaplay',
+    name: 'EA Play',
+    short: 'EA Play',
+    color: '#f47c20',
+    tiers: [{ id: 'eaplay', name: 'EA Play', includes: ['eaplay'] }],
+  },
+  {
+    id: 'ubisoftplus',
+    name: 'Ubisoft+',
+    short: 'Ubisoft+',
+    color: '#00a6c8',
+    tiers: [
+      { id: 'classics', name: 'Classics', includes: ['classics'] },
+      { id: 'premium', name: 'Premium', includes: ['premium', 'classics'] },
+    ],
+  },
+  {
+    id: 'netflix',
+    name: 'Netflix Games',
+    short: 'Netflix',
+    color: '#b20710',
+    tiers: [{ id: 'any', name: 'Any Netflix plan', includes: ['any'] }],
+  },
+  {
+    id: 'applearcade',
+    name: 'Apple Arcade',
+    short: 'Arcade',
+    color: '#bf5af2',
+    tiers: [{ id: 'any', name: 'Apple Arcade', includes: ['any'] }],
+  },
 ];
 
 // Tier labels shown on game badges, which can differ from the plan name
@@ -44,6 +76,7 @@ const TIER_BADGES = {
   'psplus:premium': 'Classics',
   'nso:base': 'NSO',
   'nso:expansion': 'Expansion Pack',
+  'ubisoftplus:classics': 'Classics',
 };
 
 function allServices(customServices = []) {
@@ -58,7 +91,8 @@ function unlockedTiers(subscriptions, customServices = []) {
     if (!tierId) continue;
     const tier = service.tiers.find((t) => t.id === tierId);
     if (!tier) continue;
-    for (const inc of tier.includes) keys.add(`${service.id}:${inc}`);
+    // "service:tier" entries are another service's tier included in this plan.
+    for (const inc of tier.includes) keys.add(inc.includes(':') ? inc : `${service.id}:${inc}`);
   }
   return keys;
 }

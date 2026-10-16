@@ -10,6 +10,9 @@ const http = require('./providers/http');
 const HIT_DAYS = 30;
 const MISS_DAYS = 14;
 const CONCURRENCY = 2;
+// Pause after each lookup, so the first pass over a whole catalogue asks
+// each site about once a second rather than as fast as it answers.
+const PAUSE_MS = 1000;
 const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 
 // ---- titles ----
@@ -180,7 +183,7 @@ class HowLongToBeat {
 const lookupKey = (g) => (g.service === 'nso' ? `${g.platforms[0]}|` : '') + key(cleanTitle(g.title));
 
 class Ratings {
-  constructor(dir, { onUpdate = () => {}, onProgress = () => {} } = {}) {
+  constructor(dir, { onUpdate = () => {}, onProgress = () => {}, pauseMs = PAUSE_MS } = {}) {
     this.file = path.join(dir, 'ratings.json');
     try {
       this.data = JSON.parse(fs.readFileSync(this.file, 'utf8'));
@@ -189,6 +192,7 @@ class Ratings {
     }
     this.onUpdate = onUpdate;
     this.onProgress = onProgress;
+    this.pauseMs = pauseMs;
     this.hltb = new HowLongToBeat();
     this.running = null;
     this.pending = null;
@@ -270,6 +274,7 @@ class Ratings {
         lastSave = Date.now();
         this.save();
       }
+      if (this.pauseMs) await new Promise((r) => setTimeout(r, this.pauseMs));
     });
     this.save();
     this.onProgress({ done: total, total, finished: true, failed: failures > 25 });

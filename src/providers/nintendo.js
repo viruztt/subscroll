@@ -107,7 +107,7 @@ function toIsoDate(text) {
   return Number.isNaN(t) ? null : new Date(t).toISOString().slice(0, 10);
 }
 
-function parseWikipedia(html) {
+function parseWikipedia(html, today = new Date().toISOString().slice(0, 10)) {
   const games = [];
   const seen = new Set();
   const tableRe = /<table[^>]*class="[^"]*wikitable[^"]*"[^>]*>([\s\S]*?)<\/table>/gi;
@@ -147,7 +147,10 @@ function parseWikipedia(html) {
       const offered = (col) => col === -1 || !/^no\b/i.test(row.cells[col] || '');
       const regions = [offered(westCol) && 'west', offered(jpCol) && 'jp'].filter(Boolean);
       if (!regions.length) continue;
-      const game = makeGame(sys.system, sys.tier, title, dateCol !== -1 ? toIsoDate(row.cells[dateCol] || '') : null, regions);
+      const added = dateCol !== -1 ? toIsoDate(row.cells[dateCol] || '') : null;
+      const game = makeGame(sys.system, sys.tier, title, added, regions);
+      // Announced games are listed ahead of their date.
+      if (added && added > today) game.comingOn = added;
       if (seen.has(game.id)) continue;
       seen.add(game.id);
       game.storeUrl = WIKI_PAGE;
@@ -171,4 +174,4 @@ async function fetchLive() {
   return games;
 }
 
-module.exports = { parseWikipedia, tableGrid, fetchLive, makeGame };
+module.exports = { parseWikipedia, tableGrid, cellText, toIsoDate, fetchLive, makeGame };

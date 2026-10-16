@@ -2,6 +2,7 @@
 const $ = (sel) => document.querySelector(sel);
 const PAGE_SIZE = 120;
 const SOURCE_LABEL = { live: 'official source', mirror: 'community mirror', bundled: 'bundled list' };
+const SHORT_SOURCE = { live: 'official', mirror: 'mirror', bundled: 'bundled' };
 
 const ui = {
   view: 'browse',
@@ -54,7 +55,8 @@ function unlocked() {
   const keys = new Set();
   for (const s of allServices()) {
     const tier = s.tiers.find((t) => t.id === state.subscriptions[s.id]);
-    if (tier) tier.includes.forEach((inc) => keys.add(`${s.id}:${inc}`));
+    // "service:tier" entries are another service's tier (Ultimate includes EA Play).
+    if (tier) tier.includes.forEach((inc) => keys.add(inc.includes(':') ? inc : `${s.id}:${inc}`));
   }
   return keys;
 }
@@ -78,6 +80,9 @@ function tierLabel(g) {
   if (plans.length === s.tiers.length) return 'All plans';
   return plans.length === 1 ? plans[0].name : `${plans[0].name} and up`;
 }
+
+// Announced for a future date, not playable yet.
+const isComing = (g) => !!g.comingOn && g.comingOn > todayIso();
 
 function leaveInfo(g) {
   const date = state.leaveDates[g.id];
@@ -194,9 +199,12 @@ function placeholder(g) {
 
 function cover(g) {
   if (!g.image) return placeholder(g);
-  const src = g.service === 'gamepass' ? `${g.image}?w=300&h=450&q=80` : g.image;
-  // Retro box art comes in every shape, so show it whole instead of cropping.
-  const img = el('img', { class: `cover ${g.service === 'nso' ? 'contain' : ''}`, src, loading: 'lazy', alt: '' });
+  const msStore = ['gamepass', 'eaplay', 'ubisoftplus'].includes(g.service);
+  const src = msStore ? `${g.image}?w=300&h=450&q=80` : g.image;
+  // Retro box art comes in every shape, and phone games have square icons,
+  // so show those whole instead of cropping.
+  const whole = ['nso', 'netflix', 'applearcade'].includes(g.service);
+  const img = el('img', { class: `cover ${whole ? 'contain' : ''}`, src, loading: 'lazy', alt: '' });
   // Offline or a dead link: show the same artwork-free tile Nintendo games use.
   img.addEventListener('error', () => img.replaceWith(placeholder(g)), { once: true });
   return img;
@@ -257,7 +265,8 @@ function card(g, keys) {
     const text = leave.date ? (leave.past ? `Left ${fmtDate(leave.date)}` : `Leaves ${fmtDate(leave.date)}`) : 'Leaving soon';
     badges.push(el('span', { class: `badge ${leave.soon ? 'warn' : ''}` }, text));
   }
-  if (g.firstSeen && daysUntil(g.firstSeen) >= -30) badges.push(el('span', { class: 'badge new' }, 'New'));
+  if (isComing(g)) badges.push(el('span', { class: 'badge coming' }, `Coming ${fmtDate(g.comingOn)}`));
+  else if (g.firstSeen && daysUntil(g.firstSeen) >= -30) badges.push(el('span', { class: 'badge new' }, 'New'));
   if (g.leftOn) badges.push(el('span', { class: 'badge gone' }, `Left ${fmtDate(g.leftOn)}`));
   const open = () => { drawerRoll = null; openDrawer(g); };
   return el('article', { class: `card ${mine ? 'mine' : ''} mark-${markOf(g.id)}`, 'data-id': g.id, onclick: open },
@@ -327,6 +336,13 @@ function renderChanges() {
     list.length ? el('div', { class: 'grid' }, list.slice(0, 240).map((g) => card(g, keys))) : el('div', { class: 'empty small' }, empty));
   content.append(section(`Recently added (${added.length})`, added, 'Nothing new yet. New games show up here after the next refresh finds them.'));
   if (!hideDeparted()) content.append(section(`Left the service (${gone.length})`, gone, 'No departures recorded yet.'));
+}
+
+function renderComing() {
+  const list = filtered(games.filter(isComing));
+  list.sort((a, b) => a.comingOn.localeCompare(b.comingOn) || a.title.localeCompare(b.title));
+  $('#summary').textContent = `${list.length} announced games. Game Pass and Switch Online publish dates ahead; Apple Arcade dates come from Wikipedia. PS Plus, EA Play, Ubisoft+ and Netflix don't announce in a form the app can read.`;
+  renderGrid(list, 'Nothing announced right now.');
 }
 
 function renderMine() {
@@ -455,8 +471,9 @@ function sourcesPanel() {
     el('h2', {}, 'Where the lists come from'),
     el('ul', { class: 'sources' }, rows),
     el('p', { class: 'muted' },
-      'Game Pass comes from Microsoft\'s catalogue service, PS Plus from playstation.com\'s game lists. If those are unreachable the app falls back to community mirrors on GitHub. ',
-      'Nintendo publishes no list, so Switch Online comes from Wikipedia\'s "Nintendo Classics" article, with box art from the libretro-thumbnails collection.'));
+      'Game Pass, EA Play and Ubisoft+ come from Microsoft\'s catalogue service (so EA Play and Ubisoft+ show their Xbox and Microsoft Store editions), PS Plus from playstation.com\'s game lists. If Game Pass or PS Plus are unreachable the app falls back to community mirrors on GitHub. ',
+      'Nintendo publishes no list, so Switch Online comes from Wikipedia\'s "Nintendo Classics" article, with box art from the libretro-thumbnails collection. ',
+      'Netflix games are the apps Netflix publishes on the App Store. Apple Arcade comes from Wikipedia\'s "Apple Arcade" article, with icons and details from the App Store, looked up a few at a time.'));
 }
 
 function openDrawer(g) {
@@ -484,7 +501,8 @@ function openDrawer(g) {
         el('dt', {}, 'Platforms'), el('dd', {}, g.platforms.map(platformName).join(', ') || '—'),
         g.genres?.length ? [el('dt', {}, 'Genre'), el('dd', {}, g.genres.join(', '))] : null,
         g.releaseDate ? [el('dt', {}, 'Released'), el('dd', {}, fmtDate(g.releaseDate))] : null,
-        g.firstSeen ? [el('dt', {}, 'Added'), el('dd', {}, fmtDate(g.firstSeen))] : null,
+        isComing(g) ? [el('dt', {}, 'Coming'), el('dd', {}, fmtDate(g.comingOn))] : null,
+        g.firstSeen && !isComing(g) ? [el('dt', {}, 'Added'), el('dd', {}, fmtDate(g.firstSeen))] : null,
         ratingRows(g),
         leave ? [el('dt', {}, 'Leaving'), el('dd', {}, leave.date ? fmtDate(leave.date) : 'Soon, no date announced')] : null),
       markButtons(g, true),
@@ -583,7 +601,7 @@ function rollPool() {
   const hasSubs = keys.size > 0;
   return games.filter((g) => {
     if (hasSubs && !isMine(g, keys)) return false;
-    if (['completed', 'ignored'].includes(markOf(g.id))) return false;
+    if (['completed', 'ignored'].includes(markOf(g.id)) || isComing(g)) return false;
     if (ui.services.size && !ui.services.has(g.service)) return false;
     if (ui.platform !== 'all' && !g.platforms.includes(ui.platform)) return false;
     return true;
@@ -674,11 +692,14 @@ function renderChrome() {
   const keys = unlocked();
   const leaving = games.filter((g) => leaveInfo(g) && (!ui.mineOnly || isMine(g, keys))).length;
   $('#leaving-count').textContent = leaving || '';
+  $('#coming-count').textContent = games.filter((g) => isComing(g) && (!ui.mineOnly || isMine(g, keys))).length || '';
 
   const sync = catalogs.map((c) => {
     const s = serviceById(c.service);
+    // Services added later have no bundled list until their first refresh.
+    if (!c.games.length) return el('div', {}, `${s.short}: `, el('span', { class: 'muted' }, 'not loaded yet'));
     const when = c.fetchedAt ? new Date(c.fetchedAt).toLocaleDateString() : '—';
-    return el('div', {}, `${s.name}: ${when}`, el('span', { class: 'muted' }, ` (${SOURCE_LABEL[c.source] || c.source})`));
+    return el('div', {}, `${s.short}: ${when}`, el('span', { class: 'muted' }, ` (${SHORT_SOURCE[c.source] || c.source})`));
   });
   $('#sync').replaceChildren(...sync);
 }
@@ -690,10 +711,17 @@ function render(keepScroll = false) {
   const top = content.scrollTop;
   if (!keepScroll) ui.shown = PAGE_SIZE;
   renderChrome();
-  ({ browse: renderBrowse, leaving: renderLeaving, changes: renderChanges, mine: renderMine, subs: renderSubs })[ui.view]();
+  ({ browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, subs: renderSubs })[ui.view]();
   if (keepScroll) content.scrollTop = top;
   if (drawerGame) openDrawer(drawerGame);
 }
+
+// Apple Arcade icons arrive in the background a few at a time.
+api.onCatalogChanged(async () => {
+  catalogs = await api.getCatalog();
+  rebuildGames();
+  render(true);
+});
 
 // ---------- Metacritic / How Long To Beat ----------
 let reorderTimer = null;

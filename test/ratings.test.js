@@ -99,7 +99,7 @@ test('Background lookups: shared titles once, retro systems apart, cached on dis
   ];
   assert.notStrictEqual(lookupKey(games[2]), lookupKey(games[3]));
   const updates = {};
-  const r = new Ratings(dir, { onUpdate: (u) => Object.assign(updates, u) });
+  const r = new Ratings(dir, { pauseMs: 0, onUpdate: (u) => Object.assign(updates, u) });
   await r.start(games);
   assert.strictEqual(searches, 3);
   assert.deepStrictEqual(Object.keys(updates).sort(), games.map((g) => g.id).sort());
@@ -115,7 +115,7 @@ test('Background lookups stop when both sites are unreachable', async () => {
   http.setFetch(async () => { throw new Error('offline'); });
   const games = Array.from({ length: 40 }, (_, i) => ({ id: `gamepass:${i}`, service: 'gamepass', title: `Game ${i}`, platforms: ['pc'], tiers: [] }));
   let last = null;
-  const r = new Ratings(fs.mkdtempSync(path.join(os.tmpdir(), 'ratings-')), { onProgress: (p) => { last = p; } });
+  const r = new Ratings(fs.mkdtempSync(path.join(os.tmpdir(), 'ratings-')), { pauseMs: 0, onProgress: (p) => { last = p; } });
   await r.start(games);
   assert.ok(last.finished && last.failed);
   assert.deepStrictEqual(r.forGames(games), {});

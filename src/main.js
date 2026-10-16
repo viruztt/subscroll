@@ -1,7 +1,8 @@
 const { app, BrowserWindow, ipcMain, net, shell } = require('electron');
 const path = require('path');
 const { Store } = require('./store');
-const { Catalog } = require('./catalog');
+const { Catalog, SERVICES: CATALOG_SERVICES } = require('./catalog');
+const arcade = require('./providers/applearcade');
 const { DetailsCache } = require('./details');
 const { Ratings } = require('./ratings');
 const { SERVICES, TIER_BADGES, unlockedTiers } = require('./services');
@@ -52,7 +53,7 @@ async function refreshAll() {
   refreshing = (async () => {
     const settings = store.get().settings;
     const results = [];
-    for (const service of ['gamepass', 'psplus', 'nso']) {
+    for (const service of CATALOG_SERVICES) {
       win?.webContents.send('refresh-progress', { service, state: 'running' });
       const result = await catalog.refresh(service, settings);
       results.push(result);
@@ -60,12 +61,33 @@ async function refreshAll() {
     }
     store.update({ lastRefresh: new Date().toISOString() });
     startRatings();
+    enrichArcade();
     return results;
   })();
   try {
     return await refreshing;
   } finally {
     refreshing = null;
+  }
+}
+
+// ---- Apple Arcade icons and details, looked up slowly in the background ----
+let arcadeRunning = false;
+async function enrichArcade() {
+  if (arcadeRunning) return;
+  arcadeRunning = true;
+  try {
+    const { settings } = store.get();
+    const games = catalog.load('applearcade').games;
+    const changed = () => {
+      catalog.reapplyArcade();
+      win?.webContents.send('catalog-changed');
+    };
+    await arcade.lookupMissing(games, catalog.appStoreDir(), (settings.region || settings.market || 'US').toLowerCase(), { onFound: changed });
+  } catch {
+    // Retried after the next refresh.
+  } finally {
+    arcadeRunning = false;
   }
 }
 
@@ -135,6 +157,7 @@ app.whenReady().then(() => {
   });
   registerIpc();
   createWindow();
+  setTimeout(enrichArcade, 5000);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
