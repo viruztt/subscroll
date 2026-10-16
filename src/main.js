@@ -11,12 +11,14 @@ const http = require('./providers/http');
 const { makeBackup, parseBackup, backupName } = require('./backup');
 const steam = require('./steam');
 const alerts = require('./alerts');
+const { Prices } = require('./prices');
 const fs = require('fs');
 
 let store;
 let catalog;
 let details;
 let ratings;
+let prices;
 let win;
 let tray;
 let quitting = false;
@@ -260,7 +262,7 @@ function registerIpc() {
   ipcMain.handle('get-state', () => store.get());
   ipcMain.handle('update-state', (_e, patch) => {
     // Only user-owned fields can be written from the window.
-    const allowed = ['subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings'];
+    const allowed = ['subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings', 'costs', 'priceOverrides', 'viaSub'];
     const clean = Object.fromEntries(Object.entries(patch || {}).filter(([k]) => allowed.includes(k)));
     const next = store.update(clean);
     if (clean.settings) {
@@ -328,6 +330,13 @@ function registerIpc() {
   });
   // Marks stay; only the Steam link, key and owned list go.
   ipcMain.handle('forget-steam', () => store.update({ steam: null }));
+  ipcMain.handle('get-prices', () => prices.all());
+  // Looked up in the background; results arrive as 'prices' messages.
+  ipcMain.handle('lookup-prices', (_e, games) => {
+    const { settings } = store.get();
+    const region = regionById(settings.region);
+    prices.lookup(Array.isArray(games) ? games : [], { market: settings.market, language: settings.language, psLocale: settings.psLocale, currency: region?.currency }).catch(() => {});
+  });
   ipcMain.handle('open-external', (_e, url) => {
     if (typeof url === 'string' && /^https:\/\//.test(url)) shell.openExternal(url);
   });
@@ -363,6 +372,7 @@ app.whenReady().then(() => {
       else queueRatings();
     },
   });
+  prices = new Prices(dataDir, { onUpdate: (updates, progress) => win?.webContents.send('prices', { updates, progress }) });
   registerIpc();
   createWindow();
   createTray();

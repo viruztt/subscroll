@@ -5,7 +5,7 @@
 const FORMAT = 'subscroll-backup';
 const VERSION = 1;
 const MARKS = new Set(['played', 'completed', 'ignored', 'wishlist']);
-const FIELDS = ['subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings'];
+const FIELDS = ['subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings', 'costs', 'priceOverrides', 'viaSub'];
 
 function makeBackup(state, now = new Date()) {
   return {
@@ -17,6 +17,7 @@ function makeBackup(state, now = new Date()) {
 }
 
 const isObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+const mapOf = (v, ok) => (isObject(v) ? Object.fromEntries(Object.entries(v).filter(([, x]) => ok(x))) : {});
 const stringMap = (v) => (isObject(v) ? Object.fromEntries(Object.entries(v).filter(([, x]) => typeof x === 'string')) : {});
 
 // Returns the state to restore, or throws with a message for the user.
@@ -42,6 +43,9 @@ function parseBackup(text) {
       leaveDates: stringMap(s.leaveDates),
       customServices: Array.isArray(s.customServices) ? s.customServices.filter(isObject) : [],
       customGames: Array.isArray(s.customGames) ? s.customGames.filter(isObject) : [],
+      costs: mapOf(s.costs, (c) => isObject(c) && Number(c.monthly) >= 0),
+      priceOverrides: mapOf(s.priceOverrides, (x) => typeof x === 'number' && x >= 0),
+      viaSub: mapOf(s.viaSub, (x) => typeof x === 'boolean'),
       ...(isObject(s.settings) ? { settings: s.settings } : {}),
     },
   };

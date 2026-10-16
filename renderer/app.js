@@ -28,6 +28,9 @@ let games = []; // flattened catalogue + custom games
 let departed = [];
 let drawerGame = null;
 let ratings = {}; // game id -> { mc, mcUrl, hltb: { main, plus, all }, hltbUrl }
+let prices = {}; // game id -> { amount, currency, source, url } looked up for the Value page
+let priceProgress = null;
+let lastPriceAsk = 0;
 let drawerRoll = null; // set while the drawer shows a rolled game
 let rollTimer = null;
 const detailsCache = new Map(); // game id -> details, or a pending promise
@@ -597,6 +600,138 @@ function renderStats() {
   }
 }
 
+// ---------- value ----------
+const regionCurrency = () => regions.find((r) => r.id === state.settings.region)?.currency || null;
+function money(amount, digits) {
+  const currency = regionCurrency();
+  if (!currency) return amount.toFixed(2);
+  const d = digits ?? (amount >= 100 ? 0 : 2);
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency, minimumFractionDigits: d, maximumFractionDigits: d }).format(amount);
+}
+
+// The price you entered, else the one found in a store (in your currency).
+function priceOf(g) {
+  const manual = state.priceOverrides?.[g.id];
+  if (typeof manual === 'number') return { amount: manual, manual: true };
+  const p = prices[g.id];
+  return p?.amount > 0 && p.currency === regionCurrency() ? p : null;
+}
+
+// Played through a subscription, unless you said otherwise. Games you own
+// on Steam, or that aren't in your plans, you probably bought.
+function viaSub(g, keys) {
+  const set = state.viaSub?.[g.id];
+  if (typeof set === 'boolean') return set;
+  return isMine(g, keys) && !g.steam;
+}
+
+function renderValue() {
+  const content = $('#content');
+  content.replaceChildren();
+  const keys = unlocked();
+  const includePlayed = !!state.settings.valueIncludePlayed;
+  const beaten = statsGames().filter((g) => ['completed', ...(includePlayed ? ['played'] : [])].includes(markOf(g.id)));
+  // Prices for every beaten game, so ticking one shows its price at once.
+  // The app only looks up the ones it has no recent price for.
+  if (Date.now() - lastPriceAsk > 60000) {
+    lastPriceAsk = Date.now();
+    api.lookupPrices(beaten.map((g) => ({ id: g.id, title: g.title, offers: offersOf(g).map((o) => ({ id: o.id, service: o.service, storeUrl: o.storeUrl || null })) })));
+  }
+  const v = Value.compute(beaten, {
+    markOf: (g) => markOf(g.id),
+    myServices: (g) => serviceOffers(g).filter((o) => offerIsMine(o, keys)).map((o) => o.service),
+    price: priceOf,
+    viaSub: (g) => viaSub(g, keys),
+    costs: state.costs || {},
+    today: todayIso(),
+    includePlayed,
+  });
+  const lookingUp = priceProgress && priceProgress.done < priceProgress.total ? ` Looking up prices: ${priceProgress.done} of ${priceProgress.total}.` : '';
+  $('#summary').textContent = `Today's full store prices${regionCurrency() ? ` in ${regionCurrency()}` : ''}, not sale prices.${lookingUp}`;
+
+  const tile = (value, label, title, cls = '') => el('div', { class: `tile ${cls}`, title: title || '' }, el('div', { class: 'tile-num' }, value), el('div', { class: 'tile-label' }, label));
+  const ahead = v.saved >= 0;
+  content.append(el('div', { class: 'tiles' },
+    tile(money(v.worth), `to buy the ${v.games} game${v.games === 1 ? '' : 's'} you beat`, v.priced < v.games ? `${v.games - v.priced} without a price yet` : ''),
+    tile(v.paid ? money(v.paid) : '—', 'paid in subscriptions', v.paid ? '' : 'Enter what you pay below'),
+    v.paid ? tile(money(Math.abs(v.saved)), ahead ? 'saved by subscribing' : 'more than buying them', '', ahead ? 'good' : 'bad') : null,
+    v.perGame ? tile(money(v.perGame), 'per game beaten', 'What each game cost you through subscriptions') : null));
+
+  const playedBox = el('input', { type: 'checkbox' });
+  playedBox.checked = includePlayed;
+  playedBox.addEventListener('change', async () => { await saveState({ settings: { ...state.settings, valueIncludePlayed: playedBox.checked } }); render(true); });
+  content.append(el('label', { class: 'check-row value-toggle' }, playedBox, el('span', {}, 'Count games you played but didn\'t finish')));
+
+  content.append(costsPanel(v), beatenPanel(v));
+}
+
+// What each plan costs you, to compare against.
+function costsPanel(v) {
+  const subscribed = allServices().filter((s) => state.subscriptions[s.id]);
+  const byService = new Map(v.services.map((r) => [r.service, r]));
+  const save = async (id, patch) => {
+    const costs = { ...(state.costs || {}) };
+    costs[id] = { ...(costs[id] || {}), ...patch };
+    await saveState({ costs });
+    render(true);
+  };
+  const rows = subscribed.map((s) => {
+    const c = state.costs?.[s.id] || {};
+    const r = byService.get(s.id);
+    const monthly = el('input', { type: 'number', min: '0', step: '0.01', placeholder: 'per month', value: c.monthly ?? '' });
+    monthly.addEventListener('change', () => save(s.id, { monthly: monthly.value === '' ? null : Number(monthly.value) }));
+    const since = el('input', { type: 'month', value: c.since || '', max: todayIso().slice(0, 7) });
+    since.addEventListener('change', () => save(s.id, { since: since.value || null }));
+    const verdict = r && r.paid ? (r.value >= r.paid ? `saved ${money(r.value - r.paid)}` : `${money(r.paid - r.value)} more than buying`) : '';
+    return el('div', { class: 'cost-row', style: `--svc:${s.color}` },
+      el('div', { class: 'cost-name' }, el('span', { class: 'dot', style: `background:${s.color}` }), s.name),
+      el('label', { class: 'cost-field' }, monthly, el('span', { class: 'muted' }, '/ month since'), since),
+      el('div', { class: 'cost-sum' },
+        r?.paid ? el('div', {}, `${money(r.paid)} paid over ${r.months} month${r.months === 1 ? '' : 's'}`) : el('div', { class: 'muted' }, c.monthly ? 'Pick the month you started' : 'Not counted'),
+        r?.games ? el('div', { class: 'muted' }, `${r.games} beaten, worth ${money(r.value)}${verdict ? ` · ${verdict}` : ''}`) : null));
+  });
+  return el('div', { class: 'panel' },
+    el('h2', {}, 'What you pay'),
+    el('p', { class: 'muted' }, 'Enter the monthly price of each plan you pay for and when you started (for a yearly plan, divide by 12). Leave out plans that come included with another, like EA Play with Game Pass Ultimate.'),
+    rows.length ? rows : el('p', { class: 'muted' }, 'Pick your plans in Settings first.'));
+}
+
+// Every beaten game, its price, and whether it counts.
+function beatenPanel(v) {
+  const keys = unlocked();
+  const all = statsGames().filter((g) => ['completed', ...(state.settings.valueIncludePlayed ? ['played'] : [])].includes(markOf(g.id)));
+  const counted = new Set(v.list.map((x) => x.game.id));
+  all.sort((a, b) => (counted.has(b.id) - counted.has(a.id)) || ((priceOf(b)?.amount || 0) - (priceOf(a)?.amount || 0)) || a.title.localeCompare(b.title));
+  const rows = all.map((g) => {
+    const on = counted.has(g.id);
+    const box = el('input', { type: 'checkbox', title: 'Played through a subscription' });
+    box.checked = on;
+    box.addEventListener('change', async () => { await saveState({ viaSub: { ...(state.viaSub || {}), [g.id]: box.checked } }); render(true); });
+    const p = priceOf(g);
+    const looked = prices[g.id];
+    const input = el('input', { type: 'number', min: '0', step: '0.01', class: 'price-input', placeholder: looked ? 'enter price' : 'looking up…', value: p?.manual ? p.amount : '' });
+    input.addEventListener('change', async () => {
+      const overrides = { ...(state.priceOverrides || {}) };
+      if (input.value === '') delete overrides[g.id];
+      else overrides[g.id] = Number(input.value);
+      await saveState({ priceOverrides: overrides });
+      render(true);
+    });
+    const shown = p && !p.manual
+      ? el('span', { class: 'price' }, el('button', { class: 'link inline', title: `Full price on ${p.source}`, onclick: () => p.url && api.openExternal(p.url) }, money(p.amount, 2)), el('span', { class: 'muted' }, ` ${p.source}`),
+        el('button', { class: 'link inline price-edit', title: 'Use a different price', onclick: (e) => { e.currentTarget.parentElement.replaceWith(input); input.focus(); } }, 'edit'))
+      : input;
+    return el('div', { class: `beaten-row ${on ? '' : 'off'}` },
+      el('label', { class: 'beaten-check' }, box, el('span', { class: 'beaten-title', title: g.title }, g.title)),
+      el('div', { class: 'meta' }, serviceOffers(g).slice(0, 3).map((o) => serviceTag(o)), markOf(g.id) === 'played' ? el('span', { class: 'tier' }, 'played') : null),
+      shown);
+  });
+  return el('div', { class: 'panel' },
+    el('h2', {}, 'Games you beat'),
+    el('p', { class: 'muted' }, 'Untick games you bought or played some other way; they don\'t count. Prices come from the service\'s own store, else Steam; Switch Online classics aren\'t sold anywhere, so enter what they\'re worth to you.'),
+    rows.length ? rows : el('p', { class: 'muted' }, 'Mark games as completed and they show up here.'));
+}
+
 function renderSubs() {
   $('#summary').textContent = 'Your plans, region, background, Steam and backups. Everything is saved on this computer.';
   const content = $('#content');
@@ -1018,7 +1153,7 @@ function roll() {
 
 function renderChrome() {
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.view === ui.view));
-  $('#toolbar').classList.toggle('hidden', ui.view === 'subs' || ui.view === 'stats');
+  $('#toolbar').classList.toggle('hidden', ['subs', 'stats', 'value'].includes(ui.view));
 
   const chips = $('#service-chips');
   chips.replaceChildren(...allServices().map((s) => el('button', {
@@ -1071,7 +1206,7 @@ function render(keepScroll = false) {
   const top = content.scrollTop;
   if (!keepScroll) ui.shown = PAGE_SIZE;
   renderChrome();
-  ({ browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, toplay: renderToPlay, stats: renderStats, subs: renderSubs })[ui.view]();
+  ({ browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, toplay: renderToPlay, stats: renderStats, value: renderValue, subs: renderSubs })[ui.view]();
   if (keepScroll) content.scrollTop = top;
   if (drawerGame) openDrawer(drawerGame);
 }
@@ -1081,6 +1216,15 @@ api.onShowView((view) => {
   ui.view = view;
   $('#content').scrollTop = 0;
   render();
+});
+
+// Prices arrive one game at a time.
+let priceTimer = null;
+api.onPrices(({ updates, progress }) => {
+  Object.assign(prices, updates);
+  priceProgress = progress.done < progress.total ? progress : null;
+  if (ui.view !== 'value' || priceTimer) return;
+  priceTimer = setTimeout(() => { priceTimer = null; if (ui.view === 'value') render(true); }, 800);
 });
 
 // The daily refresh reads the Steam library again.
@@ -1196,6 +1340,7 @@ async function init() {
   state = await api.getState();
   catalogs = await api.getCatalog();
   rebuildGames();
+  prices = await api.getPrices();
   const r = await api.getRatings();
   ratings = r.ratings;
   showRatingProgress(r.progress);

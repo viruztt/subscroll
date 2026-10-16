@@ -8,6 +8,9 @@ const DEFAULT_STATE = {
   leaveDates: {}, // gameId -> 'YYYY-MM-DD', entered by the user
   customServices: [], // { id, name, color, tiers: [{ id, name, includes }] }
   customGames: [], // same shape as catalogue games, service = a custom service id
+  costs: {}, // serviceId -> { monthly, since: 'YYYY-MM' }, for the Value page
+  priceOverrides: {}, // gameId -> price the user entered
+  viaSub: {}, // gameId -> whether it was played through a subscription (when the user changed it)
   settings: { region: 'US', market: 'US', language: 'en-us', psLocale: 'en-us', autoRefreshHours: 24, hideDeparted: false, hideCompleted: false, hideIgnored: true, closeToTray: true, startWithWindows: false, alerts: true },
 };
 

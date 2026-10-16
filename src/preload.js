@@ -17,5 +17,8 @@ contextBridge.exposeInMainWorld('api', {
   forgetSteam: () => ipcRenderer.invoke('forget-steam'),
   onStateChanged: (fn) => ipcRenderer.on('state-changed', (_e, s) => fn(s)),
   onShowView: (fn) => ipcRenderer.on('show-view', (_e, view) => fn(view)),
+  getPrices: () => ipcRenderer.invoke('get-prices'),
+  lookupPrices: (games) => ipcRenderer.invoke('lookup-prices', games),
+  onPrices: (fn) => ipcRenderer.on('prices', (_e, msg) => fn(msg)),
   onRefreshProgress: (fn) => ipcRenderer.on('refresh-progress', (_e, msg) => fn(msg)),
 });
