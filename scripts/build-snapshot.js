@@ -16,14 +16,12 @@ const write = (rel, games) => {
 const bundledCovers = require('../data/nintendo-covers.json');
 
 (async () => {
-  let nso;
   try {
-    nso = await nintendo.fetchLive();
+    const nso = await nintendo.fetchLive();
+    write('data/snapshot/nso.json', nso.map((g) => ({ ...g, image: bundledCovers[g.id] || null })));
   } catch (err) {
-    console.log(`nso: Wikipedia failed (${err.message}), using scripts/nintendo-source.txt`);
-    nso = nintendo.parseSource(fs.readFileSync(path.join(__dirname, 'nintendo-source.txt'), 'utf8'));
+    console.log(`nso: Wikipedia failed (${err.message}), keeping the current snapshot`);
   }
-  write('data/snapshot/nso.json', nso.map((g) => ({ ...g, image: bundledCovers[g.id] || null })));
   for (const [name, provider] of [['gamepass', gamepass], ['psplus', psplus]]) {
     try {
       write(`data/snapshot/${name}.json`, await provider.fetchLive());

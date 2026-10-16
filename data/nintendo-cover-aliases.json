@@ -64,5 +64,40 @@
  },
  "Virtual Boy|The Mansion of Innsmouth": {
   "file": "Innsmouth no Yakata (Japan).png"
+ },
+ "NES|Tsuppari Ōzumō": {
+  "file": "Tsuppari Oozumou (Japan).png"
+ },
+ "NES|The Mystery of Atlantis": {
+  "file": "Atlantis no Nazo (Japan).png"
+ },
+ "NES|Downtown Nekketsu March: Super-Awesome Field Day!": {
+  "file": "Downtown - Nekketsu Koushinkyoku - Soreyuke Daiundoukai (Japan).png"
+ },
+ "NES|The Mysterious Murasame Castle": {
+  "repo": "Nintendo_-_Game_Boy_Advance",
+  "file": "Famicom Mini 22 - Nazo no Murasame Jou (Japan).png"
+ },
+ "NES|Famicom Mukashibanashi: Shin Onigashima": {
+  "repo": "Nintendo_-_Game_Boy_Advance",
+  "file": "Famicom Mini 26 - Famicom Mukashibanashi - Shin Onigashima - Zen, Kouhen (Japan).png"
+ },
+ "SNES|Amazing Hebereke": {
+  "file": "Sugoi Hebereke (Japan).png"
+ },
+ "SNES|Kunio-kun no Dodgeball da yo Zen'in Shūgō!": {
+  "file": "Kunio-kun no Dodge Ball Da yo Zenin Shuugou! (Japan).png"
+ },
+ "SNES|Marvelous: Mōhitotsu no Takarajima": {
+  "file": "Marvelous - Mouhitotsu no Takara-jima (Japan).png"
+ },
+ "Sega Genesis|MUSHA": {
+  "file": "MUSHA - Metallic Uniframe Super Hybrid Armor (USA).png"
+ },
+ "Game Boy Advance|WarioWare, Inc.: Mega Microgames!": {
+  "file": "WarioWare, Inc. - Mega Microgame$! (USA).png"
+ },
+ "Game Boy Advance|Fire Emblem: The Blazing Blade": {
+  "file": "Fire Emblem (USA, Australia).png"
  }
 }

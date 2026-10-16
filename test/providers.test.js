@@ -67,13 +67,14 @@ test('PS Plus: catalogue and classics merge into tiers', () => {
   assert.deepStrictEqual(hat.platforms, ['PS4']);
 });
 
-test('Nintendo source parses sections and tiers', () => {
-  const games = nintendo.parseSource('### NES | base\nMetroid\n\n### N64 | expansion\n# comment\nSuper Mario 64\n');
-  assert.deepStrictEqual(games.map((g) => [g.title, g.tiers[0], g.platforms[0]]), [['Metroid', 'base', 'NES'], ['Super Mario 64', 'expansion', 'N64']]);
-  assert.ok(fixture('../../data/snapshot/nso.json').games.length > 300);
+test('Bundled Switch Online snapshot has every system and most covers', () => {
+  const { games } = fixture('../../data/snapshot/nso.json');
+  assert.ok(games.length > 300);
+  assert.strictEqual(new Set(games.map((g) => g.platforms[0])).size, 8);
+  assert.ok(games.filter((g) => g.image).length / games.length > 0.95);
 });
 
-test('Wikipedia Nintendo Classics tables: systems, shared dates, Japan-only games skipped', () => {
+test('Wikipedia Nintendo Classics tables: systems, shared dates, two-row headers, removed and Japan-only games skipped', () => {
   const html = fs.readFileSync(path.join(__dirname, 'fixtures', 'wikipedia-classics.html'), 'utf8');
   const games = nintendo.parseWikipedia(html);
   assert.deepStrictEqual(games.map((g) => [g.platforms[0], g.title, g.tiers[0], g.addedOn]), [
@@ -83,6 +84,7 @@ test('Wikipedia Nintendo Classics tables: systems, shared dates, Japan-only game
     ['Game Boy', 'Dr. Mario', 'base', '2023-02-08'],
     ['Game Boy', 'Game & Watch Gallery 3', 'base', '2023-03-16'],
     ['N64', 'Super Mario 64', 'expansion', '2021-10-25'],
+    ['N64', 'Super Mario 64 SP', 'expansion', '2021-10-25'],
   ]);
   // Same ids as the bundled list, so marks survive switching sources.
   assert.strictEqual(games[0].id, 'nso:nes:balloon-fight');
@@ -100,12 +102,17 @@ test('Covers: No-Intro names, region preference, aliases and GitHub listing', as
       'Legend of Zelda, The - A Link to the Past (USA).png',
       'Legend of Zelda, The - A Link to the Past (USA) (Beta).png',
       'Mario to Wario (Japan) (En).png',
+      "Donkey Kong Country 2 - Diddy's Kong Quest (USA) (En,Fr).png",
     ],
   };
   const index = covers.buildIndex(listings);
   assert.match(covers.match(index, 'SNES', 'The Legend of Zelda: A Link to the Past'), /A%20Link%20to%20the%20Past%20\(USA\)\.png$/);
   assert.match(covers.match(index, 'SNES', 'Mario & Wario'), /Mario%20to%20Wario/);
   assert.strictEqual(covers.match(index, 'SNES', 'Unknown Game'), null);
+  // Special editions, regional copies and shortened titles use the base game's art.
+  assert.match(covers.match(index, 'SNES', 'The Legend of Zelda: A Link to the Past SP (Ganon battle)'), /\(USA\)\.png$/);
+  assert.match(covers.match(index, 'SNES', 'The Legend of Zelda: A Link to the Past (JP)'), /\(USA\)\.png$/);
+  assert.match(covers.match(index, 'SNES', 'Donkey Kong Country 2'), /Diddy's%20Kong%20Quest/);
 
   const calls = [];
   http.setFetch(async (url) => {
@@ -132,7 +139,7 @@ test('Covers fall back to the bundled map when GitHub is unreachable', async () 
 });
 
 test('Retro games with the same title on two systems stay separate', () => {
-  const games = nintendo.parseSource('### NES | base\nDr. Mario\n### Game Boy | base\nDr. Mario\n');
+  const games = [nintendo.makeGame('NES', 'base', 'Dr. Mario'), nintendo.makeGame('Game Boy', 'base', 'Dr. Mario')];
   assert.strictEqual(mergeDuplicates(games).length, 2);
 });
 

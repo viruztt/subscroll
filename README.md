@@ -26,4 +26,4 @@ Other services (Ubisoft+, EA Play, Apple Arcade…) can be added on the Subscrip
 - `src/main.js`: window, IPC, daily refresh. `src/catalog.js`: refresh, fallbacks, history, merging Xbox console/PC duplicates.
 - `src/providers/`: one file per service.
 - `renderer/`: the UI (plain HTML/CSS/JS).
-- `data/`: bundled snapshot used until the first refresh. `npm run snapshot` rebuilds it; the Switch Online part falls back to `scripts/nintendo-source.txt` when Wikipedia can't be reached. `scripts/match-covers.js` rebuilds the offline cover map.
+- `data/`: bundled snapshot used until the first refresh. `npm run snapshot` rebuilds it. `scripts/match-covers.js` rebuilds the offline Switch Online cover map; titles whose box art is named differently go in `data/nintendo-cover-aliases.json`.

@@ -38,7 +38,29 @@ function key(title) {
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
     .replace(/^(the|a) /, '')
+    .replace(/\band\b/g, '') // No-Intro writes "&", which libretro turns into "_"
     .replace(/[^a-z0-9]+/g, '');
+}
+
+// Wikipedia lists special editions and regional copies separately:
+// "Metroid SP (Ridley battle)", "Adventures of Lolo (NA)". They share the
+// base game's box art.
+function baseTitle(title) {
+  return title
+    .replace(/\s+\((NA|JP|EU|PAL)\)$/i, '')
+    .replace(/\s+SP(\s+\(.*\))?$/, '')
+    .trim();
+}
+
+// Shortened titles ("Donkey Kong Country 2") match the full No-Intro name
+// ("Donkey Kong Country 2 - Diddy's Kong Quest") by prefix.
+function prefixCandidates(bySystem, k) {
+  if (!bySystem || k.length < 6) return [];
+  let best = null;
+  for (const [candidate, files] of bySystem) {
+    if (candidate.startsWith(k) && (!best || candidate.length < best.key.length)) best = { key: candidate, files };
+  }
+  return best ? best.files : [];
 }
 
 // "Legend of Zelda, The - A Link to the Past (USA).png" -> "The Legend of Zelda - A Link to the Past"
@@ -75,9 +97,12 @@ function buildIndex(listings) {
 }
 
 function match(index, system, title) {
-  const alias = ALIASES[`${system}|${title}`];
+  const base = baseTitle(title);
+  const alias = ALIASES[`${system}|${title}`] || ALIASES[`${system}|${base}`];
   if (alias) return urlFor(alias.repo || REPOS[system][0], alias.file);
-  const candidates = (index[system] && index[system].get(key(title))) || [];
+  const bySystem = index[system];
+  let candidates = (bySystem && bySystem.get(key(base))) || [];
+  if (!candidates.length) candidates = prefixCandidates(bySystem, key(base));
   if (!candidates.length) return null;
   const best = [...candidates].sort((a, b) => regionScore(a.file) - regionScore(b.file) || a.file.length - b.file.length)[0];
   return urlFor(best.repo, best.file);
@@ -130,4 +155,4 @@ async function apply(games, cacheDir) {
   }));
 }
 
-module.exports = { REPOS, buildIndex, match, apply, key, noIntroTitle };
+module.exports = { REPOS, buildIndex, match, apply, key, noIntroTitle, baseTitle };

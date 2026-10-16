@@ -2,8 +2,8 @@ const { getJson } = require('./http');
 
 // Nintendo publishes no machine-readable list of its retro library
 // ("Nintendo Classics"). The Wikipedia article keeps a table per system,
-// updated as games are added, so that's the live source. The curated
-// scripts/nintendo-source.txt builds the bundled fallback.
+// updated as games are added, so that's the live source. The bundled
+// data/snapshot/nso.json (a saved copy of it) is the offline fallback.
 const WIKI_URL = 'https://en.wikipedia.org/w/api.php?action=parse&page=Nintendo_Classics' +
   '&prop=text&format=json&formatversion=2&redirects=1';
 const WIKI_PAGE = 'https://en.wikipedia.org/wiki/Nintendo_Classics';
@@ -37,23 +37,6 @@ function makeGame(system, tier, title, addedOn = null) {
     addedOn,
     storeUrl: null,
   };
-}
-
-// ---- curated fallback ----
-function parseSource(text) {
-  const games = [];
-  let system = null;
-  let tier = null;
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line || (line.startsWith('#') && !line.startsWith('###'))) continue;
-    if (line.startsWith('###')) {
-      [system, tier] = line.slice(3).split('|').map((s) => s.trim());
-      continue;
-    }
-    if (system) games.push(makeGame(system, tier, line));
-  }
-  return games;
 }
 
 // ---- Wikipedia ----
@@ -135,18 +118,29 @@ function parseWikipedia(html) {
     if (!sys) continue;
 
     const grid = tableGrid(m[1]);
-    const headerRow = grid.find((r) => r.allHeaders);
-    if (!headerRow) continue;
-    const cols = headerRow.cells.map((c) => (c || '').toLowerCase());
-    const gameCol = cols.findIndex((c) => c === 'game' || c === 'title' || c.startsWith('game'));
+    // Headers can span two rows ("Availability" over "NA/PAL" and "JP"),
+    // so each column's name is every header row's text for it combined.
+    const headerRows = grid.filter((r) => r.allHeaders);
+    if (!headerRows.length) continue;
+    const width = Math.max(...grid.map((r) => r.cells.length));
+    const cols = Array.from({ length: width }, (_, i) => headerRows.map((r) => r.cells[i] || '').join(' ').toLowerCase());
+    const gameCol = cols.findIndex((c) => /\b(game|title)\b/.test(c));
     const dateCol = cols.findIndex((c) => c.includes('date'));
-    const westCol = cols.findIndex((c) => c.includes('na') && c.includes('pal'));
+    const dataRows = grid.filter((r) => !r.allHeaders);
     if (gameCol === -1) continue;
+    // Region availability column: named NA/PAL, or failing that the first
+    // column holding only Yes/No values (the western one comes before JP).
+    let westCol = cols.findIndex((c) => /\bna\b/.test(c) || /\bpal\b/.test(c) || c.includes('west'));
+    if (westCol === -1) {
+      westCol = cols.findIndex((_, i) => i !== gameCol && dataRows.length > 0 &&
+        dataRows.every((r) => /^(yes|no)\b/i.test(r.cells[i] || '')));
+    }
 
-    for (const row of grid) {
-      if (row.allHeaders) continue;
+    for (const row of dataRows) {
       const title = (row.cells[gameCol] || '').trim();
       if (!title) continue;
+      // Delisted games stay in the article, marked "(removed on …)".
+      if (/\(removed\b[^)]*\)/i.test(title)) continue;
       // Skip games only offered in Japan.
       if (westCol !== -1 && /^no\b/i.test(row.cells[westCol] || '')) continue;
       const game = makeGame(sys.system, sys.tier, title, dateCol !== -1 ? toIsoDate(row.cells[dateCol] || '') : null);
@@ -173,4 +167,4 @@ async function fetchLive() {
   return games;
 }
 
-module.exports = { parseSource, parseWikipedia, tableGrid, fetchLive, slug };
+module.exports = { parseWikipedia, tableGrid, fetchLive, makeGame };
