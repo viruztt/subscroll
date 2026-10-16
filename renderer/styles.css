@@ -309,3 +309,4 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .card:hover .cover-ignore, .cover-ignore.on { opacity: 1; }
 .cover-ignore:hover { background: #6b7280; }
 .cover-ignore.on { background: #6b7280; }
+.tag.dim { opacity: .45; }

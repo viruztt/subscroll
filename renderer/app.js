@@ -61,7 +61,20 @@ function unlocked() {
   return keys;
 }
 
-const isMine = (g, keys) => g.tiers.some((t) => keys.has(`${g.service}:${t}`));
+// A game can be in several services; each is one of its offers.
+const offersOf = (g) => g.offers || [g];
+const offerIsMine = (o, keys) => o.tiers.some((t) => keys.has(`${o.service}:${t}`));
+const isMine = (g, keys) => offersOf(g).some((o) => offerIsMine(o, keys));
+const inServices = (g, set) => offersOf(g).some((o) => set.has(o.service));
+// One per service: a service can list two editions of the same game.
+function serviceOffers(g) {
+  const by = new Map();
+  for (const o of offersOf(g)) {
+    const prev = by.get(o.service);
+    by.set(o.service, prev ? { ...prev, tiers: [...new Set([...prev.tiers, ...o.tiers])], leavingSoon: prev.leavingSoon || o.leavingSoon } : o);
+  }
+  return [...by.values()];
+}
 
 // Plans of the service that include this game, cheapest first.
 function plansFor(g) {
@@ -87,12 +100,29 @@ const isComing = (g) => !!g.comingOn && g.comingOn > todayIso();
 function leaveInfo(g) {
   const date = state.leaveDates[g.id];
   if (date) return { date, soon: daysUntil(date) <= 31, past: daysUntil(date) < 0 };
-  if (g.leavingSoon) return { date: null, soon: true };
+  if (g.leavingSoon) {
+    // For a game in several services, say which one it's leaving.
+    const from = serviceOffers(g).length > 1 ? serviceOffers(g).filter((o) => o.leavingSoon).map((o) => serviceById(o.service)?.short || o.service) : [];
+    return { date: null, soon: true, from };
+  }
   return null;
 }
 
+// Marks belong to the game, whichever service's entry was marked (marks
+// made before games were merged sit on any of its ids).
+let markGroups = new Map(); // game id -> every id of the same game
+const markIds = (id) => markGroups.get(id) || [id];
+
 function markOf(id) {
-  return state.marks[id] || 'none';
+  for (const x of markIds(id)) if (state.marks[x]) return state.marks[x];
+  return 'none';
+}
+
+async function setMark(id, value) {
+  const marks = { ...state.marks };
+  for (const x of markIds(id)) delete marks[x];
+  if (value) marks[id] = value;
+  await saveState({ marks });
 }
 
 async function saveState(patch) {
@@ -118,7 +148,12 @@ function rebuildGames() {
     for (const d of c.history?.departed || []) departed.push(d);
   }
   for (const g of state.customGames || []) out.push({ ...g, custom: true });
-  games = out;
+  games = Unify.unify(out);
+  markGroups = new Map();
+  for (const g of games) {
+    const ids = offersOf(g).map((o) => o.id);
+    if (ids.length > 1) ids.forEach((id) => markGroups.set(id, ids));
+  }
 }
 
 function platformsList() {
@@ -140,7 +175,7 @@ function filtered(list) {
   const keys = unlocked();
   const q = ui.search.trim().toLowerCase();
   return list.filter((g) => {
-    if (ui.services.size && !ui.services.has(g.service)) return false;
+    if (ui.services.size && !inServices(g, ui.services)) return false;
     if (ui.mineOnly && !isMine(g, keys)) return false;
     if (hideDeparted() && (g.leftOn || leaveInfo(g)?.past)) return false;
     if (hideCompleted() && markOf(g.id) === 'completed') return false;
@@ -191,6 +226,20 @@ function serviceTag(g) {
   return el('span', { class: 'tag', style: `--svc:${s ? s.color : '#666'}` }, s ? s.short || s.name : g.service);
 }
 
+// One service: its tag and plan. Several: a tag each, plan on hover, and
+// the services in your plans highlighted.
+function serviceMeta(g, keys) {
+  const offers = serviceOffers(g);
+  if (offers.length === 1) return el('div', { class: 'meta' }, serviceTag(g), el('span', { class: 'tier' }, tierLabel(g)));
+  return el('div', { class: 'meta' }, offers.map((o) => {
+    const tag = serviceTag(o);
+    const s = serviceById(o.service);
+    tag.title = [s?.name, tierLabel(o)].filter(Boolean).join(': ');
+    if (keys && !offerIsMine(o, keys)) tag.classList.add('dim');
+    return tag;
+  }));
+}
+
 function placeholder(g) {
   const s = serviceById(g.service);
   return el('div', { class: 'cover placeholder', style: `--svc:${s ? s.color : '#444'}` },
@@ -228,10 +277,7 @@ function markButtons(g, wide = false) {
   const mark = markOf(g.id);
   const set = (value) => async (e) => {
     e.stopPropagation();
-    const marks = { ...state.marks };
-    if (mark === value) delete marks[g.id];
-    else marks[g.id] = value;
-    await saveState({ marks });
+    await setMark(g.id, mark === value ? null : value);
     render(true);
   };
   return el('div', { class: 'marks' },
@@ -248,10 +294,7 @@ function ignoreButton(g, cls) {
     title: ignored ? 'Ignored: click to stop ignoring' : 'Ignore: not interested, hide it',
     onclick: async (e) => {
       e.stopPropagation();
-      const marks = { ...state.marks };
-      if (ignored) delete marks[g.id];
-      else marks[g.id] = 'ignored';
-      await saveState({ marks });
+      await setMark(g.id, ignored ? null : 'ignored');
       render(true);
     },
   }, cls.startsWith('mark') ? (ignored ? '⊘ Ignored' : '⊘ Ignore') : '⊘');
@@ -262,7 +305,8 @@ function card(g, keys) {
   const mine = isMine(g, keys);
   const badges = [];
   if (leave) {
-    const text = leave.date ? (leave.past ? `Left ${fmtDate(leave.date)}` : `Leaves ${fmtDate(leave.date)}`) : 'Leaving soon';
+    const text = leave.date ? (leave.past ? `Left ${fmtDate(leave.date)}` : `Leaves ${fmtDate(leave.date)}`)
+      : leave.from?.length ? `Leaving ${leave.from.join(', ')} soon` : 'Leaving soon';
     badges.push(el('span', { class: `badge ${leave.soon ? 'warn' : ''}` }, text));
   }
   if (isComing(g)) badges.push(el('span', { class: 'badge coming' }, `Coming ${fmtDate(g.comingOn)}`));
@@ -273,7 +317,7 @@ function card(g, keys) {
     el('div', { class: 'cover-wrap' }, cover(g), el('div', { class: 'badges' }, badges), ignoreButton(g, 'cover-ignore')),
     el('div', { class: 'body' },
       el('div', { class: 'title', title: g.title }, g.title),
-      el('div', { class: 'meta' }, serviceTag(g), el('span', { class: 'tier' }, tierLabel(g))),
+      serviceMeta(g, keys),
       el('div', { class: 'stats' }, stats(g)),
       markButtons(g)));
 }
@@ -480,7 +524,11 @@ function openDrawer(g) {
   drawerGame = g;
   const drawer = $('#drawer');
   const leave = leaveInfo(g);
-  const plans = plansFor(g).map((t) => t.name).join(', ');
+  const offers = serviceOffers(g);
+  const keys = unlocked();
+  // Per service when the game is in more than one.
+  const plans = offers.length === 1 ? plansFor(g).map((t) => t.name).join(', ')
+    : offers.map((o) => el('div', {}, `${serviceById(o.service)?.name || o.service}: ${plansFor(o).map((t) => t.name).join(', ') || '—'}`));
   const close = closeDrawer;
   const deleteCustom = async () => {
     await saveState({ customGames: state.customGames.filter((c) => c.id !== g.id) });
@@ -495,19 +543,20 @@ function openDrawer(g) {
       drawerRoll ? rollBar() : null,
       cover(g),
       el('h2', {}, g.title),
-      el('div', { class: 'meta' }, serviceTag(g), el('span', { class: 'tier' }, tierLabel(g))),
+      serviceMeta(g, keys),
       el('dl', {},
-        el('dt', {}, 'Included in'), el('dd', {}, plans || '—'),
+        el('dt', {}, 'Included in'), el('dd', {}, plans.length ? plans : '—'),
         el('dt', {}, 'Platforms'), el('dd', {}, g.platforms.map(platformName).join(', ') || '—'),
         g.genres?.length ? [el('dt', {}, 'Genre'), el('dd', {}, g.genres.join(', '))] : null,
         g.releaseDate ? [el('dt', {}, 'Released'), el('dd', {}, fmtDate(g.releaseDate))] : null,
         isComing(g) ? [el('dt', {}, 'Coming'), el('dd', {}, fmtDate(g.comingOn))] : null,
         g.firstSeen && !isComing(g) ? [el('dt', {}, 'Added'), el('dd', {}, fmtDate(g.firstSeen))] : null,
         ratingRows(g),
-        leave ? [el('dt', {}, 'Leaving'), el('dd', {}, leave.date ? fmtDate(leave.date) : 'Soon, no date announced')] : null),
+        leave ? [el('dt', {}, 'Leaving'), el('dd', {}, leave.date ? fmtDate(leave.date) : `${leave.from?.length ? `${leave.from.join(', ')}: ` : ''}soon, no date announced`)] : null),
       markButtons(g, true),
       detailsSection(g),
-      g.storeUrl ? el('button', { class: 'link', onclick: () => api.openExternal(g.storeUrl) }, g.service === 'nso' ? 'Open the Wikipedia list ↗' : 'Open store page ↗') : null,
+      offers.filter((o) => o.storeUrl).map((o) => el('button', { class: 'link', onclick: () => api.openExternal(o.storeUrl) },
+        o.service === 'nso' ? 'Open the Wikipedia list ↗' : offers.length > 1 ? `Open on ${serviceById(o.service)?.short || o.service} ↗` : 'Open store page ↗')),
       g.custom ? el('button', { class: 'link danger', onclick: deleteCustom }, 'Delete this game') : null));
   drawer.classList.remove('hidden');
 }
@@ -540,7 +589,8 @@ function closeDrawer() {
 // ---------- description + screenshots ----------
 function loadDetails(g) {
   if (!detailsCache.has(g.id)) {
-    const pending = api.getDetails(g)
+    const { offers, ...lead } = g;
+    const pending = api.getDetails(lead)
       .catch(() => ({ description: null, screenshots: [] }))
       .then((d) => {
         detailsCache.set(g.id, d);
@@ -602,7 +652,7 @@ function rollPool() {
   return games.filter((g) => {
     if (hasSubs && !isMine(g, keys)) return false;
     if (['completed', 'ignored'].includes(markOf(g.id)) || isComing(g)) return false;
-    if (ui.services.size && !ui.services.has(g.service)) return false;
+    if (ui.services.size && !inServices(g, ui.services)) return false;
     if (ui.platform !== 'all' && !g.platforms.includes(ui.platform)) return false;
     return true;
   });
