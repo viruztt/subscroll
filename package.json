@@ -1,0 +1,26 @@
+{
+  "name": "subscription-catalogue",
+  "productName": "Subscription Catalogue",
+  "version": "0.1.0",
+  "description": "See which games are in which video game subscription tier, track what you've played, and what's leaving soon.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "snapshot": "node scripts/build-snapshot.js",
+    "dist:win": "electron-builder --win zip",
+    "dist:mac": "electron-builder --mac dmg",
+    "dist:linux": "electron-builder --linux AppImage"
+  },
+  "build": {
+    "appId": "local.subscription-catalogue",
+    "files": ["src/**", "renderer/**", "data/**", "package.json"],
+    "win": { "target": "zip" },
+    "mac": { "category": "public.app-category.games" }
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "44.7.2",
+    "electron-builder": "26.15.3"
+  }
+}

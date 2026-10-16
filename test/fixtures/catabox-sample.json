@@ -1,0 +1,255 @@
+{
+  "games": [
+    {
+      "availableInFR": true,
+      "boxArt": "https://store-images.s-microsoft.com/image/apps.26170.13724740810259939.b66dd818-9d75-4097-b510-7e4f8f43131a.ae40357e-1af2-40ef-8179-06b7546b3e9e",
+      "description": "1000xRESIST is a thrilling sci-fi adventure. The year is unknown, and a disease spread by an alien invasion keeps you underground. You are Watcher. You dutifully fulfil your purpose in serving the ALLMOTHER, until the day you discover a shocking secret that changes everything.",
+      "developer": "sunset visitor 斜陽過客",
+      "genres": [
+        "Action & adventure"
+      ],
+      "heroArt": "https://store-images.s-microsoft.com/image/apps.38663.13724740810259939.b66dd818-9d75-4097-b510-7e4f8f43131a.17207052-a7ae-4ad3-afaa-030774844c4d",
+      "id": "9NPDN9R45JX4",
+      "leavingSoon": false,
+      "leavingSoonPlatforms": [],
+      "memberships": [
+        "ultimate",
+        "premium"
+      ],
+      "pegiRating": "PEGI 16",
+      "platformByTier": {
+        "premium": [
+          "console",
+          "pc"
+        ],
+        "ultimate": [
+          "console",
+          "pc"
+        ]
+      },
+      "platforms": [
+        "console",
+        "pc"
+      ],
+      "playerModes": [
+        "Single player"
+      ],
+      "poster": "https://store-images.s-microsoft.com/image/apps.42712.13724740810259939.b66dd818-9d75-4097-b510-7e4f8f43131a.ac32cda4-2fd9-4049-a090-966d3ace3e22",
+      "publisher": "Fellow Traveller",
+      "ratingId": "PEGI:16",
+      "ratingSystem": "PEGI",
+      "releaseDate": "2025-11-04",
+      "screenshots": [
+        "https://store-images.s-microsoft.com/image/apps.65229.13724740810259939.b66dd818-9d75-4097-b510-7e4f8f43131a.110cc837-4226-4730-8d4c-e36a920cda42?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.10765.13724740810259939.b66dd818-9d75-4097-b510-7e4f8f43131a.e996b78c-ced3-43d6-bef8-bd23af4ca86a?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.43290.13724740810259939.b66dd818-9d75-4097-b510-7e4f8f43131a.829052de-11d7-4fec-99a7-badcfe1024c8?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.62424.13724740810259939.b66dd818-9d75-4097-b510-7e4f8f43131a.1d3fe248-fdcf-4179-9047-30f52d40cb91?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.49426.13724740810259939.b66dd818-9d75-4097-b510-7e4f8f43131a.bdca2feb-e74e-4d0d-bbcf-7e2b2b7dfb37?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.37530.13724740810259939.b66dd818-9d75-4097-b510-7e4f8f43131a.f536e2ff-9bcc-4b06-ae45-2eb4c20769eb?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.38643.13724740810259939.b66dd818-9d75-4097-b510-7e4f8f43131a.20634cb0-b979-4683-b320-6e5bcec80b43?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.6712.13724740810259939.b66dd818-9d75-4097-b510-7e4f8f43131a.212001c7-670f-4471-8955-48477f6aceb7?w=640&h=360&q=80&format=jpg"
+      ],
+      "segment": "ultimatePremium",
+      "shortDescription": "1000xRESIST is a thrilling sci-fi adventure. The year is unknown, and a disease spread by an alien invasion keeps you underground. You are Watcher. You dutifully fulfil your purpose in serving the ALLMOTHER, until the day you discover a shocking secret that changes everything.",
+      "sortTitle": "1000xresist",
+      "supportsCoop": false,
+      "supportsLocalCoop": false,
+      "supportsLocalMultiplayer": false,
+      "supportsMultiplayer": false,
+      "supportsOnlineCoop": false,
+      "supportsOnlineMultiplayer": false,
+      "supportsSinglePlayer": true,
+      "title": "1000xRESIST",
+      "url": "https://www.xbox.com/en-us/games/store/1000xresist/9NPDN9R45JX4"
+    },
+    {
+      "availableInFR": true,
+      "boxArt": "https://store-images.s-microsoft.com/image/apps.4211.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.931e36a8-9260-4fcf-833a-72600108d150",
+      "description": "A dark menace consumes the Old West. In solo or coop, fight with style in visceral, explosive combat against bloodthirsty monstrosities. Eradicate the vampiric hordes with your lightning-fueled gauntlet and become a Wild West Superhero.",
+      "developer": "Flying Wild Hog",
+      "genres": [
+        "Action & adventure",
+        "Shooter"
+      ],
+      "heroArt": "https://store-images.s-microsoft.com/image/apps.31215.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.745b3998-17e0-41db-a6fa-224c92067784",
+      "id": "9MW581HCJPM6",
+      "leavingSoon": true,
+      "leavingSoonPlatforms": [
+        "console"
+      ],
+      "memberships": [
+        "ultimate",
+        "premium"
+      ],
+      "pegiRating": "PEGI 18",
+      "platformByTier": {
+        "premium": [
+          "console"
+        ],
+        "ultimate": [
+          "console"
+        ]
+      },
+      "platforms": [
+        "console"
+      ],
+      "playerModes": [
+        "Online co-op (2)",
+        "Single player"
+      ],
+      "poster": "https://store-images.s-microsoft.com/image/apps.3216.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.98515c15-2cca-42ec-ad44-9b778e4722f4",
+      "publisher": "Focus Entertainment",
+      "ratingId": "PEGI:18",
+      "ratingSystem": "PEGI",
+      "releaseDate": "2022-11-21",
+      "screenshots": [
+        "https://store-images.s-microsoft.com/image/apps.12507.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.c8e0fed2-4a8a-4b25-94fc-039a99afb9d4?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.9123.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.61b11389-e054-49ad-8bb1-a592187de8a3?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.17079.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.f4144fe9-d63d-4aac-8d67-6a9b9edf2166?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.18204.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.df641937-5bd6-4622-a67a-b58fba17e9ec?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.51775.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.81a3c495-58b7-4db6-b5fd-b772d165f786?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.61750.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.c44db5cf-5695-4a4d-97e4-93f26ac01720?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.42482.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.21532247-9a75-4cec-b2ae-195fc3c5e160?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.10775.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.6d3e38c7-cd3d-4ef1-b193-77733751f19b?w=640&h=360&q=80&format=jpg"
+      ],
+      "segment": "ultimatePremium",
+      "shortDescription": "A dark menace consumes the Old West. In solo or coop, fight with style in visceral, explosive combat against bloodthirsty monstrosities. Eradicate the vampiric hordes with your lightning-fueled gauntlet and become a Wild West Superhero.",
+      "sortTitle": "evil west",
+      "supportsCoop": true,
+      "supportsLocalCoop": false,
+      "supportsLocalMultiplayer": false,
+      "supportsMultiplayer": false,
+      "supportsOnlineCoop": true,
+      "supportsOnlineMultiplayer": false,
+      "supportsSinglePlayer": true,
+      "title": "Evil West",
+      "url": "https://www.xbox.com/en-us/games/store/evil-west/9MW581HCJPM6"
+    },
+    {
+      "availableInFR": true,
+      "boxArt": "https://store-images.s-microsoft.com/image/apps.4211.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.931e36a8-9260-4fcf-833a-72600108d150",
+      "description": "A dark menace consumes the Old West. In solo or coop, fight with style in visceral, explosive combat against bloodthirsty monstrosities. Eradicate the vampiric hordes with your lightning-fueled gauntlet and become a Wild West Superhero.",
+      "developer": "Flying Wild Hog",
+      "genres": [
+        "Action & adventure",
+        "Shooter"
+      ],
+      "heroArt": "https://store-images.s-microsoft.com/image/apps.31215.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.745b3998-17e0-41db-a6fa-224c92067784",
+      "id": "9PC49MD70881",
+      "leavingSoon": true,
+      "leavingSoonPlatforms": [
+        "pc"
+      ],
+      "memberships": [
+        "ultimate",
+        "premium"
+      ],
+      "pegiRating": "PEGI 18",
+      "platformByTier": {
+        "premium": [
+          "pc"
+        ],
+        "ultimate": [
+          "pc"
+        ]
+      },
+      "platforms": [
+        "pc"
+      ],
+      "playerModes": [
+        "Online co-op (2)",
+        "Single player"
+      ],
+      "poster": "https://store-images.s-microsoft.com/image/apps.3216.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.98515c15-2cca-42ec-ad44-9b778e4722f4",
+      "publisher": "Focus Entertainment",
+      "ratingId": "PEGI:18",
+      "ratingSystem": "PEGI",
+      "releaseDate": "2024-03-21",
+      "screenshots": [
+        "https://store-images.s-microsoft.com/image/apps.12507.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.c8e0fed2-4a8a-4b25-94fc-039a99afb9d4?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.9123.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.61b11389-e054-49ad-8bb1-a592187de8a3?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.17079.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.f4144fe9-d63d-4aac-8d67-6a9b9edf2166?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.18204.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.df641937-5bd6-4622-a67a-b58fba17e9ec?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.51775.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.81a3c495-58b7-4db6-b5fd-b772d165f786?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.61750.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.c44db5cf-5695-4a4d-97e4-93f26ac01720?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.42482.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.21532247-9a75-4cec-b2ae-195fc3c5e160?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.10775.14176554647910182.b03fa26e-38ab-4eae-a31e-457e38d3b885.6d3e38c7-cd3d-4ef1-b193-77733751f19b?w=640&h=360&q=80&format=jpg"
+      ],
+      "segment": "ultimatePremium",
+      "shortDescription": "A dark menace consumes the Old West. In solo or coop, fight with style in visceral, explosive combat against bloodthirsty monstrosities. Eradicate the vampiric hordes with your lightning-fueled gauntlet and become a Wild West Superhero.",
+      "sortTitle": "evil west (windows)",
+      "supportsCoop": true,
+      "supportsLocalCoop": false,
+      "supportsLocalMultiplayer": false,
+      "supportsMultiplayer": false,
+      "supportsOnlineCoop": true,
+      "supportsOnlineMultiplayer": false,
+      "supportsSinglePlayer": true,
+      "title": "Evil West (Windows)",
+      "url": "https://www.xbox.com/en-us/games/store/evil-west-windows/9PC49MD70881"
+    },
+    {
+      "availableInFR": true,
+      "boxArt": "https://store-images.s-microsoft.com/image/apps.30769.13727851868390641.270e98c5-0c6a-4ce0-81ab-e78c700bf4b5.092f9454-fee6-43b1-94e3-802dd0067d8b",
+      "description": "From one of gaming's most iconic sagas, Halo is bigger than ever with a dynamic free to play multiplayer experience.",
+      "developer": "343 Industries",
+      "genres": [
+        "Shooter"
+      ],
+      "heroArt": "https://store-images.s-microsoft.com/image/apps.50670.13727851868390641.c9cc5f66-aff8-406c-af6b-440838730be0.d205e025-5444-4eb1-ae46-571ae6895928",
+      "id": "9NP1P1WFS0LB",
+      "leavingSoon": false,
+      "leavingSoonPlatforms": [],
+      "memberships": [
+        "ultimate",
+        "premium"
+      ],
+      "pegiRating": "PEGI 16",
+      "platformByTier": {
+        "premium": [
+          "console",
+          "pc"
+        ],
+        "ultimate": [
+          "console",
+          "pc"
+        ]
+      },
+      "platforms": [
+        "console",
+        "pc"
+      ],
+      "playerModes": [
+        "Online multiplayer (2-24)",
+        "Single player"
+      ],
+      "poster": "https://store-images.s-microsoft.com/image/apps.21536.13727851868390641.c9cc5f66-aff8-406c-af6b-440838730be0.68796bde-cbf5-4eaa-a299-011417041da6",
+      "publisher": "Xbox Game Studios",
+      "ratingId": "PEGI:16",
+      "ratingSystem": "PEGI",
+      "releaseDate": "2021-12-08",
+      "screenshots": [
+        "https://store-images.s-microsoft.com/image/apps.25655.13727851868390641.dedb8633-ca6a-48c4-b33f-dc6f6356fa51.694b1948-51bf-45dd-af07-1219b60ff841?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.61194.13727851868390641.dedb8633-ca6a-48c4-b33f-dc6f6356fa51.3aaa7c00-76f1-4f6b-82b6-68d1fcae4547?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.45703.13727851868390641.dedb8633-ca6a-48c4-b33f-dc6f6356fa51.0d1af4c8-6c91-49e3-abb1-303f6c83267d?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.5568.13727851868390641.dedb8633-ca6a-48c4-b33f-dc6f6356fa51.70eadab4-50f0-4957-abb1-b029f3583307?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.41036.13727851868390641.dedb8633-ca6a-48c4-b33f-dc6f6356fa51.bf5a0bee-6c62-4dce-b191-24cdfd27628a?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.41729.13727851868390641.dedb8633-ca6a-48c4-b33f-dc6f6356fa51.ecef1b94-a0a6-4a26-b494-8b90a4ce4f45?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.33504.13727851868390641.dedb8633-ca6a-48c4-b33f-dc6f6356fa51.b6fd70d9-b26c-4878-a2d1-4e8216bdfb13?w=640&h=360&q=80&format=jpg",
+        "https://store-images.s-microsoft.com/image/apps.45886.13727851868390641.dedb8633-ca6a-48c4-b33f-dc6f6356fa51.9a126cad-44e4-4c55-80ea-f83fb2b67a3c?w=640&h=360&q=80&format=jpg"
+      ],
+      "segment": "ultimatePremium",
+      "shortDescription": "From one of gaming's most iconic sagas, Halo is bigger than ever with a dynamic free to play multiplayer experience.",
+      "sortTitle": "halo infinite",
+      "supportsCoop": false,
+      "supportsLocalCoop": false,
+      "supportsLocalMultiplayer": false,
+      "supportsMultiplayer": true,
+      "supportsOnlineCoop": false,
+      "supportsOnlineMultiplayer": true,
+      "supportsSinglePlayer": true,
+      "title": "Halo Infinite",
+      "url": "https://www.xbox.com/en-us/games/store/halo-infinite/9NP1P1WFS0LB"
+    }
+  ]
+}

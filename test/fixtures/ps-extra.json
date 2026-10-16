@@ -1,0 +1,115 @@
+[
+  {
+    "catalogKey": "A",
+    "count": 36,
+    "games": [
+      {
+        "ageRating": {
+          "authority": "PEGI",
+          "description": "PEGI 7",
+          "descriptors": [
+            {
+              "description": "Angst",
+              "name": "PEGI_FEAR",
+              "url": "https://image.api.playstation.com/grc/images/descriptors/hd/pegi/fear.png",
+              "url4k": "https://image.api.playstation.com/grc/images/descriptors/4k/pegi/fear.png"
+            },
+            {
+              "description": "Gewalt",
+              "name": "PEGI_VIOLENCE",
+              "url": "https://image.api.playstation.com/grc/images/descriptors/hd/pegi/violence.png",
+              "url4k": "https://image.api.playstation.com/grc/images/descriptors/4k/pegi/violence.png"
+            }
+          ],
+          "interactiveElements": [],
+          "name": "PEGI_7",
+          "url": "https://image.api.playstation.com/grc/images/ratings/hd/pegi/7.png",
+          "url4k": "https://image.api.playstation.com/grc/images/ratings/4k/pegi/7.png"
+        },
+        "conceptId": 228903,
+        "conceptUrl": "https://store.playstation.com/de-at/concept/228903",
+        "device": [
+          "PS4"
+        ],
+        "genre": [
+          "ADVENTURE",
+          "ACTION",
+          "ACTION"
+        ],
+        "imageUrl": "https://image.api.playstation.com/cdn/EP3717/CUSA10028_00/W5zEdEr6WbWrhcZKurNdeDo7qUXDyo4I.png",
+        "name": "A Hat in Time",
+        "nameEn": "A Hat in Time",
+        "productId": "EP3717-CUSA10028_00-AHATINTIMEPS4000",
+        "releaseDate": "2017-12-05T23:00:00Z",
+        "streamingSupported": false
+      },
+      {
+        "ageRating": {
+          "authority": "PEGI",
+          "description": "PEGI 3",
+          "descriptors": [
+            {
+              "description": "In-Game Purchases",
+              "name": "PEGI_IN_GAME_PURCHASES",
+              "url": "https://image.api.playstation.com/grc/images/descriptors/hd/pegi/ingamepurchases.png",
+              "url4k": "https://image.api.playstation.com/grc/images/descriptors/4k/pegi/ingamepurchases.png"
+            }
+          ],
+          "interactiveElements": [],
+          "name": "PEGI_3",
+          "url": "https://image.api.playstation.com/grc/images/ratings/hd/pegi/3.png",
+          "url4k": "https://image.api.playstation.com/grc/images/ratings/4k/pegi/3.png"
+        },
+        "conceptId": 10008945,
+        "conceptUrl": "https://store.playstation.com/de-at/concept/10008945",
+        "device": [
+          "PS4",
+          "PS5"
+        ],
+        "genre": [
+          "PUZZLE",
+          "FAMILY",
+          "BRAIN_TRAINING"
+        ],
+        "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202311/1315/a3fb067df2661d37b9b68e7a9dbeb96f29bec879a354ad94.png",
+        "name": "A Little to the Left PS4 & PS5",
+        "nameEn": "A Little to the Left PS4 & PS5",
+        "productId": "EP7072-PPSA17848_00-ALITTLETOTHELEFT",
+        "releaseDate": "2024-02-15T16:00:00Z",
+        "streamingSupported": true
+      },
+      {
+        "ageRating": {
+          "authority": "PEGI",
+          "description": "PEGI 16",
+          "descriptors": [
+            {
+              "description": "Vulgärsprache",
+              "name": "PEGI_LANGUAGE",
+              "url": "https://image.api.playstation.com/grc/images/descriptors/hd/pegi/language.png",
+              "url4k": "https://image.api.playstation.com/grc/images/descriptors/4k/pegi/language.png"
+            }
+          ],
+          "interactiveElements": [],
+          "name": "PEGI_16",
+          "url": "https://image.api.playstation.com/grc/images/ratings/hd/pegi/16.png",
+          "url4k": "https://image.api.playstation.com/grc/images/ratings/4k/pegi/16.png"
+        },
+        "conceptId": 10009366,
+        "conceptUrl": "https://store.playstation.com/de-at/concept/10009366",
+        "device": [
+          "PS5"
+        ],
+        "genre": [
+          "HORROR"
+        ],
+        "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202406/1308/370454545572b19855f64cee5ba39cf53ac1ae8cb818e04c.png",
+        "name": "A Quiet Place: The Road Ahead",
+        "nameEn": "A Quiet Place: The Road Ahead",
+        "productId": "EP6853-PPSA19007_00-AQPBASEGAME00000",
+        "releaseDate": "2024-10-17T13:00:00Z",
+        "streamingSupported": true
+      }
+    ]
+  }
+]

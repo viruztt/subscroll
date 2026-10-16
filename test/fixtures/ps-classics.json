@@ -1,0 +1,77 @@
+[
+  {
+    "catalogKey": "A",
+    "count": 13,
+    "games": [
+      {
+        "ageRating": {
+          "authority": "PEGI",
+          "description": "PEGI 7",
+          "descriptors": [
+            {
+              "description": "Angst",
+              "name": "PEGI_FEAR",
+              "url": "https://image.api.playstation.com/grc/images/descriptors/hd/pegi/fear.png",
+              "url4k": "https://image.api.playstation.com/grc/images/descriptors/4k/pegi/fear.png"
+            },
+            {
+              "description": "Gemäßigte Gewalt",
+              "name": "PEGI_MILD_VIOLENCE"
+            }
+          ],
+          "interactiveElements": [],
+          "name": "PEGI_7",
+          "url": "https://image.api.playstation.com/grc/images/ratings/hd/pegi/7.png",
+          "url4k": "https://image.api.playstation.com/grc/images/ratings/4k/pegi/7.png"
+        },
+        "conceptId": 10011762,
+        "conceptUrl": "https://store.playstation.com/de-at/concept/10011762",
+        "device": [
+          "PS4",
+          "PS5"
+        ],
+        "genre": [
+          "ACTION"
+        ],
+        "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202410/3019/f2c5ed132e1c7c0fdba7c822b97d5885ceaf95c8de3c1bc1.png",
+        "name": "Alone in the Dark 2 (1996)",
+        "nameEn": "Alone in the Dark 2 (1996)",
+        "productId": "EP4389-PPSA24515_00-EMUPS1ALONEDARK2",
+        "releaseDate": "2025-04-15T08:00:00Z",
+        "streamingSupported": true
+      },
+      {
+        "ageRating": {
+          "authority": "PEGI",
+          "description": "PEGI 16",
+          "descriptors": [
+            {
+              "description": "Intensive Gewalt",
+              "name": "PEGI_STRONG_VIOLENCE"
+            }
+          ],
+          "interactiveElements": [],
+          "name": "PEGI_16",
+          "url": "https://image.api.playstation.com/grc/images/ratings/hd/pegi/16.png",
+          "url4k": "https://image.api.playstation.com/grc/images/ratings/4k/pegi/16.png"
+        },
+        "conceptId": 10009035,
+        "conceptUrl": "https://store.playstation.com/de-at/concept/10009035",
+        "device": [
+          "PS4",
+          "PS5"
+        ],
+        "genre": [
+          "HORROR",
+          "ADVENTURE"
+        ],
+        "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202404/0811/10121f7f8758fa1e203f1f7738b40ba4ec18d38ba19ea1bc.png",
+        "name": "Alone in the Dark: The New Nightmare (2001)",
+        "nameEn": "Alone in the Dark: The New Nightmare (2001)",
+        "productId": "EP4389-PPSA18071_00-AITDNEWNIGHTMARE",
+        "releaseDate": "2024-04-16T08:00:00Z",
+        "streamingSupported": true
+      }
+    ]
+  }
+]
