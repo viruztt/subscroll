@@ -127,6 +127,7 @@ function parseWikipedia(html, today = new Date().toISOString().slice(0, 10)) {
     const cols = Array.from({ length: width }, (_, i) => headerRows.map((r) => r.cells[i] || '').join(' ').toLowerCase());
     const gameCol = cols.findIndex((c) => /\b(game|title)\b/.test(c));
     const dateCol = cols.findIndex((c) => c.includes('date'));
+    const pubCol = cols.findIndex((c) => c.includes('publisher'));
     const dataRows = grid.filter((r) => !r.allHeaders);
     if (gameCol === -1) continue;
     // Region availability column: named NA/PAL, or failing that the first
@@ -151,6 +152,7 @@ function parseWikipedia(html, today = new Date().toISOString().slice(0, 10)) {
       const game = makeGame(sys.system, sys.tier, title, added, regions);
       // Announced games are listed ahead of their date.
       if (added && added > today) game.comingOn = added;
+      if (pubCol !== -1 && row.cells[pubCol]) game.publisher = row.cells[pubCol];
       if (seen.has(game.id)) continue;
       seen.add(game.id);
       game.storeUrl = WIKI_PAGE;

@@ -117,7 +117,17 @@ test('Apple Arcade: App Store details looked up once, then reused', async () => 
   assert.deepStrictEqual(sneaky.genres, ['Adventure']);
   assert.strictEqual(unknown.image, undefined);
   await arcade.lookupMissing(games, dir, 'gb', { delayMs: 0 });
-  assert.strictEqual(searches, 2); // misses are cached too
+  assert.strictEqual(searches, 3); // a miss asks the US store too, then is cached
+});
+
+test('Apple Arcade: an app by the same developer without the subtitle counts', () => {
+  const items = [
+    { name: 'Hexaflip', r: { artistName: 'Rogue Games, Inc.' } },
+    { name: 'Hexagon Flip', r: { artistName: 'Someone Else' } },
+  ];
+  assert.strictEqual(arcade.pickApp(items, 'Hexaflip: The Action Puzzler', 'Rogue Games').name, 'Hexaflip');
+  assert.strictEqual(arcade.pickApp(items, 'Hexaflip: The Action Puzzler', 'Other Studio'), null);
+  assert.strictEqual(arcade.pickApp(items, 'Hexaflip: The Action Puzzler', null), null);
 });
 
 test('Apple Arcade lookups stop at the first refusal', async () => {

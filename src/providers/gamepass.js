@@ -46,6 +46,8 @@ function parseProduct(p) {
     description: loc.ShortDescription || (loc.ProductDescription || '').split('\n')[0] || null,
     screenshots,
     genres,
+    developer: loc.DeveloperName || null,
+    publisher: loc.PublisherName || null,
     releaseDate: market.OriginalReleaseDate ? market.OriginalReleaseDate.slice(0, 10) : null,
   };
 }
@@ -117,6 +119,8 @@ async function fetchLive({ market = 'US', language = 'en-us' } = {}) {
       leavingSoon: leaving.has(id),
       comingOn: soon ? soon.date : null,
       genres: d.genres,
+      developer: d.developer || null,
+      publisher: d.publisher || null,
       releaseDate: d.releaseDate,
       description: d.description,
       screenshots: d.screenshots,
@@ -189,6 +193,8 @@ function normalizeMirror(data) {
       tiers: [...tiers],
       leavingSoon: !!g.leavingSoon,
       genres: g.genres || [],
+      developer: g.developer || null,
+      publisher: g.publisher || null,
       releaseDate: g.releaseDate || null,
       description: g.shortDescription || g.description || null,
       screenshots: (g.screenshots || []).slice(0, 4),

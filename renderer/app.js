@@ -450,16 +450,45 @@ function recommendationGrid(picks) {
   }));
 }
 
+// Groups of games like the ones you've completed, best first.
+function likeCompleted() {
+  const keys = unlocked();
+  return Recommend.similar(games, {
+    isMine: (g) => isMine(g, keys),
+    markOf: (g) => markOf(g.id),
+    isComing,
+    score: mcScore,
+    genres: (g) => g.genreTags || [],
+  }, { seeds: statsGames(), groups: 4, perGroup: 6 });
+}
+
 function renderForYou() {
   const content = $('#content');
   content.replaceChildren();
-  const picks = recommendations(24, 10);
-  $('#summary').textContent = 'Picked from your plans: games in genres you like, well-reviewed, leaving soon or just added. Scores and play times make these better as they load.';
-  content.append(el('div', { class: 'panel' }, el('h2', {}, 'What you like'), tastePicker()));
+  $('#summary').textContent = 'Picked from your plans: games like the ones you beat, then games in genres you like, well-reviewed, leaving soon or just added. Scores and play times make these better as they load.';
   if (!Object.values(state.subscriptions).some(Boolean)) {
+    content.append(el('div', { class: 'panel' }, el('h2', {}, 'What you like'), tastePicker()));
     content.append(el('div', { class: 'empty' }, 'Pick your plans in Settings and recommendations show up here.'));
     return;
   }
+  const groups = likeCompleted();
+  const shown = new Set();
+  for (const { seed, picks } of groups) {
+    picks.forEach((p) => shown.add(p.game.id));
+    content.append(el('div', { class: 'section-head' },
+      el('h3', {}, 'Because you beat ', el('button', { class: 'link inline seed', onclick: () => openDrawer(seed) }, seed.title)),
+      el('span', { class: 'muted' }, 'Same studio or similar genres')));
+    content.append(recommendationGrid(picks));
+  }
+  if (!groups.length) {
+    const beaten = statsGames().some((g) => markOf(g.id) === 'completed');
+    content.append(el('div', { class: 'hint-row muted' }, beaten
+      ? 'Nothing in your plans is much like the games you\'ve completed yet. Studio names fill in as lists refresh.'
+      : 'Mark games as ★ Completed and games like them show up here, by the same studio or with similar genres.'));
+  }
+  content.append(el('div', { class: 'section-head' }, el('h3', {}, 'Picked for you'), el('span', { class: 'muted' }, 'From the genres and length you like')));
+  content.append(el('div', { class: 'panel' }, tastePicker()));
+  const picks = recommendations(24 + shown.size, 10).filter((p) => !shown.has(p.game.id)).slice(0, 24);
   content.append(picks.length ? recommendationGrid(picks) : el('div', { class: 'empty' }, 'Nothing matches these choices yet. Try another genre or length.'));
 }
 
@@ -1137,6 +1166,7 @@ function openDrawer(g) {
         g.steam ? [el('dt', {}, 'Steam'), el('dd', {}, el('button', { class: 'link inline', onclick: () => api.openExternal(`https://store.steampowered.com/app/${g.steam.appid}/`) }, steamText(g.steam).replace('You own this on Steam, ', 'Owned, '), ' ↗'))] : null,
         g.genreTags?.length ? [el('dt', {}, 'Genre'), el('dd', {}, g.genreTags.join(', '))]
           : g.genres?.length ? [el('dt', {}, 'Genre'), el('dd', {}, g.genres.join(', '))] : null,
+        studioRows(g),
         g.releaseDate ? [el('dt', {}, 'Released'), el('dd', {}, fmtDate(g.releaseDate))] : null,
         isComing(g) ? [el('dt', {}, 'Coming'), el('dd', {}, fmtDate(g.comingOn))] : null,
         g.firstSeen && !isComing(g) ? [el('dt', {}, 'Added'), el('dd', {}, fmtDate(g.firstSeen))] : null,
@@ -1148,6 +1178,17 @@ function openDrawer(g) {
         o.service === 'nso' ? 'Open the Wikipedia list ↗' : offers.length > 1 ? `Open on ${serviceById(o.service)?.short || o.service} ↗` : 'Open store page ↗')),
       g.custom ? el('button', { class: 'link danger', onclick: deleteCustom }, 'Delete this game') : null));
   drawer.classList.remove('hidden');
+}
+
+// Developer and publisher, from whichever service's list names them.
+function studioRows(g) {
+  const pick = (field) => [...new Set((g.offers || [g]).map((o) => o[field]).filter(Boolean))][0];
+  const dev = pick('developer');
+  const pub = pick('publisher');
+  return [
+    ...(dev ? [el('dt', {}, 'Developer'), el('dd', {}, dev)] : []),
+    ...(pub && pub !== dev ? [el('dt', {}, 'Publisher'), el('dd', {}, pub)] : []),
+  ];
 }
 
 function ratingRows(g) {

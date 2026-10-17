@@ -67,6 +67,18 @@ test('Retro games get a Wikipedia description, cached on disk', async () => {
   assert.strictEqual(calls, 1);
 });
 
+test('Wikipedia descriptions only from the game\'s own article', async () => {
+  http.setFetch(async (url) => {
+    const u = new URL(url);
+    if (u.searchParams.get('titles')) return jsonResponse({ query: { pages: [{ title: 'Metroid Fusion', extract: 'Metroid Fusion is a 2002 game.' }] } });
+    return jsonResponse({ query: { pages: [{ title: 'Metroid (video game)', index: 1, extract: 'Metroid is a 1986 game.' }] } });
+  });
+  const fusion = { id: 'nso:gba:metroid-fusion', service: 'nso', title: 'Metroid Fusion', platforms: ['Game Boy Advance'], image: null };
+  assert.strictEqual((await fetchDetails(fusion, {})).description, null);
+  const known = await fetchDetails({ ...fusion, wikiPage: 'https://en.wikipedia.org/wiki/Metroid_Fusion' }, {});
+  assert.strictEqual(known.description, 'Metroid Fusion is a 2002 game.');
+});
+
 test('PS Plus falls back to Wikipedia when the store page fails', async () => {
   http.setFetch(async (url) => {
     if (url.includes('store.playstation.com')) return textResponse('blocked', 403);

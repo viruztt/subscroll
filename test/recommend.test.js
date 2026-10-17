@@ -50,3 +50,33 @@ test('Recommendations: several liked genres take turns', () => {
   const picks = recommend(list, helpers, { tastes: { genres: ['RPG', 'Platformer'], length: 'any' }, today: '2026-10-17' });
   assert.deepStrictEqual(ids(picks).slice(0, 2), ['rpg0', 'plat']);
 });
+
+test('Like games you beat: same developer, small publisher, rarer genres', () => {
+  const { similar, studioNames } = require('../renderer/recommend');
+  assert.deepStrictEqual(studioNames('Square Enix Co., Ltd.').map((x) => x.name), ['Square Enix']);
+  assert.deepStrictEqual(studioNames('Arkane Lyon, Bethesda Softworks LLC').map((x) => x.name), ['Arkane Lyon', 'Bethesda Softworks']);
+  const filler = Array.from({ length: 30 }, (_, i) => g(`filler${i}`, 'gamepass', { genreTags: ['Action & adventure'], publisher: 'Xbox Game Studios' }));
+  const list = [
+    g('Hades', 'gamepass', { mark: 'completed', genreTags: ['Action & adventure', 'RPG'], developer: 'Supergiant Games, LLC', publisher: 'Supergiant Games' }),
+    g('Inscryption', 'psplus', { mark: 'completed', genreTags: ['Card & board', 'Horror'], developer: 'Daniel Mullins Games', publisher: 'Devolver Digital' }),
+    g('Pyre', 'gamepass', { genreTags: ['RPG'], developer: 'Supergiant Games' }),
+    g('Cult of the Lamb', 'gamepass', { genreTags: ['Action & adventure'], developer: 'Massive Monster', publisher: 'Devolver Digital Inc.' }),
+    g('Slay the Spire', 'psplus', { genreTags: ['Card & board', 'Strategy'], mc: 89 }),
+    g('Bastion', 'gamepass', { genreTags: ['RPG'], developer: 'Supergiant Games', mark: 'played' }), // already played
+    g('Transistor', 'eaplay', { genreTags: ['RPG'], developer: 'Supergiant Games', mine: false }), // not in your plans
+    g('Generic', 'gamepass', { genreTags: ['Action & adventure'], publisher: 'Xbox Game Studios' }),
+    g('Hades SP', 'gamepass', { genreTags: ['RPG'], developer: 'Supergiant Games' }), // a special edition of one you beat
+    ...filler,
+  ];
+  const groups = similar(list, helpers);
+  const by = Object.fromEntries(groups.map((x) => [x.seed.id, x.picks.map((p) => p.game.id)]));
+  assert.deepStrictEqual(by.Hades, ['Pyre']);
+  assert.deepStrictEqual(by.Inscryption.sort(), ['Cult of the Lamb', 'Slay the Spire']);
+  const lamb = groups.flatMap((x) => x.picks).find((p) => p.game.id === 'Cult of the Lamb');
+  assert.strictEqual(lamb.reasons[0].label, 'From Devolver Digital');
+  const pyre = groups.flatMap((x) => x.picks).find((p) => p.game.id === 'Pyre');
+  assert.deepStrictEqual(pyre.reasons.map((r) => r.label), ['By Supergiant Games', 'RPG']);
+  // A big publisher or one common genre alone isn't a reason.
+  assert.ok(!groups.some((x) => x.picks.some((p) => p.game.id === 'Generic')));
+  assert.deepStrictEqual(similar(list.filter((x) => x.mark !== 'completed'), helpers), []);
+});

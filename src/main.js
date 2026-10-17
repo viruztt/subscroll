@@ -12,6 +12,7 @@ const { makeBackup, parseBackup, backupName } = require('./backup');
 const steam = require('./steam');
 const alerts = require('./alerts');
 const { Prices } = require('./prices');
+const { Wiki, wanted: wikiWanted } = require('./wiki');
 const fs = require('fs');
 
 let store;
@@ -19,6 +20,7 @@ let catalog;
 let details;
 let ratings;
 let prices;
+let wiki;
 let win;
 let tray;
 let quitting = false;
@@ -65,10 +67,26 @@ function createWindow() {
   });
 }
 
+// Lists as saved, with what Wikipedia adds (developers, genres, pictures).
 function catalogPayload() {
+  const fill = (g) => wiki.fill(g);
   return catalog.loadAll().map(({ service, source, fetchedAt, games, history }) => ({
-    service, source, fetchedAt, games, history,
+    service, source, fetchedAt,
+    games: games.map(fill),
+    history: history && { ...history, departed: (history.departed || []).map(fill) },
   }));
+}
+
+// Wikipedia lookups for games you completed and for lists without
+// developers or genres.
+function startWiki() {
+  const { subscriptions, customServices, marks } = store.get();
+  const keys = unlockedTiers(subscriptions, customServices);
+  const departed = catalog.loadAll().flatMap((c) => c.history?.departed || []);
+  wiki.start(wikiWanted([...catalogGames(), ...departed], {
+    isMine: (g) => (g.tiers || []).some((t) => keys.has(`${g.service}:${t}`)),
+    markOf: (g) => marks[g.id] || 'none',
+  })).catch(() => {});
 }
 
 let refreshing = null;
@@ -88,6 +106,7 @@ async function refreshAll() {
     store.update({ lastRefresh: new Date().toISOString() });
     startRatings();
     enrichArcade();
+    startWiki();
     refreshSteam();
     sendAlerts(results, before, waitingBefore);
     win?.webContents.send('catalog-changed');
@@ -264,7 +283,10 @@ function registerIpc() {
     // Only user-owned fields can be written from the window.
     const allowed = ['subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings', 'costs', 'priceOverrides', 'viaSub'];
     const clean = Object.fromEntries(Object.entries(patch || {}).filter(([k]) => allowed.includes(k)));
+    const before = store.get().marks;
     const next = store.update(clean);
+    // A newly completed game is looked up for "Because you beat".
+    if (clean.marks && Object.keys(clean.marks).some((id) => clean.marks[id] === 'completed' && before[id] !== 'completed')) startWiki();
     if (clean.settings) {
       applyLoginItem();
       updateTray();
@@ -373,12 +395,14 @@ app.whenReady().then(() => {
     },
   });
   prices = new Prices(dataDir, { onUpdate: (updates, progress) => win?.webContents.send('prices', { updates, progress }) });
+  wiki = new Wiki(dataDir, { onFound: (n) => { if (n) win?.webContents.send('catalog-changed'); } });
   registerIpc();
   createWindow();
   createTray();
   applyLoginItem();
   scheduleRefresh();
   setTimeout(enrichArcade, 5000);
+  setTimeout(startWiki, 8000);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

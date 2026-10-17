@@ -46,6 +46,8 @@ test('Game Pass live: lists, leaving soon and product details', async () => {
           LocalizedProperties: [{
             ProductTitle: `Game ${ProductId}`,
             ShortDescription: `About ${ProductId}`,
+            DeveloperName: 'Studio X',
+            PublisherName: 'Publisher Y',
             Images: [
               { ImagePurpose: 'Poster', Uri: `//img/${ProductId}` },
               { ImagePurpose: 'Screenshot', Uri: `//shot/${ProductId}/1` },
@@ -68,6 +70,7 @@ test('Game Pass live: lists, leaving soon and product details', async () => {
   assert.strictEqual(byId['gamepass:A'].image, 'https://img/A');
   assert.strictEqual(byId['gamepass:A'].releaseDate, '2024-03-01');
   assert.strictEqual(byId['gamepass:A'].description, 'About A');
+  assert.deepStrictEqual([byId['gamepass:A'].developer, byId['gamepass:A'].publisher], ['Studio X', 'Publisher Y']);
   assert.deepStrictEqual(byId['gamepass:A'].screenshots, ['https://shot/A/1?w=960', 'https://shot/A/2?w=960']);
 });
 
@@ -91,6 +94,7 @@ test('Bundled Switch Online snapshot has every system and most covers', () => {
 test('Wikipedia Nintendo Classics tables: systems, shared dates, two-row headers, removed games skipped, regions kept', () => {
   const html = fs.readFileSync(path.join(__dirname, 'fixtures', 'wikipedia-classics.html'), 'utf8');
   const games = nintendo.parseWikipedia(html);
+  assert.deepStrictEqual(games.slice(2, 4).map((g) => g.publisher), ['Tecmo', 'Jaleco']);
   assert.deepStrictEqual(games.map((g) => [g.platforms[0], g.title, g.tiers[0], g.addedOn, g.regions.join('+')]), [
     ['NES', 'Balloon Fight', 'base', '2018-09-19', 'west+jp'],
     ['NES', 'Dr. Mario', 'base', '2018-09-19', 'west+jp'],

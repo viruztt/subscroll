@@ -3,14 +3,14 @@
 // These map them onto one short list for the genre filter.
 (function (root) {
   const GENRES = [
-    ['Action & adventure', /action|adventure|arcade/i],
+    ['Action & adventure', /action|adventure|arcade|beat 'em up|hack and slash|metroidvania|stealth|visual novel/i],
     ['RPG', /role.?playing|\brpg\b/i],
-    ['Shooter', /shooter/i],
-    ['Platformer', /platformer/i],
+    ['Shooter', /shoot|run and gun/i],
+    ['Platformer', /platform|metroidvania/i],
     ['Puzzle', /puzzle|trivia|word|brain/i],
-    ['Strategy', /strategy|battle arena|moba/i],
-    ['Racing', /racing|driving/i],
-    ['Sports', /sports/i],
+    ['Strategy', /strategy|battle arena|moba|tactic|tower defen/i],
+    ['Racing', /racing|driving|kart/i],
+    ['Sports', /sport|golf|tennis|soccer|football|baseball|basketball|hockey|skateboard|snowboard|wrestling|boxing/i],
     ['Simulation', /simulat/i],
     ['Fighting', /fighting/i],
     ['Horror', /horror/i],

@@ -1,7 +1,7 @@
 {
   "name": "subscription-catalogue",
   "productName": "Subscroll",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Every game you already pay for, in one place.",
   "main": "src/main.js",
   "scripts": {

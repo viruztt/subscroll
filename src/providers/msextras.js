@@ -45,6 +45,8 @@ async function fetchService(service, { market = 'US', language = 'en-us' } = {})
       tiers: [...m.tiers],
       leavingSoon: false,
       genres: d.genres,
+      developer: d.developer || null,
+      publisher: d.publisher || null,
       releaseDate: d.releaseDate,
       description: d.description,
       screenshots: d.screenshots,

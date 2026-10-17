@@ -3,6 +3,7 @@ const path = require('path');
 const http = require('./http');
 const { tableGrid, toIsoDate } = require('./nintendo');
 const { pickMatch, key } = require('../ratings');
+const { studioNames } = require('../../renderer/recommend');
 
 // Apple publishes no list of Arcade games; Wikipedia's "Apple Arcade" article
 // keeps one (the service's own games, not the "+" editions of App Store
@@ -61,14 +62,33 @@ const readJson = (file, fallback) => {
   }
 };
 
-async function storeSearch(title, country) {
+// Same studio: "ustwo games" and "ustwo games Ltd" both credit ustwo.
+const studioKeys = (text) => studioNames(text).map((x) => x.key);
+const sameStudio = (a, b) => studioKeys(a).some((x) => studioKeys(b).some((y) => x === y || (Math.min(x.length, y.length) >= 4 && (x.startsWith(y) || y.startsWith(x)))));
+
+// Exact title first. Failing that, an app by the game's developer whose name
+// is the title without its subtitle, or the other way round
+// ("Hexaflip: The Action Puzzler" is "Hexaflip" on the App Store).
+function pickApp(items, title, developer) {
+  const exact = pickMatch(items, title, null);
+  if (exact || !developer) return exact;
+  const main = key(title.split(/:\s| - /)[0]);
+  const full = key(title);
+  return items.find(({ name, r }) => {
+    const k = key(name.split(/:\s| - /)[0]);
+    if (k.length < 3 || !(k === main || full.startsWith(k) || key(name).startsWith(full))) return false;
+    return sameStudio(r.artistName, developer) || sameStudio(r.sellerName, developer);
+  }) || null;
+}
+
+async function storeSearch(title, country, developer = null) {
   const data = await http.getJson(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&entity=software&country=${country}&limit=10`);
   const items = (data.results || []).map((r) => ({
-    name: r.trackName.replace(/\s*\+$/, ''),
+    name: r.trackName.replace(/\s*\+$/, '').replace(/\s+Arcade Edition$/i, ''),
     year: r.releaseDate ? Number(r.releaseDate.slice(0, 4)) : null,
     r,
   }));
-  const hit = pickMatch(items, title, null);
+  const hit = pickApp(items, title.replace(/\s+Arcade Edition$/i, ''), developer);
   if (!hit) return null;
   const { r } = hit;
   const para = (r.description || '').split(/\n\s*\n/).map((x) => x.replace(/\s+/g, ' ').trim()).find((x) => x.length > 40) || null;
@@ -107,18 +127,27 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Looks up games without App Store details, one at a time and slowly:
 // Apple limits searches to roughly 20 a minute. Runs in the background;
 // stops at the first refusal and continues next time.
+// Misses from before the looser matching and the US fallback are asked again.
+const LOOKUP_VERSION = 2;
+
 async function lookupMissing(games, cacheDir, country = 'us', { delayMs = 3500, onFound = () => {} } = {}) {
   const file = path.join(cacheDir, 'appstore.json');
   const cache = loadCache(cacheDir);
   const todo = games.filter((g) => {
     const hit = cache[key(g.title)];
+    if (hit && !hit.data && hit.v !== LOOKUP_VERSION) return true;
     return !(hit && Date.now() - hit.fetchedAt < (hit.data ? HIT_DAYS : MISS_DAYS) * 86400000);
   });
   let found = 0;
   for (const g of todo) {
     try {
-      const data = await storeSearch(g.title, country);
-      cache[key(g.title)] = { fetchedAt: Date.now(), data };
+      let data = await storeSearch(g.title, country, g.developer);
+      // Some games are listed in the US store only.
+      if (!data && country !== 'us') {
+        await sleep(delayMs);
+        data = await storeSearch(g.title, 'us', g.developer);
+      }
+      cache[key(g.title)] = { fetchedAt: Date.now(), data, v: LOOKUP_VERSION };
       if (data) found += 1;
       fs.mkdirSync(cacheDir, { recursive: true });
       fs.writeFileSync(file, JSON.stringify(cache));
@@ -139,4 +168,4 @@ async function fetchLive(settings = {}, cacheDir = null) {
   return cacheDir ? applyCached(games, cacheDir) : games;
 }
 
-module.exports = { fetchLive, parseWikipedia, applyCached, lookupMissing, storeSearch };
+module.exports = { fetchLive, parseWikipedia, applyCached, lookupMissing, storeSearch, pickApp };

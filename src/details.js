@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('./providers/http');
 const gamepass = require('./providers/gamepass');
+const { samePage } = require('./wiki');
 
 // Descriptions and screenshots for the game panel, fetched when a game is
 // opened and cached on disk. Game Pass games already carry both from the
@@ -9,6 +10,7 @@ const gamepass = require('./providers/gamepass');
 // libretro-thumbnails and a description from Wikipedia.
 const MAX_SCREENSHOTS = 4;
 const CACHE_DAYS = 30;
+const DETAILS_VERSION = 2;
 
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
 const decode = (s) => s
@@ -56,12 +58,22 @@ const SYSTEM_WORDS = {
   'Game Boy Advance': 'Game Boy Advance', 'Virtual Boy': 'Virtual Boy', 'GameCube (Switch 2)': 'GameCube',
 };
 
-async function wikipediaIntro(title, hint) {
-  const query = `${title.replace(/\s+SP(\s+\(.*\))?$/, '').replace(/\s+\((NA|JP)\)$/, '')} ${hint} video game`;
-  const url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&generator=search' +
-    `&gsrlimit=1&gsrsearch=${encodeURIComponent(query)}&prop=extracts&exintro=1&explaintext=1&exsentences=3`;
-  const data = await http.getJson(url, { headers: { 'Api-User-Agent': 'Subscroll/0.1 (desktop app)' } });
-  const page = data.query && data.query.pages && data.query.pages[0];
+// The game's own article only: a search for "Metroid Fusion" can rank the
+// "Metroid" article first, and its description would be wrong.
+async function wikipediaIntro(game, hint) {
+  const base = 'https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&redirects=1' +
+    '&prop=extracts&exintro=1&explaintext=1&exsentences=3&exlimit=5';
+  let url;
+  if (game.wikiPage) {
+    const page = decodeURIComponent(game.wikiPage.split('/wiki/')[1] || '').replace(/_/g, ' ');
+    url = `${base}&titles=${encodeURIComponent(page)}`;
+  } else {
+    const query = `${game.title.replace(/\s+SP(\s+\(.*\))?$/, '').replace(/\s+\((NA|JP)\)$/, '')} ${hint} video game`;
+    url = `${base}&generator=search&gsrlimit=5&gsrsearch=${encodeURIComponent(query)}`;
+  }
+  const data = await http.getJson(url, { headers: { 'Api-User-Agent': 'Subscroll/0.2 (desktop app)' } });
+  const pages = ((data.query && data.query.pages) || []).slice().sort((a, b) => (a.index || 0) - (b.index || 0));
+  const page = game.wikiPage ? pages[0] : pages.find((p) => samePage(p.title, game.title));
   if (!page || !page.extract) return null;
   return { text: page.extract.trim(), source: `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/ /g, '_'))}` };
 }
@@ -108,7 +120,7 @@ async function fetchDetails(game, settings = {}) {
   if (!out.description && ['nso', 'psplus', 'applearcade', 'netflix'].includes(game.service)) {
     try {
       const hint = game.service === 'nso' ? SYSTEM_WORDS[game.platforms[0]] || '' : { psplus: 'PlayStation', applearcade: 'Apple Arcade', netflix: 'Netflix' }[game.service];
-      const wiki = await wikipediaIntro(game.title, hint);
+      const wiki = await wikipediaIntro(game, hint);
       if (wiki) {
         out.description = wiki.text;
         out.descriptionSource = wiki.source;
@@ -134,8 +146,10 @@ class DetailsCache {
     // Game Pass games normally carry their details already.
     if (hasCatalogDetails(game)) return fetchDetails(game, settings);
     const hit = this.data[game.id];
-    if (hit && Date.now() - hit.fetchedAt < CACHE_DAYS * 86400000) return hit;
-    const details = { ...(await fetchDetails(game, settings)), fetchedAt: Date.now() };
+    // Wikipedia descriptions saved before the page had to match the game are asked again.
+    const stale = hit && hit.descriptionSource && hit.v !== DETAILS_VERSION;
+    if (hit && !stale && Date.now() - hit.fetchedAt < CACHE_DAYS * 86400000) return hit;
+    const details = { ...(await fetchDetails(game, settings)), fetchedAt: Date.now(), v: DETAILS_VERSION };
     // Only remember answers worth keeping, so a failed lookup is retried.
     if (details.description || details.screenshots.length) {
       this.data[game.id] = details;
