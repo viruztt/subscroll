@@ -406,6 +406,163 @@ function renderBrowse() {
   renderGrid(list, 'No games match these filters.');
 }
 
+// ---------- recommendations ----------
+const tastes = () => ({ genres: [], length: 'any', ...(state.settings.tastes || {}) });
+
+function recommendations(limit = 12, perService = 5) {
+  const keys = unlocked();
+  return Recommend.recommend(games, {
+    isMine: (g) => isMine(g, keys),
+    markOf: (g) => markOf(g.id),
+    isComing,
+    score: mcScore,
+    hours: beatHours,
+    genres: (g) => g.genreTags || [],
+  }, { tastes: tastes(), today: todayIso(), limit, perService });
+}
+
+async function setTastes(patch) {
+  await saveState({ settings: { ...state.settings, tastes: { ...tastes(), ...patch } } });
+  render(true);
+}
+
+// Genre chips and a length choice, shared by onboarding and For you.
+function tastePicker() {
+  const t = tastes();
+  const present = new Set(games.flatMap((g) => g.genreTags || []));
+  const genres = Genres.GENRES.filter((n) => present.has(n) || t.genres.includes(n));
+  const toggle = (n) => setTastes({ genres: t.genres.includes(n) ? t.genres.filter((x) => x !== n) : [...t.genres, n] });
+  const lengths = [['any', 'Any length'], ['short', 'Short (under 10 hours)'], ['long', 'Long (25 hours or more)']];
+  return el('div', { class: 'tastes' },
+    el('div', { class: 'chips' }, genres.map((n) => el('button', { class: `chip taste ${t.genres.includes(n) ? 'on' : ''}`, onclick: () => toggle(n) }, n))),
+    el('div', { class: 'seg', style: '--svc:#6aa8ff' }, lengths.map(([id, label]) => el('button', { class: t.length === id ? 'on' : '', onclick: () => setTastes({ length: id }) }, label))));
+}
+
+// Cards with a line saying why each was picked.
+function recommendationGrid(picks) {
+  const keys = unlocked();
+  return el('div', { class: 'grid' }, picks.map(({ game, reasons }) => {
+    const c = card(game, keys);
+    // Leaving soon and new already show as badges on the cover.
+    const why = el('div', { class: 'reasons' }, reasons.filter((r) => !['leaving', 'new'].includes(r.id)).slice(0, 3).map((r) => el('span', { class: `reason ${r.id}` }, r.label)));
+    c.querySelector('.body').insertBefore(why, c.querySelector('.marks'));
+    return c;
+  }));
+}
+
+function renderForYou() {
+  const content = $('#content');
+  content.replaceChildren();
+  const picks = recommendations(24, 10);
+  $('#summary').textContent = 'Picked from your plans: games in genres you like, well-reviewed, leaving soon or just added. Scores and play times make these better as they load.';
+  content.append(el('div', { class: 'panel' }, el('h2', {}, 'What you like'), tastePicker()));
+  if (!Object.values(state.subscriptions).some(Boolean)) {
+    content.append(el('div', { class: 'empty' }, 'Pick your plans in Settings and recommendations show up here.'));
+    return;
+  }
+  content.append(picks.length ? recommendationGrid(picks) : el('div', { class: 'empty' }, 'Nothing matches these choices yet. Try another genre or length.'));
+}
+
+// ---------- onboarding ----------
+// First launch: country, services, tastes, then a first set of picks.
+let onboarding = null; // { step }
+const ONBOARD_STEPS = 4;
+
+function guessRegion() {
+  const tag = String(navigator.languages?.[0] || navigator.language || '').split('-')[1]?.toUpperCase();
+  const id = tag === 'UK' ? 'GB' : tag;
+  return regions.some((r) => r.id === id) ? id : 'US';
+}
+
+function startOnboarding() {
+  onboarding = { step: 0 };
+  if (!$('#onboarding')) document.body.append(el('div', { id: 'onboarding', class: 'onboard' }));
+  renderOnboarding();
+}
+
+async function finishOnboarding() {
+  onboarding = null;
+  $('#onboarding')?.remove();
+  await saveState({ settings: { ...state.settings, onboarded: true } });
+  const hasSubs = Object.values(state.subscriptions).some(Boolean);
+  ui.mineOnly = hasSubs;
+  $('#mine-only').checked = hasSubs;
+  ui.view = hasSubs ? 'foryou' : 'subs';
+  render();
+}
+
+async function onboardNext() {
+  if (onboarding.step === 0) {
+    // The lists are fetched for the country picked here.
+    refresh();
+  }
+  onboarding.step += 1;
+  renderOnboarding();
+}
+
+function renderOnboarding() {
+  const box = $('#onboarding');
+  if (!onboarding || !box) return;
+  const { step } = onboarding;
+  const back = step > 0 ? el('button', { class: 'link', onclick: () => { onboarding.step -= 1; renderOnboarding(); } }, 'Back') : el('span');
+  const dots = el('div', { class: 'onboard-dots' }, Array.from({ length: ONBOARD_STEPS }, (_, i) => el('span', { class: i === step ? 'on' : '' })));
+  let body;
+  let next = el('button', { class: 'primary', onclick: onboardNext }, 'Next');
+
+  if (step === 0) {
+    const select = el('select', {}, regions.map((r) => el('option', { value: r.id }, r.name)));
+    select.value = state.settings.onboardRegionPicked ? state.settings.region : guessRegion();
+    const pick = () => saveState({ settings: { ...state.settings, region: select.value, onboardRegionPicked: true } });
+    select.addEventListener('change', pick);
+    next = el('button', { class: 'primary', onclick: async () => { await pick(); rebuildGames(); onboardNext(); } }, 'Get started');
+    body = [
+      el('img', { class: 'onboard-logo', src: 'logo.svg', alt: '' }),
+      el('h1', {}, 'Welcome to Subscroll'),
+      el('p', { class: 'lead' }, 'Every game you already pay for, in one place. Tell it which subscriptions you have and it shows what\'s in them, what\'s leaving, and what to play next.'),
+      el('label', { class: 'onboard-field' }, el('span', {}, 'Where do you play?'), select),
+      el('p', { class: 'muted' }, 'Game Pass and PS Plus catalogues differ a little by country.'),
+    ];
+  } else if (step === 1) {
+    const rows = allServices().filter((s) => !s.custom).map((s) => {
+      const current = state.subscriptions[s.id] || '';
+      const pick = async (tierId) => {
+        await saveState({ subscriptions: { ...state.subscriptions, [s.id]: tierId || undefined } });
+        renderOnboarding();
+      };
+      return el('div', { class: 'sub-row', style: `--svc:${s.color}` },
+        el('div', { class: 'sub-name' }, el('strong', {}, s.name)),
+        el('div', { class: 'seg' },
+          el('button', { class: current ? '' : 'on', onclick: () => pick('') }, 'No'),
+          s.tiers.map((t) => el('button', { class: current === t.id ? 'on' : '', onclick: () => pick(t.id) }, t.name))));
+    });
+    const any = Object.values(state.subscriptions).some(Boolean);
+    next = el('button', { class: 'primary', disabled: !any, onclick: onboardNext }, 'Next');
+    body = [
+      el('h1', {}, 'Which services do you have?'),
+      el('p', { class: 'lead' }, 'Pick your plan for each. Game Pass Ultimate already includes EA Play and Ubisoft+ Classics.'),
+      el('div', { class: 'onboard-services' }, rows),
+    ];
+  } else if (step === 2) {
+    body = [
+      el('h1', {}, 'What do you like to play?'),
+      el('p', { class: 'lead' }, 'Pick a few genres and how long you like games to be. You can change this any time on the For you page.'),
+      tastePicker(),
+    ];
+  } else {
+    const picks = recommendations(8);
+    next = el('button', { class: 'primary', onclick: finishOnboarding }, 'Start browsing');
+    body = [
+      el('h1', {}, 'Picked for you'),
+      el('p', { class: 'lead' }, 'From the plans you have. Click ＋ on a cover to save a game to your To play list. More picks, which get better as scores and play times load, are on the For you page.'),
+      picks.length ? recommendationGrid(picks) : el('p', { class: 'muted' }, 'Loading your services\' games…'),
+    ];
+  }
+  box.replaceChildren(el('div', { class: 'onboard-card' },
+    el('div', { class: 'onboard-body' }, body),
+    el('div', { class: 'onboard-foot' }, back, dots, el('div', { class: 'onboard-actions' },
+      step > 0 && step < 3 ? el('button', { class: 'link', onclick: finishOnboarding }, 'Skip') : null, next))));
+}
+
 function renderLeaving() {
   const list = filtered(games.filter((g) => leaveInfo(g)));
   list.sort((a, b) => (leaveInfo(a).date || '9999').localeCompare(leaveInfo(b).date || '9999') || a.title.localeCompare(b.title));
@@ -753,7 +910,9 @@ function renderSubs() {
       s.custom ? el('button', { class: 'link danger', onclick: () => removeCustomService(s) }, 'Remove') : null);
   });
 
-  content.append(el('div', { class: 'panel' }, el('h2', {}, 'My subscriptions'), rows));
+  content.append(el('div', { class: 'panel' },
+    el('div', { class: 'panel-head' }, el('h2', {}, 'My subscriptions'), el('button', { class: 'link', onclick: startOnboarding }, 'Run the welcome setup again')),
+    rows));
   content.append(customServicePanel(), customGamePanel(), regionPanel(), backgroundPanel(), steamPanel(), backupPanel(), sourcesPanel());
 }
 
@@ -1153,7 +1312,7 @@ function roll() {
 
 function renderChrome() {
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.view === ui.view));
-  $('#toolbar').classList.toggle('hidden', ['subs', 'stats', 'value'].includes(ui.view));
+  $('#toolbar').classList.toggle('hidden', ['subs', 'stats', 'value', 'foryou'].includes(ui.view));
 
   const chips = $('#service-chips');
   chips.replaceChildren(...allServices().map((s) => el('button', {
@@ -1206,9 +1365,11 @@ function render(keepScroll = false) {
   const top = content.scrollTop;
   if (!keepScroll) ui.shown = PAGE_SIZE;
   renderChrome();
-  ({ browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, toplay: renderToPlay, stats: renderStats, value: renderValue, subs: renderSubs })[ui.view]();
+  ({ foryou: renderForYou, browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, toplay: renderToPlay, stats: renderStats, value: renderValue, subs: renderSubs })[ui.view]();
   if (keepScroll) content.scrollTop = top;
   if (drawerGame) openDrawer(drawerGame);
+  // Lists arriving during onboarding fill in its counts and picks.
+  if (onboarding) renderOnboarding();
 }
 
 // A click on an alert opens the page it's about.
@@ -1354,6 +1515,11 @@ async function init() {
   wire();
   render();
 
+  // First launch: the setup picks the country before any list is fetched.
+  if (!hasSubs && !state.settings.onboarded) {
+    startOnboarding();
+    return;
+  }
   const hours = Number(state.settings.autoRefreshHours) || 24;
   const last = state.lastRefresh ? new Date(state.lastRefresh) : null;
   if (!last || Date.now() - last > hours * 3600000) refresh();
