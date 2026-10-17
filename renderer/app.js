@@ -672,11 +672,75 @@ function renderToPlay() {
     content.append(el('div', { class: 'empty' }, 'Click ＋ on a game\'s cover (or "To play" in its details) to keep it here, whether it\'s out now or coming soon.'));
     return;
   }
+  const advice = advisorPanel();
+  if (advice) content.append(advice);
   for (const [title, hint, items] of groups) {
     if (!items.length) continue;
     content.append(el('div', { class: 'section-head' }, el('h3', {}, title, el('span', { class: 'muted' }, ` ${items.length}`)), el('span', { class: 'muted' }, hint)),
       el('div', { class: 'grid' }, items.map((g) => card(g, keys))));
   }
+}
+
+// "Game Pass Ultimate", "PC Game Pass", "PS Plus Extra", "Netflix Games".
+function planName(serviceId, tierId) {
+  const s = serviceById(serviceId);
+  if (!s) return serviceId;
+  const t = s.tiers.find((x) => x.id === tierId);
+  if (!t || s.tiers.length === 1) return s.name;
+  return t.name.includes(s.short) ? t.name : `${s.short} ${t.name}`;
+}
+
+// Which plan to pick up for your To play list, for people who rotate plans.
+function advisorPanel() {
+  const r = Advisor.advise(games, {
+    services: allServices(),
+    subscriptions: state.subscriptions,
+    markOf: (g) => markOf(g.id),
+    comingOn: (g) => (isComing(g) ? g.comingOn : null),
+    leaving: (g) => { const l = leaveInfo(g); return !!(l && l.soon && !l.past); },
+    today: todayIso(),
+  });
+  const idle = r.keep.filter((k) => !k.needs);
+  const lower = r.keep.filter((k) => k.lower);
+  if (!r.options.length && !idle.length && !lower.length) return null;
+  const n = (x, word) => `${x} ${word}${x === 1 ? '' : 's'}`;
+  const thumb = (g) => {
+    const ms = ['gamepass', 'eaplay', 'ubisoftplus'].includes(g.service);
+    const img = g.image ? el('img', { src: ms ? `${g.image}?w=80&h=120&q=70` : g.image, loading: 'lazy', alt: '' }) : null;
+    const initials = () => el('span', {}, g.title.slice(0, 2));
+    if (img) img.addEventListener('error', () => img.replaceWith(initials()));
+    return el('button', { class: 'adv-thumb', title: g.title, onclick: () => openDrawer(g) }, img || initials());
+  };
+  const rows = r.options.slice(0, 4).map((o, i) => {
+    const s = serviceById(o.service);
+    const facts = [`Covers ${o.games.length} of your ${r.total} To play games`];
+    if (o.leaving.length) facts.push(`${o.leaving.length} leaving soon`);
+    if (o.arriving.length) facts.push(`${o.arriving.length} arriving this month`);
+    if (o.smaller) facts.push(`${planName(o.service, o.smaller.tier)} alone covers ${o.smaller.count}`);
+    const shown = [...o.leaving, ...o.games.filter((g) => !o.leaving.includes(g))].slice(0, 6);
+    return el('div', { class: `adv-row ${i === 0 ? 'best' : ''}` },
+      el('span', { class: 'dot', style: `background:${s?.color || 'var(--accent)'}` }),
+      el('div', { class: 'adv-main' },
+        el('div', { class: 'adv-title' }, el('strong', {}, planName(o.service, o.tier)),
+          i === 0 ? el('span', { class: 'badge toplay' }, 'Best pick') : null,
+          o.upgradeFrom ? el('span', { class: 'muted' }, ` upgrade from ${planName(o.service, o.upgradeFrom)}`) : null),
+        el('div', { class: 'muted' }, facts.join(' · '))),
+      el('div', { class: 'adv-covers' }, shown.map(thumb), o.games.length > shown.length ? el('span', { class: 'muted' }, `+${o.games.length - shown.length}`) : null));
+  });
+  const notes = [];
+  if (r.rotation.length > 1) {
+    notes.push(el('p', { class: 'adv-note' }, el('strong', {}, 'Month by month: '),
+      r.rotation.map((x) => `${planName(x.service, x.tier)} (${x.count})`).join(' → '),
+      el('span', { class: 'muted' }, '. One plan a month, counting games announced for the next few months.')));
+  }
+  for (const k of idle) notes.push(el('p', { class: 'adv-note' }, `${planName(k.service, k.tier)}: nothing on your To play list needs it right now, so you could pause it.`));
+  for (const k of lower) notes.push(el('p', { class: 'adv-note' }, `${planName(k.service, k.tier)}: ${planName(k.service, k.lower)} covers the ${n(k.needs, 'To play game')} you need it for.`));
+  const hint = r.options.length
+    ? `For the To play games you can't play with the plans you have${r.ready ? ` (${r.ready} you can)` : ''}.`
+    : 'Everything on your To play list is in your plans already.';
+  return el('div', { class: 'panel advisor' },
+    el('div', { class: 'panel-head' }, el('h2', {}, 'Which plan to get'), el('span', { class: 'muted' }, hint)),
+    rows, notes);
 }
 
 // ---------- statistics ----------

@@ -404,3 +404,18 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .onboard-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
 .onboard-dots span.on { background: var(--accent); }
 .primary:disabled { opacity: .45; cursor: default; }
+
+/* Plan advisor on the To play page */
+.advisor .panel-head h2 { margin: 12px 0 6px; font-size: 16px; }
+.adv-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.panel-head + .adv-row { border-top: 0; }
+.adv-row .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.adv-main { flex: 1; min-width: 0; }
+.adv-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }
+.adv-row.best strong { color: var(--accent); }
+.adv-covers { display: flex; align-items: center; gap: 4px; flex: none; }
+.adv-thumb { width: 34px; height: 46px; padding: 0; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: var(--panel-2); color: var(--muted); font-size: 11px; cursor: pointer; }
+
+.adv-thumb span { display: flex; align-items: center; justify-content: center; height: 100%; }
+.adv-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.adv-note { margin: 8px 0 0; font-size: 13px; }
