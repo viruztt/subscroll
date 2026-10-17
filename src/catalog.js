@@ -117,6 +117,12 @@ function applyHistory(prev, games, origin, left = []) {
   return { history, added, removed };
 }
 
+// Departed lists merged by id, keeping the first one's entries.
+function mergeDeparted(a = [], b = []) {
+  const ids = new Set(a.map((g) => g.id));
+  return [...a, ...b.filter((g) => !ids.has(g.id))].slice(0, MAX_DEPARTED);
+}
+
 class Catalog {
   constructor(dir) {
     this.dir = path.join(dir, 'catalog');
@@ -158,7 +164,11 @@ class Catalog {
   reapplyArcade() {
     const entry = this.load('applearcade');
     if (!entry.games.length) return entry;
-    const next = { ...entry, games: arcade.applyCached(entry.games, this.appStoreDir()) };
+    const all = arcade.applyCached(entry.games, this.appStoreDir());
+    // Games found to be off the App Store move to the departed list.
+    const games = all.filter((g) => !g.gone);
+    const { history } = applyHistory(null, games, entry.origin, all.filter((g) => g.gone));
+    const next = { ...entry, games, history: { ...history, firstSeen: entry.history?.firstSeen || {}, departed: mergeDeparted(entry.history?.departed, history.departed) } };
     if (entry.source !== 'bundled') writeJson(this.fileFor('applearcade'), next);
     this.cache.applearcade = next;
     return next;

@@ -92,8 +92,11 @@ async function fetchLive({ market = 'US', language = 'en-us' } = {}) {
 
   // Games announced with a future date (a bonus: the list works without).
   let upcoming = new Map();
+  let joined = new Map();
   try {
-    upcoming = comingSoon(await getJson(`https://catalog.gamepass.com/pcsubscriptions?market=${market}&language=${language}`));
+    const subs = await getJson(`https://catalog.gamepass.com/pcsubscriptions?market=${market}&language=${language}`);
+    upcoming = comingSoon(subs);
+    joined = joinDates(subs);
   } catch {
     // Keep going without upcoming games.
   }
@@ -118,6 +121,7 @@ async function fetchLive({ market = 'US', language = 'en-us' } = {}) {
       tiers: [...m.tiers],
       leavingSoon: leaving.has(id),
       comingOn: soon ? soon.date : null,
+      addedOn: joined.get(id) || null,
       genres: d.genres,
       developer: d.developer || null,
       publisher: d.publisher || null,
@@ -172,6 +176,23 @@ function comingSoon(data, now = Date.now()) {
   return out;
 }
 
+// When each game already in Game Pass joined it: the earliest past
+// EntranceDate over its plans.
+function joinDates(data, now = Date.now()) {
+  const out = new Map();
+  for (const [id, product] of Object.entries(data || {})) {
+    if (!product || typeof product !== 'object') continue;
+    for (const [field, meta] of Object.entries(product)) {
+      if (!/SubMetadata$/.test(field) || !meta || !meta.EntranceDate) continue;
+      const when = Date.parse(meta.EntranceDate);
+      if (!(when <= now)) continue;
+      const iso = new Date(when).toISOString().slice(0, 10);
+      if (!out.has(id) || iso < out.get(id)) out.set(id, iso);
+    }
+  }
+  return out;
+}
+
 // Microsoft's store-wide list names -> product ids (EA Play, Ubisoft+…).
 async function fetchSubscriptionLists(market = 'US') {
   const data = await getJson(`https://catalog.gamepass.com/subscriptions?market=${market}`);
@@ -216,4 +237,4 @@ async function fetchMirror() {
   return normalizeMirror(await getJson(MIRROR_URL, { timeoutMs: 60000 }));
 }
 
-module.exports = { fetchLive, fetchMirror, fetchProduct, fetchProducts, fetchSubscriptionLists, comingSoon, storeUrl, normalizeMirror, siglIds, parseProduct, buildMembership, MIRROR_URL };
+module.exports = { fetchLive, fetchMirror, fetchProduct, fetchProducts, fetchSubscriptionLists, comingSoon, joinDates, storeUrl, normalizeMirror, siglIds, parseProduct, buildMembership, MIRROR_URL };

@@ -121,14 +121,21 @@ function loadCache(cacheDir) {
   return readJson(path.join(cacheDir, 'appstore.json'), {});
 }
 
-// Adds the App Store details already looked up.
+// Adds the App Store details already looked up. Wikipedia lists every
+// Arcade game there has been, without saying which were removed; an
+// Arcade game is an App Store app, so one that neither the local nor the
+// US App Store has any more (after a fresh lookup) has left the service.
+// It's asked again once the miss expires, so a game that comes back returns.
 function applyCached(games, cacheDir) {
   const cache = loadCache(cacheDir);
   return games.map((g) => {
-    const d = cache[key(g.title)] && cache[key(g.title)].data;
-    if (!d) return g;
+    const hit = cache[key(g.title)];
+    const d = hit && hit.data;
+    const offStore = hit && hit.v >= LOOKUP_VERSION && (!d || d.source === 'Steam') && !g.comingOn;
+    const out = offStore ? { ...g, gone: true, leftOn: null } : g;
+    if (!d) return out;
     return {
-      ...g,
+      ...out,
       image: d.image || g.image,
       imageFallback: d.imageFallback || null,
       storeUrl: d.storeUrl || g.storeUrl,

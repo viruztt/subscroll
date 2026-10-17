@@ -134,6 +134,8 @@ test('Apple Arcade: App Store details looked up once, then reused', async () => 
   assert.match(sneaky.description, /^Live the life/);
   assert.deepStrictEqual(sneaky.genres, ['Adventure']);
   assert.strictEqual(unknown.image, undefined);
+  // On neither App Store: left the service. Found there: still in it.
+  assert.deepStrictEqual([unknown.gone, sneaky.gone], [true, undefined]);
   await arcade.lookupMissing(games, dir, 'gb', { delayMs: 0 });
   assert.strictEqual(searches, 4); // a miss asks the US store and Steam too, then is cached
 });
@@ -172,6 +174,14 @@ test('Apple Arcade: a game gone from the App Store gets its Steam cover', async 
   assert.match(overland.image, /\/apps\/8\/library_600x900\.jpg$/);
   assert.strictEqual(overland.imageFallback, 'https://x/apps/8/header.jpg?t=1');
   assert.deepStrictEqual(overland.genres, ['Strategy']);
+  assert.ok(overland.gone); // only on Steam now
+  const { Catalog } = require('../src/catalog');
+  const cat = new Catalog(path.dirname(dir));
+  cat.appStoreDir = () => dir;
+  cat.cache.applearcade = { service: 'applearcade', source: 'live', origin: 'live', games: [...games, { id: 'applearcade:x', title: 'Coming', comingOn: '2099-01-01', genres: [] }], history: { firstSeen: {}, departed: [] } };
+  const next = cat.reapplyArcade();
+  assert.deepStrictEqual(next.games.map((g) => g.id), ['applearcade:x']);
+  assert.deepStrictEqual(next.history.departed.map((g) => [g.id, g.leftOn, g.departed]), [['applearcade:overland', null, true]]);
 });
 
 test('Apple Arcade lookups stop at the first refusal', async () => {
@@ -181,6 +191,15 @@ test('Apple Arcade lookups stop at the first refusal', async () => {
   const games = Array.from({ length: 5 }, (_, i) => ({ id: `applearcade:${i}`, title: `Game ${i}` }));
   assert.strictEqual(await arcade.lookupMissing(games, dir, 'us', { delayMs: 0 }), 0);
   assert.strictEqual(searches, 1);
+});
+
+test('Game Pass join dates for games already in it', () => {
+  const now = Date.parse('2026-10-17T00:00:00Z');
+  const joined = gamepass.joinDates({
+    EDAY: { ultimateSubMetadata: { EntranceDate: '2026-10-06T00:00:00Z' }, pcSubMetadata: { EntranceDate: '2026-10-07T00:00:00Z' } },
+    SOON: { ultimateSubMetadata: { EntranceDate: '2026-10-28T00:00:00Z' } },
+  }, now);
+  assert.deepStrictEqual([...joined], [['EDAY', '2026-10-06']]);
 });
 
 test('Game Pass upcoming: future join dates per plan, unknown far-future dates skipped', () => {
