@@ -114,6 +114,7 @@ function applyCached(games, cacheDir) {
     return {
       ...g,
       image: d.image || g.image,
+      imageFallback: d.imageFallback || null,
       storeUrl: d.storeUrl || g.storeUrl,
       description: d.description || null,
       screenshots: d.screenshots || [],
@@ -127,8 +128,27 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Looks up games without App Store details, one at a time and slowly:
 // Apple limits searches to roughly 20 a minute. Runs in the background;
 // stops at the first refusal and continues next time.
-// Misses from before the looser matching and the US fallback are asked again.
-const LOOKUP_VERSION = 2;
+// Steam's portrait library art, for a game with exactly this title.
+async function steamCover(title, country) {
+  try {
+    const data = await http.getJson(`https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(title)}&l=english&cc=${country}`);
+    const k = key(title.replace(/\s+Arcade Edition$/i, ''));
+    const hit = (data.items || []).find((i) => (!i.type || i.type === 'app') && key(i.name) === k);
+    if (!hit) return null;
+    return {
+      image: `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${hit.id}/library_600x900.jpg`,
+      // Older games may lack portrait art; the store header always exists.
+      imageFallback: hit.tiny_image ? hit.tiny_image.replace('capsule_231x87', 'header') : null,
+      storeUrl: null, description: null, screenshots: [], genres: [], source: 'Steam',
+    };
+  } catch {
+    // Steam is only a fallback; the App Store answer stands.
+    return null;
+  }
+}
+
+// Misses from before the looser matching and the US and Steam fallbacks are asked again.
+const LOOKUP_VERSION = 3;
 
 async function lookupMissing(games, cacheDir, country = 'us', { delayMs = 3500, onFound = () => {} } = {}) {
   const file = path.join(cacheDir, 'appstore.json');
@@ -146,6 +166,11 @@ async function lookupMissing(games, cacheDir, country = 'us', { delayMs = 3500, 
       if (!data && country !== 'us') {
         await sleep(delayMs);
         data = await storeSearch(g.title, 'us', g.developer);
+      }
+      // Many early Arcade games have left the App Store but are sold on Steam.
+      if (!data) {
+        await sleep(delayMs);
+        data = await steamCover(g.title, country);
       }
       cache[key(g.title)] = { fetchedAt: Date.now(), data, v: LOOKUP_VERSION };
       if (data) found += 1;

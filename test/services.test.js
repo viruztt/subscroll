@@ -117,7 +117,7 @@ test('Apple Arcade: App Store details looked up once, then reused', async () => 
   assert.deepStrictEqual(sneaky.genres, ['Adventure']);
   assert.strictEqual(unknown.image, undefined);
   await arcade.lookupMissing(games, dir, 'gb', { delayMs: 0 });
-  assert.strictEqual(searches, 3); // a miss asks the US store too, then is cached
+  assert.strictEqual(searches, 4); // a miss asks the US store and Steam too, then is cached
 });
 
 test('Apple Arcade: an app by the same developer without the subtitle counts', () => {
@@ -128,6 +128,24 @@ test('Apple Arcade: an app by the same developer without the subtitle counts', (
   assert.strictEqual(arcade.pickApp(items, 'Hexaflip: The Action Puzzler', 'Rogue Games').name, 'Hexaflip');
   assert.strictEqual(arcade.pickApp(items, 'Hexaflip: The Action Puzzler', 'Other Studio'), null);
   assert.strictEqual(arcade.pickApp(items, 'Hexaflip: The Action Puzzler', null), null);
+});
+
+test('Apple Arcade: a game gone from the App Store gets its Steam cover', async () => {
+  http.setFetch(async (url) => {
+    const u = new URL(url);
+    if (u.host === 'itunes.apple.com') return jsonResponse({ results: [] });
+    return jsonResponse({ items: [
+      { type: 'app', id: 7, name: 'Overland 2', tiny_image: 'https://x/apps/7/capsule_231x87.jpg' },
+      { type: 'app', id: 8, name: 'Overland', tiny_image: 'https://x/apps/8/capsule_231x87.jpg?t=1' },
+    ] });
+  });
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'arcade-'));
+  const games = [{ id: 'applearcade:overland', title: 'Overland', genres: ['Strategy'] }];
+  assert.strictEqual(await arcade.lookupMissing(games, dir, 'gb', { delayMs: 0 }), 1);
+  const [overland] = arcade.applyCached(games, dir);
+  assert.match(overland.image, /\/apps\/8\/library_600x900\.jpg$/);
+  assert.strictEqual(overland.imageFallback, 'https://x/apps/8/header.jpg?t=1');
+  assert.deepStrictEqual(overland.genres, ['Strategy']);
 });
 
 test('Apple Arcade lookups stop at the first refusal', async () => {

@@ -278,7 +278,15 @@ function cover(g) {
   const whole = ['nso', 'netflix', 'applearcade'].includes(g.service);
   const img = el('img', { class: `cover ${whole ? 'contain' : ''}`, src, loading: 'lazy', alt: '' });
   // Offline or a dead link: show the same artwork-free tile Nintendo games use.
-  img.addEventListener('error', () => img.replaceWith(placeholder(g)), { once: true });
+  img.addEventListener('error', function failed() {
+    // Steam art: the portrait cover first, then the store header.
+    if (g.imageFallback && img.src !== g.imageFallback) {
+      img.src = g.imageFallback;
+      return;
+    }
+    img.removeEventListener('error', failed);
+    img.replaceWith(placeholder(g));
+  });
   return img;
 }
 
@@ -465,31 +473,32 @@ function likeCompleted() {
 function renderForYou() {
   const content = $('#content');
   content.replaceChildren();
-  $('#summary').textContent = 'Picked from your plans: games like the ones you beat, then games in genres you like, well-reviewed, leaving soon or just added. Scores and play times make these better as they load.';
+  $('#summary').textContent = 'Picked from your plans: games in genres you like, well-reviewed, leaving soon or just added, then games like the ones you beat. Scores and play times make these better as they load.';
   if (!Object.values(state.subscriptions).some(Boolean)) {
     content.append(el('div', { class: 'panel' }, el('h2', {}, 'What you like'), tastePicker()));
     content.append(el('div', { class: 'empty' }, 'Pick your plans in Settings and recommendations show up here.'));
     return;
   }
+  // Games in a "Because you beat" row aren't repeated in the picks above it.
   const groups = likeCompleted();
-  const shown = new Set();
-  for (const { seed, picks } of groups) {
-    picks.forEach((p) => shown.add(p.game.id));
-    content.append(el('div', { class: 'section-head' },
-      el('h3', {}, 'Because you beat ', el('button', { class: 'link inline seed', onclick: () => openDrawer(seed) }, seed.title)),
-      el('span', { class: 'muted' }, 'Same studio or similar genres')));
-    content.append(recommendationGrid(picks));
-  }
-  if (!groups.length) {
-    const beaten = statsGames().some((g) => markOf(g.id) === 'completed');
-    content.append(el('div', { class: 'hint-row muted' }, beaten
-      ? 'Nothing in your plans is much like the games you\'ve completed yet. Studio names fill in as lists refresh.'
-      : 'Mark games as ★ Completed and games like them show up here, by the same studio or with similar genres.'));
-  }
+  const shown = new Set(groups.flatMap((x) => x.picks.map((p) => p.game.id)));
   content.append(el('div', { class: 'section-head' }, el('h3', {}, 'Picked for you'), el('span', { class: 'muted' }, 'From the genres and length you like')));
   content.append(el('div', { class: 'panel' }, tastePicker()));
   const picks = recommendations(24 + shown.size, 10).filter((p) => !shown.has(p.game.id)).slice(0, 24);
   content.append(picks.length ? recommendationGrid(picks) : el('div', { class: 'empty' }, 'Nothing matches these choices yet. Try another genre or length.'));
+  for (const { seed, picks: like } of groups) {
+    content.append(el('div', { class: 'section-head' },
+      el('h3', {}, 'Because you beat ', el('button', { class: 'link inline seed', onclick: () => openDrawer(seed) }, seed.title)),
+      el('span', { class: 'muted' }, 'Same studio or similar genres')));
+    content.append(recommendationGrid(like));
+  }
+  if (!groups.length) {
+    const beaten = statsGames().some((g) => markOf(g.id) === 'completed');
+    content.append(el('div', { class: 'section-head' }, el('h3', {}, 'Because you beat…')));
+    content.append(el('div', { class: 'hint-row muted' }, beaten
+      ? 'Nothing in your plans is much like the games you\'ve completed yet. Developers and genres fill in over the first few minutes as they\'re looked up.'
+      : 'Mark games as ★ Completed and games like them show up here, by the same studio or with similar genres.'));
+  }
 }
 
 // ---------- onboarding ----------

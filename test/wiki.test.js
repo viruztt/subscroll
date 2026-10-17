@@ -41,6 +41,8 @@ test('Wikipedia infobox: developer, publisher and genres, with links, refs and l
 test('Wikipedia page names to try', () => {
   assert.deepStrictEqual(pageNames('DOOM Eternal Standard Edition', 2020), ['DOOM Eternal (2020 video game)', 'DOOM Eternal', 'DOOM Eternal (video game)']);
   assert.deepStrictEqual(pageNames('Hades™', null), ['Hades', 'Hades (video game)']);
+  assert.deepStrictEqual(pageNames('Dead Space (2008)', 2023), ['Dead Space (2008 video game)', 'Dead Space', 'Dead Space (video game)']);
+  assert.deepStrictEqual(pageNames('Disco Elysium - The Final Cut', null), ['Disco Elysium', 'Disco Elysium (video game)']);
 });
 
 const page = (title, text, extra = {}) => ({ title, revisions: [{ slots: { main: { content: text } } }], ...extra });
@@ -93,5 +95,5 @@ test('Wikipedia facts fill only what a list left out, and are cached', async () 
     { id: 'c', service: 'gamepass', genres: [] },
     { id: 'd', service: 'applearcade', developer: 'Y', genres: [], image: null },
   ], { isMine: (g) => g.id !== 'd', markOf: (g) => (g.id === 'c' || g.id === 'a' ? 'completed' : 'none') });
-  assert.deepStrictEqual(list.map((g) => g.id), ['c', 'b', 'd']);
+  assert.deepStrictEqual(list.map((g) => g.id), ['c', 'd', 'b']);
 });

@@ -14,7 +14,7 @@ const HIT_DAYS = 30;
 const MISS_DAYS = 14;
 const PAUSE_MS = 700;
 const MAX_FAILURES = 5;
-const EDITION = /[\s:–—-]+(standard|deluxe|definitive|complete|enhanced|ultimate|gold|premium|digital deluxe|game of the year|goty|anniversary|remastered|director'?s cut|arcade|cross-gen bundle)( edition| bundle)?$/i;
+const EDITION = /[\s:–—-]+(standard|deluxe|definitive|complete|enhanced|ultimate|gold|premium|digital deluxe|game of the year|goty|anniversary|remastered|director'?s cut|the final cut|final cut|arcade|cross-gen bundle)( edition| bundle)?$/i;
 const SYSTEM_WORDS = {
   NES: 'NES', SNES: 'Super NES', 'Game Boy': 'Game Boy', N64: 'Nintendo 64', 'Sega Genesis': 'Sega Genesis',
   'Game Boy Advance': 'Game Boy Advance', 'Virtual Boy': 'Virtual Boy', 'GameCube (Switch 2)': 'GameCube',
@@ -86,7 +86,10 @@ const pageKey = (title) => key(title.replace(/\s*\((?:\d{4} )?(?:[\w-]+ )?(?:vid
 
 // Page names to try directly, best first.
 function pageNames(title, year) {
-  const t = plain(title);
+  // "Dead Space (2008)" is the 2008 game.
+  const y = /\((\d{4})\)\s*$/.exec(title);
+  if (y) year = Number(y[1]);
+  const t = plain(title.replace(/\s*\(\d{4}\)\s*$/, ''));
   return [...new Set([year && `${t} (${year} video game)`, t, `${t} (video game)`].filter(Boolean))];
 }
 
@@ -247,15 +250,15 @@ class Wiki {
 }
 
 // Which games to ask about: games you've completed (they drive "Because you
-// beat"), then games in your plans from lists without developers or genres,
-// then Apple Arcade games still without a picture.
+// beat"), then Apple Arcade games still without a picture, then games in
+// your plans from lists without developers or genres.
 function wanted(games, { isMine, markOf }) {
   const lacking = (g) => !g.developer || !(g.genres || []).length;
   const gaps = ['nso', 'psplus', 'netflix'];
   const done = games.filter((g) => markOf(g) === 'completed' && lacking(g));
   const mine = games.filter((g) => isMine(g) && gaps.includes(g.service) && lacking(g));
   const covers = games.filter((g) => g.service === 'applearcade' && !g.image);
-  return [...done, ...mine, ...covers];
+  return [...done, ...covers, ...mine];
 }
 
 module.exports = { Wiki, wanted, samePage, parseInfobox, listValues, pageNames, findFacts, matches, plain };
