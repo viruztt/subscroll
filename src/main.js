@@ -29,6 +29,10 @@ let quitting = false;
 http.setFetch((url, opts) => net.fetch(url, opts));
 
 const ICON = path.join(__dirname, '..', 'renderer', 'icon.png');
+// A real .ico next to the app (packaged builds), which the Windows taskbar
+// reads more reliably than a PNG.
+const ICO = app.isPackaged ? path.join(process.resourcesPath, 'icon.ico') : path.join(__dirname, '..', 'build', 'icon.ico');
+const APP_ID = 'local.subscroll';
 // Started with Windows: stay in the tray until the user opens the window.
 const startHidden = process.argv.includes('--hidden');
 
@@ -41,7 +45,7 @@ function createWindow() {
     minHeight: 600,
     backgroundColor: '#0f1115',
     title: 'Subscroll',
-    icon: nativeImage.createFromPath(ICON),
+    icon: process.platform === 'win32' ? ICO : ICON,
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -50,13 +54,13 @@ function createWindow() {
     },
   });
   // Windows draws the taskbar button from the app id's shortcut, and the
-  // portable exe has none, so the button came out blank. Point it at the exe's
-  // own icon instead.
+  // portable exe has none, so the button came out blank. Give it the icon file
+  // directly.
   if (process.platform === 'win32') {
     const exe = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
     win.setAppDetails({
-      appId: 'Subscroll',
-      appIconPath: exe,
+      appId: APP_ID,
+      appIconPath: ICO,
       appIconIndex: 0,
       relaunchCommand: `"${exe}"`,
       relaunchDisplayName: 'Subscroll',
@@ -390,7 +394,7 @@ if (!firstCopy) {
   app.on('second-instance', () => showWindow());
 }
 
-app.setAppUserModelId('Subscroll');
+app.setAppUserModelId(APP_ID);
 app.on('before-quit', () => { quitting = true; });
 
 app.whenReady().then(() => {

@@ -23,11 +23,17 @@
     "win": {
       "target": "portable",
       "artifactName": "Subscroll-${version}.exe",
-      "icon": "build/icon.png"
+      "icon": "build/icon.ico"
     },
     "mac": {
       "category": "public.app-category.games"
-    }
+    },
+    "extraResources": [
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
+      }
+    ]
   },
   "license": "MIT",
   "devDependencies": {
