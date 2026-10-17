@@ -8,7 +8,9 @@
 |---|---|
 | ![My games](docs/screenshots/my-games.png) | ![Roll a game](docs/screenshots/roll.png) |
 
-![Statistics](docs/screenshots/stats.png)
+| Welcome setup | Statistics |
+|---|---|
+| ![Welcome setup](docs/screenshots/welcome.png) | ![Statistics](docs/screenshots/stats.png) |
 
 A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus, Nintendo Switch Online, EA Play, Ubisoft+, Netflix Games and Apple Arcade, by tier. You pick the plans you have, mark games as played or completed, and see what's leaving soon. Everything you set is saved on your PC, in `%APPDATA%\Subscription Catalogue` (the app's earlier name).
 
