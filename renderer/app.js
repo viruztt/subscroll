@@ -609,7 +609,10 @@ function renderLeaving() {
 }
 
 function renderChanges() {
-  const added = sorted(filtered(games.filter((g) => g.firstSeen)));
+  // Lists with dates back to launch (Switch Online, Apple Arcade) would make
+  // this every game, so only the last 30 days, newest first.
+  const added = filtered(games.filter((g) => g.firstSeen && !isComing(g) && daysUntil(g.firstSeen) >= -30 && daysUntil(g.firstSeen) <= 0))
+    .sort((a, b) => b.firstSeen.localeCompare(a.firstSeen) || a.title.localeCompare(b.title));
   const gone = filtered(departed);
   const content = $('#content');
   $('#summary').textContent = hideDeparted()
@@ -620,7 +623,7 @@ function renderChanges() {
   const section = (title, list, empty) => el('div', {},
     el('h2', {}, title),
     list.length ? el('div', { class: 'grid' }, list.slice(0, 240).map((g) => card(g, keys))) : el('div', { class: 'empty small' }, empty));
-  content.append(section(`Recently added (${added.length})`, added, 'Nothing new yet. New games show up here after the next refresh finds them.'));
+  content.append(section(`Added in the last 30 days (${added.length})`, added, 'Nothing added in the last 30 days. New games show up here after a refresh finds them.'));
   if (!hideDeparted()) content.append(section(`Left the service (${gone.length})`, gone, 'No departures recorded yet.'));
 }
 
