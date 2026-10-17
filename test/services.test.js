@@ -100,9 +100,17 @@ test('Apple Arcade: Wikipedia list with announced games marked as coming, remove
   assert.deepStrictEqual(games.map((g) => [g.id, g.addedOn, g.comingOn]), [
     ['applearcade:sneaky-sasquatch', '2019-09-19', null],
     ['applearcade:future-game', null, '2099-03-05'],
+    ['applearcade:struck-game', '2019-09-19', null],
+    ['applearcade:gone-game', '2019-09-19', null],
+    ['applearcade:noted-game', '2019-09-19', null],
     ['applearcade:leaving-game', '2019-09-19', null],
+    ['applearcade:old-game', null, null],
   ]);
-  assert.ok(games[2].leavingSoon);
+  const by = Object.fromEntries(games.map((g) => [g.title, g]));
+  assert.ok(by['Leaving Game'].leavingSoon && !by['Leaving Game'].gone);
+  assert.deepStrictEqual(['Struck Game', 'Gone Game', 'Noted Game', 'Old Game'].map((t) => [by[t].gone, by[t].leftOn]),
+    [[true, null], [true, '2023-06-01'], [true, null], [true, null]]);
+  assert.ok(!by['Sneaky Sasquatch'].gone);
   assert.strictEqual(games[0].developer, 'RAC7');
 });
 
@@ -128,6 +136,14 @@ test('Apple Arcade: App Store details looked up once, then reused', async () => 
   assert.strictEqual(unknown.image, undefined);
   await arcade.lookupMissing(games, dir, 'gb', { delayMs: 0 });
   assert.strictEqual(searches, 4); // a miss asks the US store and Steam too, then is cached
+});
+
+test('Games a source lists as gone join the departed list with their date', () => {
+  const { applyHistory } = require('../src/catalog');
+  const prev = { source: 'live', origin: 'live', games: [{ id: 'a', title: 'A' }, { id: 'b', title: 'B' }], history: { firstSeen: {}, departed: [] } };
+  const { history, removed } = applyHistory(prev, [{ id: 'a', title: 'A' }], 'live', [{ id: 'b', title: 'B', gone: true, leftOn: '2023-06-01' }, { id: 'c', title: 'C', gone: true, leftOn: null }]);
+  assert.deepStrictEqual(removed, ['B']);
+  assert.deepStrictEqual(history.departed.map((g) => [g.id, g.leftOn, !!g.gone]), [['b', '2023-06-01', false], ['c', null, false]]);
 });
 
 test('Apple Arcade: an app by the same developer without the subtitle counts', () => {

@@ -26,7 +26,7 @@ function parseWikipedia(html, today = new Date().toISOString().slice(0, 10)) {
     const caption = (m[1].match(/<caption[^>]*>([\s\S]*?)<\/caption>/i) || [])[1] || '';
     const headings = [...html.slice(0, m.index).matchAll(/<h[234][^>]*>([\s\S]*?)<\/h[234]>/gi)];
     const label = `${caption} ${headings.length ? headings[headings.length - 1][1] : ''}`.replace(/<[^>]+>/g, ' ');
-    if (/\b(removed|former|delisted|discontinued|departed)\b/i.test(label)) continue;
+    const goneTable = /\b(removed|former|delisted|discontinued|departed)\b/i.test(label);
     // Struck-through titles count as removed.
     const grid = tableGrid(m[1].replace(/<(s|del|strike)\b[^>]*>([\s\S]*?)<\/\1>/gi, '$2 (removed)'));
     const header = grid.find((r) => r.allHeaders);
@@ -40,12 +40,12 @@ function parseWikipedia(html, today = new Date().toISOString().slice(0, 10)) {
     for (const row of grid.filter((r) => !r.allHeaders)) {
       const title = (row.cells[titleCol] || '').replace(/\s*\(removed\)\s*$/i, '').trim();
       if (!title) continue;
-      if (row.cells.some((c, i) => i !== devCol && c && c.length < 60 && GONE.test(c))) continue;
       const goneOn = goneCol !== -1 ? toIsoDate(row.cells[goneCol] || '') : null;
-      if (goneOn && goneOn <= today) continue;
+      // Kept with `gone` set, for the list of games that left.
+      const gone = goneTable || (goneOn && goneOn <= today) || row.cells.some((c, i) => i !== devCol && c && c.length < 60 && GONE.test(c));
       const id = `applearcade:${slug(title)}`;
-      if (seen.has(id)) continue;
-      seen.add(id);
+      if (seen.has(`${id}|${!!gone}`)) continue;
+      seen.add(`${id}|${!!gone}`);
       const date = dateCol !== -1 ? toIsoDate(row.cells[dateCol] || '') : null;
       games.push({
         id,
@@ -54,17 +54,20 @@ function parseWikipedia(html, today = new Date().toISOString().slice(0, 10)) {
         image: null,
         platforms: ['Apple devices'],
         tiers: ['any'],
-        leavingSoon: !!goneOn,
+        leavingSoon: !gone && !!goneOn,
         comingOn: date && date > today ? date : null,
         genres: [],
         releaseDate: date,
         addedOn: date && date <= today ? date : null,
         developer: row.cells[devCol] || null,
         storeUrl: null,
+        ...(gone ? { gone: true, leftOn: goneOn && goneOn <= today ? goneOn : null } : {}),
       });
     }
   }
-  return games;
+  // A game listed as both (removed, then back) counts as available.
+  const live = new Set(games.filter((g) => !g.gone).map((g) => g.id));
+  return games.filter((g) => !g.gone || !live.has(g.id));
 }
 
 const readJson = (file, fallback) => {
@@ -203,7 +206,7 @@ async function fetchLive(settings = {}, cacheDir = null) {
   const data = await http.getJson(WIKI_URL, { headers: { 'Api-User-Agent': 'Subscroll/0.1 (desktop app)' } });
   const html = data.parse ? data.parse.text : '';
   const games = parseWikipedia(html);
-  if (games.length < 100) throw new Error(`Wikipedia list looks incomplete (${games.length} games)`);
+  if (games.filter((g) => !g.gone).length < 100) throw new Error(`Wikipedia list looks incomplete (${games.length} games)`);
   if (!cacheDir) return games;
   // The article as read, to check how it marks games when the list looks wrong.
   try {

@@ -193,7 +193,7 @@ function filtered(list) {
     if (ui.services.size && !inServices(g, ui.services)) return false;
     // The To play list shows games outside your plans too, to see where they are.
     if (ui.mineOnly && ui.view !== 'toplay' && !isMine(g, keys)) return false;
-    if (hideDeparted() && (g.leftOn || leaveInfo(g)?.past)) return false;
+    if (hideDeparted() && (g.leftOn || g.departed || leaveInfo(g)?.past)) return false;
     if (hideCompleted() && markOf(g.id) === 'completed') return false;
     if (hideIgnored() && markOf(g.id) === 'ignored') return false;
     if (ui.status === 'steam' ? !g.steam : ui.status !== 'all' && markOf(g.id) !== ui.status) return false;
@@ -361,7 +361,7 @@ function card(g, keys) {
   }
   if (isComing(g)) badges.push(el('span', { class: 'badge coming' }, `Coming ${fmtDate(g.comingOn)}`));
   else if (g.firstSeen && daysUntil(g.firstSeen) >= -30) badges.push(el('span', { class: 'badge new' }, 'New'));
-  if (g.leftOn) badges.push(el('span', { class: 'badge gone' }, `Left ${fmtDate(g.leftOn)}`));
+  if (g.leftOn || g.departed) badges.push(el('span', { class: 'badge gone' }, g.leftOn ? `Left ${fmtDate(g.leftOn)}` : 'Left the service'));
   // Regional versions sharing this card.
   if (g.versions?.length > 1) badges.push(el('span', { class: 'badge region', title: 'Regional versions included' }, g.versions.join(' + ')));
   if (markOf(g.id) === 'wishlist') badges.push(el('span', { class: 'badge toplay' }, 'To play'));

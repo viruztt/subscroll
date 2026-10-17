@@ -77,7 +77,8 @@ function originOf(service, source, settings = {}) {
   return region ? `live:${region}` : 'live';
 }
 
-function applyHistory(prev, games, origin) {
+// `left`: games the source itself lists as gone, with the date when known.
+function applyHistory(prev, games, origin, left = []) {
   const history = { firstSeen: {}, departed: [], ...(prev && prev.history) };
   // Lists from different sources or regions differ by a few hundred games,
   // so switching between them would look like a wave of arrivals and
@@ -103,7 +104,16 @@ function applyHistory(prev, games, origin) {
       }
     }
   }
-  history.departed = history.departed.filter((g) => !ids.has(g.id)).slice(0, MAX_DEPARTED);
+  for (const g of left) {
+    if (ids.has(g.id)) continue;
+    const { gone, ...game } = g;
+    const known = history.departed.find((d) => d.id === g.id);
+    if (!known) history.departed.push({ ...game, leftOn: g.leftOn || null, departed: true });
+    else if (g.leftOn) known.leftOn = g.leftOn; // the real date rather than the day it was noticed
+  }
+  history.departed = history.departed.filter((g) => !ids.has(g.id))
+    .sort((a, b) => (b.leftOn || '').localeCompare(a.leftOn || ''))
+    .slice(0, MAX_DEPARTED);
   return { history, added, removed };
 }
 
@@ -161,13 +171,15 @@ class Catalog {
     const errors = [];
     for (const source of ['live', 'mirror'].filter((s) => provider[s])) {
       try {
-        let games = mergeDuplicates(await provider[source](settings, service === 'applearcade' ? this.appStoreDir() : undefined));
+        const all = mergeDuplicates(await provider[source](settings, service === 'applearcade' ? this.appStoreDir() : undefined));
+        const left = all.filter((g) => g.gone);
+        let games = all.filter((g) => !g.gone);
         if (service === 'nso') games = await covers.apply(games, path.join(this.dir, 'covers'));
         if (service === 'applearcade') games = arcade.applyCached(games, this.appStoreDir());
         if (games.length === 0) throw new Error('empty list');
         const prev = this.load(service);
         const origin = originOf(service, source, settings);
-        const { history, added, removed } = applyHistory(prev, games, origin);
+        const { history, added, removed } = applyHistory(prev, games, origin, left);
         const entry = { service, source, origin, fetchedAt: new Date().toISOString(), games, history };
         writeJson(this.fileFor(service), entry);
         this.cache[service] = entry;
