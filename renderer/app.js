@@ -196,14 +196,14 @@ const hideCompleted = () => !!state.settings.hideCompleted && ui.view !== 'mine'
 // Picking "Ignored" in the status filter shows them anyway, to un-ignore.
 const hideIgnored = () => state.settings.hideIgnored !== false && ui.view !== 'mine' && ui.status !== 'ignored';
 
-function filtered(list) {
+function filtered(list, { keepDeparted = false } = {}) {
   const keys = unlocked();
   const q = ui.search.trim().toLowerCase();
   return list.filter((g) => {
     if (ui.services.size && !inServices(g, ui.services)) return false;
     // The To play list shows games outside your plans too, to see where they are.
     if (ui.mineOnly && ui.view !== 'toplay' && !isMine(g, keys)) return false;
-    if (hideDeparted() && (g.leftOn || g.departed || leaveInfo(g)?.past)) return false;
+    if (!keepDeparted && hideDeparted() && (g.leftOn || g.departed || leaveInfo(g)?.past)) return false;
     if (hideCompleted() && markOf(g.id) === 'completed') return false;
     if (hideIgnored() && markOf(g.id) === 'ignored') return false;
     if (ui.status === 'steam' ? !g.steam : ui.status !== 'all' && markOf(g.id) !== ui.status) return false;
@@ -742,6 +742,91 @@ function advisorPanel() {
   return el('div', { class: 'panel advisor' },
     el('div', { class: 'panel-head' }, el('h2', {}, 'Which plan to get'), el('span', { class: 'muted' }, hint)),
     rows, notes);
+}
+
+// ---------- calendar ----------
+const CAL_KINDS = {
+  coming: { label: 'Arriving', cls: 'k-coming' },
+  added: { label: 'Added', cls: 'k-added' },
+  left: { label: 'Left', cls: 'k-left' },
+  'free-start': { label: 'Free from', cls: 'k-free' },
+  'free-end': { label: 'Last day free', cls: 'k-free' },
+};
+const CAL_LEGEND = [['coming', 'Arriving'], ['added', 'Added'], ['left', 'Left'], ['free', 'Free to keep']];
+const calGroup = (kind) => (kind.startsWith('free') ? 'free' : kind);
+const isFree = (item) => !!item.store && !item.service;
+
+function renderCalendar() {
+  const content = $('#content');
+  content.replaceChildren();
+  const today = todayIso();
+  if (!ui.calMonth) ui.calMonth = today.slice(0, 7);
+  ui.calHidden = ui.calHidden || new Set();
+  const grid = Calendar.monthGrid(ui.calMonth);
+  const days = Calendar.events({
+    games: filtered(games),
+    departed: filtered(departed, { keepDeparted: true }),
+    free: free.games.filter((g) => !freeMark(g)),
+    comingOn: (g) => (isComing(g) ? g.comingOn : null),
+    addedOn: (g) => g.firstSeen || null,
+    from: grid[0].iso,
+    to: grid[grid.length - 1].iso,
+  });
+  for (const [day, list] of days) days.set(day, list.filter((e) => !ui.calHidden.has(calGroup(e.kind))));
+  const monthName = new Date(`${ui.calMonth}-01T00:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  const inMonth = [...days].filter(([d]) => d.startsWith(ui.calMonth)).flatMap(([, l]) => l);
+  const count = (k) => inMonth.filter((e) => calGroup(e.kind) === k).length;
+  $('#summary').textContent = `${monthName}: ${count('coming')} arriving · ${count('added')} added · ${count('left')} left${ui.mineOnly ? ' · in your plans' : ''}`;
+
+  const go = (month, day = null) => { ui.calMonth = month; ui.calDay = day; render(true); };
+  const head = el('div', { class: 'cal-head' },
+    el('button', { class: 'cal-nav', title: 'Previous month', onclick: () => go(Calendar.shiftMonth(ui.calMonth, -1)) }, '‹'),
+    el('h2', {}, monthName),
+    el('button', { class: 'cal-nav', title: 'Next month', onclick: () => go(Calendar.shiftMonth(ui.calMonth, 1)) }, '›'),
+    ui.calMonth !== today.slice(0, 7) ? el('button', { class: 'cal-nav', onclick: () => go(today.slice(0, 7)) }, 'Today') : null,
+    el('div', { class: 'cal-legend' }, CAL_LEGEND.map(([k, label]) => el('button', {
+      class: `cal-key k-${k} ${ui.calHidden.has(k) ? 'off' : ''}`,
+      title: ui.calHidden.has(k) ? 'Show these' : 'Hide these',
+      onclick: () => { if (ui.calHidden.has(k)) ui.calHidden.delete(k); else ui.calHidden.add(k); render(true); },
+    }, el('span', { class: 'swatch' }), label))));
+
+  // Xbox flags games as leaving without a date, so they can't go on a day.
+  const undated = filtered(games).filter((g) => { const l = leaveInfo(g); return l && l.soon && !l.date && !l.past; }).length;
+  const note = undated ? el('p', { class: 'muted cal-note' }, `${undated} game${undated === 1 ? ' is' : 's are'} leaving soon without a date, so they aren't on the calendar. `,
+    el('button', { class: 'link inline', onclick: () => { ui.view = 'leaving'; render(); } }, 'See Leaving soon')) : null;
+
+  const MAX = 3;
+  const weekdays = grid.slice(0, 7).map((c) => new Date(`${c.iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' }));
+  const cells = grid.map((c) => {
+    const list = days.get(c.iso) || [];
+    const pick = (e) => (isFree(e.item) ? () => go(ui.calMonth, c.iso) : () => openDrawer(e.item));
+    return el('div', {
+      class: `cal-day ${c.inMonth ? '' : 'out'} ${c.iso === today ? 'today' : ''} ${ui.calDay === c.iso ? 'picked' : ''} ${list.length ? 'has' : ''}`,
+      onclick: (e) => { if (!e.target.closest('.cal-ev')) go(c.iso.slice(0, 7), ui.calDay === c.iso ? null : c.iso); },
+    },
+    el('div', { class: 'cal-num' }, String(Number(c.iso.slice(8)))),
+    list.slice(0, MAX).map((e) => el('button', { class: `cal-ev ${CAL_KINDS[e.kind].cls}`, title: `${CAL_KINDS[e.kind].label}: ${e.item.title}`, onclick: pick(e) }, e.item.title)),
+    list.length > MAX ? el('div', { class: 'cal-more' }, `+${list.length - MAX} more`) : null);
+  });
+  content.append(head, note, el('div', { class: 'cal-grid' }, weekdays.map((w) => el('div', { class: 'cal-wd' }, w)), cells));
+
+  // Below the grid: the picked day, or every day of the month with something on.
+  const keys = unlocked();
+  const agendaDays = [...days.keys()].filter((d) => (ui.calDay ? d === ui.calDay : d.startsWith(ui.calMonth)) && days.get(d).length).sort();
+  const agenda = el('div', { class: 'cal-agenda' },
+    ui.calDay ? el('button', { class: 'link', onclick: () => go(ui.calMonth) }, `Show all of ${monthName}`) : null);
+  if (!agendaDays.length) agenda.append(el('div', { class: 'empty small' }, ui.calDay ? 'Nothing on this day.' : 'Nothing dated this month with these filters.'));
+  for (const d of agendaDays) {
+    const list = days.get(d);
+    agenda.append(el('div', { class: 'section-head' }, el('h3', {}, new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }))));
+    for (const kind of Object.keys(CAL_KINDS)) {
+      const items = list.filter((e) => e.kind === kind).map((e) => e.item);
+      if (!items.length) continue;
+      agenda.append(el('div', { class: `cal-kind ${CAL_KINDS[kind].cls}` }, `${CAL_KINDS[kind].label} (${items.length})`),
+        kind.startsWith('free') ? el('div', { class: 'free-grid' }, items.map(freeCard)) : el('div', { class: 'grid' }, items.slice(0, 120).map((g) => card(g, keys))));
+    }
+  }
+  content.append(agenda);
 }
 
 // ---------- free to keep ----------
@@ -1620,7 +1705,7 @@ function render(keepScroll = false) {
   const top = content.scrollTop;
   if (!keepScroll) ui.shown = PAGE_SIZE;
   renderChrome();
-  ({ foryou: renderForYou, browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, toplay: renderToPlay, free: renderFree, stats: renderStats, value: renderValue, subs: renderSubs })[ui.view]();
+  ({ foryou: renderForYou, browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, toplay: renderToPlay, free: renderFree, calendar: renderCalendar, stats: renderStats, value: renderValue, subs: renderSubs })[ui.view]();
   if (keepScroll) content.scrollTop = top;
   if (drawerGame) openDrawer(drawerGame);
   // Lists arriving during onboarding fill in its counts and picks.

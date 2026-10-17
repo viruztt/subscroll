@@ -437,3 +437,31 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .free-when.urgent { color: var(--warn); font-weight: 600; }
 .free-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 8px; }
 .free-actions .primary { padding: 6px 12px; }
+
+/* Calendar */
+.cal-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 10px; }
+.cal-head h2 { margin: 0 6px; font-size: 18px; min-width: 150px; text-align: center; }
+.cal-nav { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 4px 12px; color: var(--text); font-size: 14px; }
+.cal-nav:hover { border-color: var(--accent); }
+.cal-legend { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+.cal-key { display: inline-flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+.cal-key.off { opacity: .4; text-decoration: line-through; }
+.cal-key .swatch { width: 9px; height: 9px; border-radius: 50%; background: var(--k); }
+.k-coming { --k: #6aa8ff; }
+.k-added { --k: #3ccf91; }
+.k-left { --k: #ef6b6b; }
+.k-free { --k: #f2c94c; }
+.cal-note { margin: 0 0 10px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; max-width: 1200px; }
+.cal-wd { font-size: 12px; color: var(--muted); padding: 2px 6px; }
+.cal-day { min-height: 104px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 4px 5px; display: flex; flex-direction: column; gap: 2px; cursor: pointer; overflow: hidden; }
+.cal-day.out { opacity: .45; }
+.cal-day.today { border-color: var(--accent); }
+.cal-day.today .cal-num { color: var(--accent); font-weight: 700; }
+.cal-day.picked { background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--accent); }
+.cal-num { font-size: 12px; color: var(--muted); }
+.cal-ev { display: block; width: 100%; text-align: left; font-size: 11px; line-height: 1.35; padding: 1px 5px; border: 0; border-left: 3px solid var(--k); border-radius: 3px; background: color-mix(in srgb, var(--k) 14%, transparent); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-more { font-size: 11px; color: var(--muted); padding-left: 5px; }
+.cal-agenda { margin-top: 14px; }
+.cal-kind { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; margin: 8px 0 8px; }
+.cal-kind::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--k); }
