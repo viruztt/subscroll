@@ -20,5 +20,8 @@ contextBridge.exposeInMainWorld('api', {
   getPrices: () => ipcRenderer.invoke('get-prices'),
   lookupPrices: (games) => ipcRenderer.invoke('lookup-prices', games),
   onPrices: (fn) => ipcRenderer.on('prices', (_e, msg) => fn(msg)),
+  getFree: () => ipcRenderer.invoke('get-free'),
+  refreshFree: () => ipcRenderer.invoke('refresh-free'),
+  onFreeChanged: (fn) => ipcRenderer.on('free-changed', () => fn()),
   onRefreshProgress: (fn) => ipcRenderer.on('refresh-progress', (_e, msg) => fn(msg)),
 });

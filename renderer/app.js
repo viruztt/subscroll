@@ -31,6 +31,7 @@ let ratings = {}; // game id -> { mc, mcUrl, hltb: { main, plus, all }, hltbUrl 
 let prices = {}; // game id -> { amount, currency, source, url } looked up for the Value page
 let priceProgress = null;
 let lastPriceAsk = 0;
+let free = { at: null, games: [], errors: {} }; // free-to-keep giveaways
 let drawerRoll = null; // set while the drawer shows a rolled game
 let rollTimer = null;
 const detailsCache = new Map(); // game id -> details, or a pending promise
@@ -743,6 +744,132 @@ function advisorPanel() {
     rows, notes);
 }
 
+// ---------- free to keep ----------
+const FREE_STORES = {
+  epic: { name: 'Epic Games Store', short: 'Epic', color: '#2a2a2a' },
+  steam: { name: 'Steam', short: 'Steam', color: '#1b2838' },
+  gog: { name: 'GOG', short: 'GOG', color: '#86328a' },
+  prime: { name: 'Prime Gaming', short: 'Prime', color: '#00a8e1' },
+};
+const FREE_CHECK_HOURS = 6;
+const freeMark = (g) => (state.freebies || {})[g.id] || null;
+const openFree = () => free.games.filter((g) => !g.upcoming && !freeMark(g));
+
+function whenText(iso) {
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+// "in 3 days", "in 5 hours"
+function inText(iso) {
+  const ms = new Date(iso) - Date.now();
+  const h = Math.round(ms / 3600000);
+  if (h < 1) return 'within the hour';
+  if (h < 36) return `in ${h} hour${h === 1 ? '' : 's'}`;
+  const d = Math.round(h / 24);
+  return `in ${d} days`;
+}
+
+async function setFreeMark(g, value) {
+  const freebies = { ...(state.freebies || {}) };
+  if (value) freebies[g.id] = value;
+  else delete freebies[g.id];
+  state = await api.updateState({ freebies });
+  render(true);
+}
+
+// Catalogue games with the same title, so a giveaway you already have in a plan says so.
+function freeAlsoIn(g) {
+  const k = Unify.matchKey(g.title);
+  if (!k) return null;
+  const hit = games.find((x) => Unify.matchKey(x.title) === k);
+  if (!hit) return null;
+  return serviceOffers(hit).map((o) => serviceById(o.service)?.short).filter(Boolean).join(', ');
+}
+
+function freeCard(g) {
+  const store = FREE_STORES[g.store] || { name: g.store, short: g.store, color: '#444' };
+  const mark = freeMark(g);
+  const soon = !mark && g.end && new Date(g.end) - Date.now() < 26 * 3600000;
+  const img = g.image ? el('img', { src: g.image, loading: 'lazy', alt: '' }) : null;
+  const art = el('div', { class: 'free-art' }, img || el('span', {}, g.mystery ? 'Mystery game' : g.title));
+  if (img) img.addEventListener('error', () => img.replaceWith(el('span', {}, g.title)));
+  const when = g.upcoming
+    ? `Free from ${whenText(g.start)}${g.end ? ` to ${whenText(g.end)}` : ''}`
+    : g.end ? `Claim by ${whenText(g.end)}, ${inText(g.end)}` : 'No end date given';
+  const facts = [g.worth ? `Usually ${g.worth}` : null, g.limited ? 'Keys while they last' : null].filter(Boolean);
+  const also = freeAlsoIn(g);
+  const claim = g.store === 'prime' ? 'Claim with Prime' : `Claim on ${store.short}`;
+  return el('div', { class: `free-card ${mark ? 'dim' : ''}` },
+    art,
+    el('div', { class: 'free-body' },
+      el('div', { class: 'free-tags' }, el('span', { class: 'badge', style: `background:${store.color}` }, store.short),
+        mark === 'claimed' ? el('span', { class: 'badge done' }, 'Claimed') : null),
+      el('h4', {}, g.title),
+      el('div', { class: `free-when ${soon && !g.upcoming ? 'urgent' : ''}` }, when),
+      facts.length ? el('div', { class: 'muted' }, facts.join(' · ')) : null,
+      also ? el('div', { class: 'muted' }, `Also in ${also}`) : null,
+      el('div', { class: 'free-actions' },
+        g.url ? el('button', { class: g.upcoming || mark ? 'mark' : 'primary', onclick: () => api.openExternal(g.url) }, g.upcoming ? 'Store page ↗' : `${claim} ↗`) : null,
+        g.upcoming ? null : mark
+          ? el('button', { class: 'mark', onclick: () => setFreeMark(g, null) }, 'Undo')
+          : [el('button', { class: 'mark', title: 'Hide it and skip its reminder', onclick: () => setFreeMark(g, 'claimed') }, '✓ Claimed'),
+            el('button', { class: 'mark', title: 'Hide it and skip its reminder', onclick: () => setFreeMark(g, 'skip') }, 'Not interested')])));
+}
+
+function renderFree() {
+  const content = $('#content');
+  content.replaceChildren();
+  // Ending soonest first; no end date last.
+  const byEnd = (a, b) => (a.end || '9').localeCompare(b.end || '9') || a.title.localeCompare(b.title);
+  const now = free.games.filter((g) => !g.upcoming && !freeMark(g)).sort(byEnd);
+  const next = free.games.filter((g) => g.upcoming).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+  const done = free.games.filter((g) => !g.upcoming && freeMark(g)).sort(byEnd);
+  const checked = free.at ? `checked ${new Date(free.at).toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' })}` : 'checking now…';
+  $('#summary').textContent = `${now.length} free to keep right now · ${checked}`;
+  const failed = Object.keys(free.errors || {});
+  if (failed.length) {
+    const names = failed.map((k) => (k === 'epic' ? "Epic's list" : 'GamerPower (Steam, GOG and Prime)'));
+    content.append(el('p', { class: 'muted' }, `Couldn't reach ${names.join(' or ')} this time, so you see what it found before.`));
+  }
+  content.append(el('p', { class: 'muted free-lead' },
+    'Games you keep for good once claimed. Epic\'s weekly games come from Epic\'s own store list; Steam, GOG and Prime Gaming (claimed through Amazon Luna) giveaways from ',
+    el('button', { class: 'link inline', onclick: () => api.openExternal('https://www.gamerpower.com/') }, 'GamerPower'),
+    '. You get an alert when new ones appear and on the last day of ones you haven\'t marked claimed.'));
+  const section = (title, hint, items) => {
+    if (!items.length) return;
+    content.append(el('div', { class: 'section-head' }, el('h3', {}, title, el('span', { class: 'muted' }, ` ${items.length}`)), el('span', { class: 'muted' }, hint)),
+      el('div', { class: 'free-grid' }, items.map(freeCard)));
+  };
+  section('Free now', 'Ending soonest first.', now);
+  section('Coming next', 'Epic announces next week\'s games.', next);
+  section('Claimed or not interested', '', done);
+  if (!free.games.length) content.append(el('div', { class: 'empty' }, free.at ? 'No giveaways right now.' : 'Looking for giveaways…'));
+}
+
+function freeDue() {
+  return !free.at || Date.now() - new Date(free.at) > FREE_CHECK_HOURS * 3600000;
+}
+
+async function loadFree(force = false) {
+  free = await api.getFree();
+  if (force || freeDue()) {
+    try {
+      free = await api.refreshFree();
+    } catch {
+      // Shown as before; the background check tries again.
+    }
+  }
+  renderChrome();
+  if (ui.view === 'free') render(true);
+}
+
+api.onFreeChanged(async () => {
+  free = await api.getFree();
+  renderChrome();
+  if (ui.view === 'free') render(true);
+});
+
 // ---------- statistics ----------
 const SVG_NS = 'http://www.w3.org/2000/svg';
 function svgEl(tag, attrs = {}, text) {
@@ -1045,7 +1172,8 @@ function backgroundPanel() {
     el('div', { class: 'checks' },
       toggle('closeToTray', 'Keep running in the tray when the window is closed.', 'Quit from the tray icon\'s menu.', true),
       windows ? toggle('startWithWindows', 'Start with Windows.', 'Starts in the tray, without opening the window.', false) : null,
-      toggle('alerts', 'Alerts.', 'A notification when games join a service in your plans, or games in your plans start leaving. Completed and ignored games are left out.', true)));
+      toggle('alerts', 'Alerts.', 'A notification when games join a service in your plans, or games in your plans start leaving. Completed and ignored games are left out.', true),
+      toggle('freeAlerts', 'Free game alerts.', 'A notification when new games are free to keep, and on the last day of ones you haven\'t marked claimed.', true)));
 }
 
 // Steam library import: owned games get a badge, played ones a mark.
@@ -1438,7 +1566,7 @@ function roll() {
 
 function renderChrome() {
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.view === ui.view));
-  $('#toolbar').classList.toggle('hidden', ['subs', 'stats', 'value', 'foryou'].includes(ui.view));
+  $('#toolbar').classList.toggle('hidden', ['subs', 'stats', 'value', 'foryou', 'free'].includes(ui.view));
 
   const chips = $('#service-chips');
   chips.replaceChildren(...allServices().map((s) => el('button', {
@@ -1473,6 +1601,7 @@ function renderChrome() {
   $('#coming-count').textContent = games.filter((g) => isComing(g) && (!ui.mineOnly || isMine(g, keys))).length || '';
   // Games on your To play list you can start now.
   $('#toplay-count').textContent = games.filter((g) => markOf(g.id) === 'wishlist' && !isComing(g) && isMine(g, keys)).length || '';
+  $('#free-count').textContent = openFree().length || '';
 
   const sync = catalogs.map((c) => {
     const s = serviceById(c.service);
@@ -1491,7 +1620,7 @@ function render(keepScroll = false) {
   const top = content.scrollTop;
   if (!keepScroll) ui.shown = PAGE_SIZE;
   renderChrome();
-  ({ foryou: renderForYou, browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, toplay: renderToPlay, stats: renderStats, value: renderValue, subs: renderSubs })[ui.view]();
+  ({ foryou: renderForYou, browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, toplay: renderToPlay, free: renderFree, stats: renderStats, value: renderValue, subs: renderSubs })[ui.view]();
   if (keepScroll) content.scrollTop = top;
   if (drawerGame) openDrawer(drawerGame);
   // Lists arriving during onboarding fill in its counts and picks.
@@ -1640,6 +1769,7 @@ async function init() {
   if (!hasSubs) ui.view = 'subs';
   wire();
   render();
+  loadFree().catch(() => {});
 
   // First launch: the setup picks the country before any list is fetched.
   if (!hasSubs && !state.settings.onboarded) {

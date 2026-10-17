@@ -13,6 +13,8 @@ const steam = require('./steam');
 const alerts = require('./alerts');
 const { Prices } = require('./prices');
 const { Wiki, wanted: wikiWanted } = require('./wiki');
+const { FreeGames, freeAlerts } = require('./freegames');
+const { listTitles } = alerts;
 const fs = require('fs');
 
 let store;
@@ -21,6 +23,7 @@ let details;
 let ratings;
 let prices;
 let wiki;
+let freeGames;
 let win;
 let tray;
 let quitting = false;
@@ -219,9 +222,31 @@ function scheduleRefresh() {
     const { settings, lastRefresh } = store.get();
     const hours = Number(settings.autoRefreshHours) || 24;
     if (!lastRefresh || Date.now() - new Date(lastRefresh) > hours * 3600000) refreshAll().catch(() => {});
+    if (freeGames.due()) refreshFree().catch(() => {});
   };
   setTimeout(check, 60 * 1000);
   setInterval(check, 30 * 60 * 1000);
+}
+
+// ---- Free games to claim ----
+// Checked every few hours; tells you about new giveaways and reminds you on
+// the last day of ones you haven't claimed.
+async function refreshFree() {
+  const { settings } = store.get();
+  const r = await freeGames.refresh({ country: settings.region || settings.market || 'US', locale: 'en-US' });
+  const { freebies = {}, freeKnown = null, freeReminded = [] } = store.get();
+  const picked = freeAlerts(r.games, { known: freeKnown, reminded: freeReminded, marks: freebies });
+  const live = new Set(r.games.map((g) => g.id));
+  store.update({
+    freeKnown: r.games.map((g) => g.id),
+    freeReminded: [...freeReminded.filter((id) => live.has(id)), ...picked.ending.map((g) => g.id)],
+  });
+  win?.webContents.send('free-changed');
+  if (settings.alerts === false || settings.freeAlerts === false || (win?.isVisible() && win.isFocused())) return r;
+  const n = (x) => `${x} game${x === 1 ? '' : 's'}`;
+  if (picked.added.length) notify({ view: 'free', title: `Free to keep: ${n(picked.added.length)}`, body: listTitles(picked.added.map((g) => g.title)) });
+  if (picked.ending.length) notify({ view: 'free', title: `Last day to claim: ${n(picked.ending.length)}`, body: listTitles(picked.ending.map((g) => g.title)) });
+  return r;
 }
 
 // ---- Steam library ----
@@ -298,7 +323,7 @@ function registerIpc() {
   ipcMain.handle('get-state', () => store.get());
   ipcMain.handle('update-state', (_e, patch) => {
     // Only user-owned fields can be written from the window.
-    const allowed = ['subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings', 'costs', 'priceOverrides', 'viaSub'];
+    const allowed = ['subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings', 'costs', 'priceOverrides', 'viaSub', 'freebies'];
     const clean = Object.fromEntries(Object.entries(patch || {}).filter(([k]) => allowed.includes(k)));
     const before = store.get().marks;
     const next = store.update(clean);
@@ -311,6 +336,8 @@ function registerIpc() {
     return next;
   });
   ipcMain.handle('get-catalog', () => catalogPayload());
+  ipcMain.handle('get-free', () => freeGames.list());
+  ipcMain.handle('refresh-free', () => refreshFree());
   ipcMain.handle('refresh', async () => {
     const results = await refreshAll();
     return { results, catalog: catalogPayload() };
@@ -412,6 +439,7 @@ app.whenReady().then(() => {
     },
   });
   prices = new Prices(dataDir, { onUpdate: (updates, progress) => win?.webContents.send('prices', { updates, progress }) });
+  freeGames = new FreeGames(dataDir);
   wiki = new Wiki(dataDir, { onFound: (n) => { if (n) win?.webContents.send('catalog-changed'); } });
   registerIpc();
   createWindow();
