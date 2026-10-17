@@ -41,7 +41,7 @@ function createWindow() {
     minHeight: 600,
     backgroundColor: '#0f1115',
     title: 'Subscroll',
-    icon: ICON,
+    icon: nativeImage.createFromPath(ICON),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -49,6 +49,19 @@ function createWindow() {
       sandbox: true,
     },
   });
+  // Windows draws the taskbar button from the app id's shortcut, and the
+  // portable exe has none, so the button came out blank. Point it at the exe's
+  // own icon instead.
+  if (process.platform === 'win32') {
+    const exe = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+    win.setAppDetails({
+      appId: 'Subscroll',
+      appIconPath: exe,
+      appIconIndex: 0,
+      relaunchCommand: `"${exe}"`,
+      relaunchDisplayName: 'Subscroll',
+    });
+  }
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   // Closing the window keeps the app in the tray, refreshing in the background.
   win.on('close', (e) => {
