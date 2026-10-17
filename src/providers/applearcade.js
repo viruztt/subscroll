@@ -15,21 +15,34 @@ const MISS_DAYS = 7;
 
 const slug = (s) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
+// Games that left the service stay in the article, struck through, marked
+// "removed", in a "removed" column or in a section of their own.
+const GONE = /\b(removed|delisted|discontinued|no longer available)\b/i;
+
 function parseWikipedia(html, today = new Date().toISOString().slice(0, 10)) {
   const games = [];
   const seen = new Set();
   for (const m of html.matchAll(/<table[^>]*class="[^"]*wikitable[^"]*"[^>]*>([\s\S]*?)<\/table>/gi)) {
-    const grid = tableGrid(m[1]);
+    const caption = (m[1].match(/<caption[^>]*>([\s\S]*?)<\/caption>/i) || [])[1] || '';
+    const headings = [...html.slice(0, m.index).matchAll(/<h[234][^>]*>([\s\S]*?)<\/h[234]>/gi)];
+    const label = `${caption} ${headings.length ? headings[headings.length - 1][1] : ''}`.replace(/<[^>]+>/g, ' ');
+    if (/\b(removed|former|delisted|discontinued|departed)\b/i.test(label)) continue;
+    // Struck-through titles count as removed.
+    const grid = tableGrid(m[1].replace(/<(s|del|strike)\b[^>]*>([\s\S]*?)<\/\1>/gi, '$2 (removed)'));
     const header = grid.find((r) => r.allHeaders);
     if (!header) continue;
     const cols = header.cells.map((c) => (c || '').toLowerCase());
     const titleCol = cols.findIndex((c) => /\b(title|game)\b/.test(c));
     const devCol = cols.findIndex((c) => c.includes('developer'));
-    const dateCol = cols.findIndex((c) => c.includes('date'));
+    const goneCol = cols.findIndex((c) => /removed|delisted|depart|left|end date|until/.test(c));
+    const dateCol = cols.findIndex((c, i) => i !== goneCol && c.includes('date'));
     if (titleCol === -1 || devCol === -1) continue;
     for (const row of grid.filter((r) => !r.allHeaders)) {
-      const title = (row.cells[titleCol] || '').trim();
+      const title = (row.cells[titleCol] || '').replace(/\s*\(removed\)\s*$/i, '').trim();
       if (!title) continue;
+      if (row.cells.some((c, i) => i !== devCol && c && c.length < 60 && GONE.test(c))) continue;
+      const goneOn = goneCol !== -1 ? toIsoDate(row.cells[goneCol] || '') : null;
+      if (goneOn && goneOn <= today) continue;
       const id = `applearcade:${slug(title)}`;
       if (seen.has(id)) continue;
       seen.add(id);
@@ -41,7 +54,7 @@ function parseWikipedia(html, today = new Date().toISOString().slice(0, 10)) {
         image: null,
         platforms: ['Apple devices'],
         tiers: ['any'],
-        leavingSoon: false,
+        leavingSoon: !!goneOn,
         comingOn: date && date > today ? date : null,
         genres: [],
         releaseDate: date,
@@ -188,9 +201,18 @@ async function lookupMissing(games, cacheDir, country = 'us', { delayMs = 3500, 
 
 async function fetchLive(settings = {}, cacheDir = null) {
   const data = await http.getJson(WIKI_URL, { headers: { 'Api-User-Agent': 'Subscroll/0.1 (desktop app)' } });
-  const games = parseWikipedia(data.parse ? data.parse.text : '');
+  const html = data.parse ? data.parse.text : '';
+  const games = parseWikipedia(html);
   if (games.length < 100) throw new Error(`Wikipedia list looks incomplete (${games.length} games)`);
-  return cacheDir ? applyCached(games, cacheDir) : games;
+  if (!cacheDir) return games;
+  // The article as read, to check how it marks games when the list looks wrong.
+  try {
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.writeFileSync(path.join(cacheDir, 'apple-arcade-article.html'), html);
+  } catch {
+    // Only a copy for checking.
+  }
+  return applyCached(games, cacheDir);
 }
 
 module.exports = { fetchLive, parseWikipedia, applyCached, lookupMissing, storeSearch, pickApp };

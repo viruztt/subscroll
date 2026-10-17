@@ -161,7 +161,7 @@ class Catalog {
     const errors = [];
     for (const source of ['live', 'mirror'].filter((s) => provider[s])) {
       try {
-        let games = mergeDuplicates(await provider[source](settings));
+        let games = mergeDuplicates(await provider[source](settings, service === 'applearcade' ? this.appStoreDir() : undefined));
         if (service === 'nso') games = await covers.apply(games, path.join(this.dir, 'covers'));
         if (service === 'applearcade') games = arcade.applyCached(games, this.appStoreDir());
         if (games.length === 0) throw new Error('empty list');

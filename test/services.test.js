@@ -85,14 +85,24 @@ const ARCADE_HTML = `
 <tr><td><i>Future Game</i></td><td>Studio</td><td>Studio</td><td>March 5, 2099</td></tr>
 <tr><td><i>Sneaky Sasquatch</i></td><td>RAC7</td><td>RAC7</td><td>September 19, 2019</td></tr>
 </tbody></table>
-<table class="wikitable"><tr><th>Award</th><th>Result</th></tr><tr><td>Best</td><td>Won</td></tr></table>`;
+<table class="wikitable"><tr><th>Award</th><th>Result</th></tr><tr><td>Best</td><td>Won</td></tr></table>
+<table class="wikitable"><tr><th>Title</th><th>Developer</th><th>Release date</th><th>Removed</th><th>Notes</th></tr>
+<tr><td><s>Struck Game</s></td><td>A</td><td>September 19, 2019</td><td></td><td></td></tr>
+<tr><td>Gone Game</td><td>B</td><td>September 19, 2019</td><td>June 1, 2023</td><td></td></tr>
+<tr><td>Noted Game</td><td>C</td><td>September 19, 2019</td><td></td><td>Removed from the service</td></tr>
+<tr><td>Leaving Game</td><td>D</td><td>September 19, 2019</td><td>January 1, 2099</td><td></td></tr>
+</table>
+<h2>Removed games</h2>
+<table class="wikitable"><tr><th>Title</th><th>Developer</th></tr><tr><td>Old Game</td><td>E</td></tr></table>`;
 
-test('Apple Arcade: Wikipedia list with announced games marked as coming', () => {
+test('Apple Arcade: Wikipedia list with announced games marked as coming, removed games left out', () => {
   const games = arcade.parseWikipedia(ARCADE_HTML, '2026-10-16');
   assert.deepStrictEqual(games.map((g) => [g.id, g.addedOn, g.comingOn]), [
     ['applearcade:sneaky-sasquatch', '2019-09-19', null],
     ['applearcade:future-game', null, '2099-03-05'],
+    ['applearcade:leaving-game', '2019-09-19', null],
   ]);
+  assert.ok(games[2].leavingSoon);
   assert.strictEqual(games[0].developer, 'RAC7');
 });
 
