@@ -153,12 +153,21 @@ function steamOf(g) {
   return owned[Unify.matchKey(g.title)] || null;
 }
 
+// A game released in the last 30 days that's already in a service joined it
+// on release day or later; the release date stands in when the service gives
+// no join date (Gears of War: E-Day, released 6 October, day one on Game Pass).
+function recentRelease(g) {
+  if (!g.releaseDate || isComing(g)) return null;
+  const days = daysUntil(g.releaseDate);
+  return days <= 0 && days >= -30 ? g.releaseDate : null;
+}
+
 function rebuildGames() {
   departed = [];
   const out = [];
   for (const c of catalogs) {
     for (const g of c.games) {
-      if (inMyRegion(g)) out.push({ ...g, firstSeen: c.history?.firstSeen?.[g.id] || g.addedOn || null });
+      if (inMyRegion(g)) out.push({ ...g, firstSeen: c.history?.firstSeen?.[g.id] || g.addedOn || recentRelease(g) });
     }
     for (const d of c.history?.departed || []) departed.push(d);
   }
