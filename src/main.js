@@ -22,6 +22,7 @@ const { execFile } = require('child_process');
 const { listTitles } = alerts;
 const fs = require('fs');
 const linux = require('./linux');
+const updates = require('./updates');
 
 const LOGIN_LABEL = process.platform === 'win32' ? 'Start with Windows' : 'Start when you log in';
 
@@ -242,9 +243,35 @@ function scheduleRefresh() {
     if (!lastRefresh || Date.now() - new Date(lastRefresh) > hours * 3600000) refreshAll().catch(() => {});
     if (freeGames.due()) refreshFree().catch(() => {});
     checkSales().catch(() => {});
+    checkUpdate().catch(() => {});
   };
   setTimeout(check, 60 * 1000);
   setInterval(check, 30 * 60 * 1000);
+}
+
+// ---- Newer version ----
+// GitHub's latest release, twice a day. A newer one shows in the window and,
+// once per version, as a notification.
+const updateStatus = () => updates.status(store.get().update, app.getVersion());
+async function checkUpdate(force = false) {
+  const { settings, update: saved } = store.get();
+  if (!force && (settings.updateCheck === false || !updates.due(saved?.checkedAt))) return updateStatus();
+  try {
+    const latest = await updates.fetchLatest(process.platform);
+    store.update({ update: { latest, checkedAt: new Date().toISOString(), error: null } });
+  } catch (e) {
+    // Tried again at the next half-hourly check.
+    store.update({ update: { ...(saved || {}), error: e.message } });
+  }
+  const st = updateStatus();
+  win?.webContents.send('update-changed', st);
+  if (st.newer && store.get().updateNotified !== st.latest.version) {
+    store.update({ updateNotified: st.latest.version });
+    if (settings.alerts !== false && !(win?.isVisible() && win.isFocused())) {
+      notify({ title: `Subscroll ${st.latest.version} is out`, body: `You have ${st.current}. Open Subscroll to download the new version.` });
+    }
+  }
+  return st;
 }
 
 // ---- Sale alerts ----
@@ -414,7 +441,7 @@ function flushRatings() {
 const queueRatings = () => { if (!ratingTimer) ratingTimer = setTimeout(flushRatings, 1500); };
 
 function registerIpc() {
-  ipcMain.handle('get-services', () => ({ services: SERVICES, tierBadges: TIER_BADGES, regions: REGIONS, system: { platform: process.platform, startAtLogin: canStartAtLogin() ? LOGIN_LABEL : null } }));
+  ipcMain.handle('get-services', () => ({ services: SERVICES, tierBadges: TIER_BADGES, regions: REGIONS, system: { platform: process.platform, version: app.getVersion(), startAtLogin: canStartAtLogin() ? LOGIN_LABEL : null } }));
   ipcMain.handle('get-state', () => store.get());
   ipcMain.handle('update-state', (_e, patch) => {
     // Only user-owned fields can be written from the window.
@@ -553,6 +580,8 @@ function registerIpc() {
     }
   });
   ipcMain.handle('steam-installed', (_e, appid) => steamInstalled(appid));
+  ipcMain.handle('get-update', () => updateStatus());
+  ipcMain.handle('check-update', () => checkUpdate(true));
   ipcMain.handle('watch-sales', (_e, list) => {
     store.update({ saleWatch: sales.cleanWatch(list) });
     checkSales().catch(() => {});

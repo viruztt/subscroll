@@ -1414,7 +1414,7 @@ function beatenPanel(v) {
 }
 
 function renderSubs() {
-  $('#summary').textContent = 'Your plans, region, background, Steam, Xbox and PlayStation accounts, and profile export. Everything is saved on this computer.';
+  $('#summary').textContent = 'Your plans, region, background, updates, Steam, Xbox and PlayStation accounts, and profile export. Everything is saved on this computer.';
   const content = $('#content');
   content.replaceChildren();
 
@@ -1437,7 +1437,7 @@ function renderSubs() {
   content.append(el('div', { class: 'panel' },
     el('div', { class: 'panel-head' }, el('h2', {}, 'My subscriptions'), el('button', { class: 'link', onclick: startOnboarding }, 'Run the welcome setup again')),
     rows));
-  content.append(customServicePanel(), customGamePanel(), regionPanel(), backgroundPanel(), steamPanel(), achievementsPanel('xbox'), achievementsPanel('psn'), backupPanel(), sourcesPanel());
+  content.append(customServicePanel(), customGamePanel(), regionPanel(), backgroundPanel(), updatePanel(), steamPanel(), achievementsPanel('xbox'), achievementsPanel('psn'), backupPanel(), sourcesPanel());
 }
 
 // Tray, start at login and alerts.
@@ -1459,6 +1459,66 @@ function backgroundPanel() {
       toggle('alerts', 'Alerts.', 'A notification when games join a service in your plans, or games in your plans start leaving. Completed and ignored games are left out.', true),
       toggle('freeAlerts', 'Free game alerts.', 'A notification when new games are free to keep, and on the last day of ones you haven\'t marked claimed.', true),
       toggle('saleAlerts', 'Sale alerts.', 'A notification when a To play game that isn\'t in your plans goes on sale (Microsoft Store, PlayStation Store or Steam).', true)));
+}
+
+// ---------- newer version ----------
+// { current, latest: { version, page, download }, newer, checkedAt, error }
+let update = null;
+const openDownload = () => api.openExternal(update.latest.download?.url || update.latest.page);
+
+// A line in the sidebar while a newer version is out, until you close it.
+function renderUpdateBanner() {
+  const box = $('#update-banner');
+  const v = update?.newer && update.latest.version;
+  if (!v || state.settings.updateDismissed === v) {
+    box.replaceChildren();
+    return;
+  }
+  box.replaceChildren(
+    el('div', { class: 'update-text' }, el('strong', {}, `Subscroll ${v} is out`), el('span', { class: 'muted' }, `You have ${update.current}.`)),
+    el('div', { class: 'update-actions' },
+      el('button', { class: 'primary', onclick: openDownload }, 'Download'),
+      el('button', { class: 'link', onclick: () => api.openExternal(update.latest.page) }, 'What\'s new')),
+    el('button', { class: 'link close', title: 'Hide until the next version', onclick: async () => { await saveState({ settings: { ...state.settings, updateDismissed: v } }); renderUpdateBanner(); } }, '✕'));
+}
+
+function updateLine() {
+  if (!update) return 'Not checked yet.';
+  const when = update.checkedAt ? new Date(update.checkedAt).toLocaleString() : null;
+  if (update.newer) return `Subscroll ${update.latest.version} is out.`;
+  if (update.error && !when) return `Couldn't check: ${update.error}`;
+  if (!when) return 'Not checked yet.';
+  return `You have the latest version (checked ${when}).${update.error ? ` The last check failed: ${update.error}` : ''}`;
+}
+
+function updatePanel() {
+  const box = el('input', { type: 'checkbox' });
+  box.checked = state.settings.updateCheck !== false;
+  box.addEventListener('change', () => saveState({ settings: { ...state.settings, updateCheck: box.checked } }));
+  const line = el('p', { class: 'muted' }, updateLine());
+  const button = el('button', {}, 'Check now');
+  button.onclick = async () => {
+    button.disabled = true;
+    line.textContent = 'Checking…';
+    try {
+      update = await api.checkUpdate();
+    } catch (e) {
+      update = { ...(update || {}), error: e.message };
+    }
+    button.disabled = false;
+    renderUpdateBanner();
+    $('#update-panel')?.replaceWith(updatePanel());
+  };
+  const panel = el('div', { class: 'panel' },
+    el('h2', {}, 'Updates'),
+    el('p', { class: 'muted' }, `You have Subscroll ${system.version || update?.current || ''}. New versions are published on GitHub; the app checks twice a day and tells you when one is out. It never downloads or installs anything itself: you download the new ${system.platform === 'linux' ? 'AppImage' : 'exe'} and use it in place of this one. Your plans, marks and settings carry over.`),
+    el('label', { class: 'check-row' }, box, el('span', {}, el('strong', {}, 'Check for new versions.'))),
+    line,
+    el('div', { class: 'row-actions' }, button,
+      update?.newer ? el('button', { class: 'primary', onclick: openDownload }, `Download ${update.latest.version}`) : null,
+      el('button', { class: 'link', onclick: () => api.openExternal(update?.latest?.page || update?.releases || 'https://github.com/viruztt/subscroll/releases') }, update?.newer ? 'What\'s new' : 'All releases')));
+  panel.id = 'update-panel';
+  return panel;
 }
 
 // Steam library import: owned games get a badge, played ones a mark.
@@ -2205,6 +2265,12 @@ async function init() {
   wire();
   render();
   loadFree().catch(() => {});
+  api.getUpdate().then((st) => { update = st; renderUpdateBanner(); }).catch(() => {});
+  api.onUpdateChanged((st) => {
+    update = st;
+    renderUpdateBanner();
+    $('#update-panel')?.replaceWith(updatePanel());
+  });
 
   // First launch: the setup picks the country before any list is fetched.
   if (!hasSubs && !state.settings.onboarded) {

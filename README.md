@@ -34,6 +34,10 @@ The tray icon needs a desktop with a system tray. GNOME needs the "AppIndicator 
 
 Your plans and marks stay on your computer and carry over when you download a newer version. To move them to another PC, use **Export profile** in Settings.
 
+### Updating
+
+Subscroll checks GitHub for a new version twice a day. When one is out, a box in the sidebar says so, with a **Download** button for your system's file and a link to what's new (you also get one notification per version). It never downloads or installs anything itself: download the new file and use it in place of the old one. Your plans, marks and settings carry over. You can turn the check off, or check straight away, under **Updates** in Settings.
+
 ## Where the game lists come from
 
 | Service | Source | Leaving dates |
@@ -124,6 +128,7 @@ Subscroll reads its data from these services and projects. Thanks to everyone wh
 - [Epic Games Store](https://store.epicgames.com/)'s free games list.
 - [Humble Bundle](https://www.humblebundle.com/membership)'s Humble Choice pages.
 - [Google Play](https://play.google.com/store/pass/getstarted) store links and images.
+- [GitHub](https://github.com/): the releases API, to tell you when a new version of Subscroll is out.
 
 **Community projects and sites**
 - [Wikipedia](https://en.wikipedia.org/): the Nintendo Classics and Apple Arcade game lists, game descriptions, developers, genres and covers (text under [CC BY-SA](https://creativecommons.org/licenses/by-sa/4.0/)).
@@ -155,7 +160,7 @@ Game names, artwork and trademarks belong to their owners.
 
 ## Layout
 
-- `src/main.js`: window, IPC, daily refresh. `src/details.js`: descriptions and screenshots. `src/ratings.js`: Metacritic and How Long To Beat. `src/regions.js`: the country list. `src/backup.js`: profile export and import. `src/providers/playpass.js` and `src/providers/luna.js`: Google Play Pass (playpassBrowser) and Amazon Luna (GameScriptions). `src/steam.js`: Steam library import. `src/achievements.js`: Xbox achievements (OpenXBL) and PlayStation trophies. `src/alerts.js`: what the tray notifications say. `src/prices.js`, `renderer/value.js` and `renderer/planprices.js`: the Value page (game prices, paid periods, plan list prices) and sale prices. `src/sales.js`: sale alerts. `renderer/recommend.js`: For you picks and "Because you beat". `renderer/advisor.js`: Which plan to get. `src/freegames.js`: Free to keep (Epic store feed and GamerPower). `src/monthly.js`: PS Plus monthly games (playstation.com list, PlayStation Blog) and Xbox Free Play Days (Xbox Wire). `renderer/calendar.js`: the Calendar page. `renderer/play.js`: the Play buttons (Steam, Xbox app, PlayStation Store links). `src/cloud.js`: which Xbox games stream (Gameglass). `src/wiki.js`: developers, genres and covers from Wikipedia infoboxes. `src/catalog.js`: refresh, fallbacks, history, merging Xbox console/PC duplicates.
+- `src/main.js`: window, IPC, daily refresh. `src/details.js`: descriptions and screenshots. `src/ratings.js`: Metacritic and How Long To Beat. `src/regions.js`: the country list. `src/backup.js`: profile export and import. `src/providers/playpass.js` and `src/providers/luna.js`: Google Play Pass (playpassBrowser) and Amazon Luna (GameScriptions). `src/steam.js`: Steam library import. `src/achievements.js`: Xbox achievements (OpenXBL) and PlayStation trophies. `src/alerts.js`: what the tray notifications say. `src/prices.js`, `renderer/value.js` and `renderer/planprices.js`: the Value page (game prices, paid periods, plan list prices) and sale prices. `src/sales.js`: sale alerts. `src/updates.js`: the new version check. `renderer/recommend.js`: For you picks and "Because you beat". `renderer/advisor.js`: Which plan to get. `src/freegames.js`: Free to keep (Epic store feed and GamerPower). `src/monthly.js`: PS Plus monthly games (playstation.com list, PlayStation Blog) and Xbox Free Play Days (Xbox Wire). `renderer/calendar.js`: the Calendar page. `renderer/play.js`: the Play buttons (Steam, Xbox app, PlayStation Store links). `src/cloud.js`: which Xbox games stream (Gameglass). `src/wiki.js`: developers, genres and covers from Wikipedia infoboxes. `src/catalog.js`: refresh, fallbacks, history, merging Xbox console/PC duplicates.
 - `src/providers/`: one file per service.
 - `renderer/`: the UI (plain HTML/CSS/JS). `renderer/unify.js` merges the same game across services; `renderer/stats.js` works out the Statistics page. The logo is `renderer/logo.svg`; `renderer/icon.png` (window) and `build/icon.png` (exe) are 256 and 512 px renders of it.
 - `data/`: bundled snapshot used until the first refresh. `npm run snapshot` rebuilds it. `scripts/match-covers.js` rebuilds the offline Switch Online cover map; titles whose box art is named differently go in `data/nintendo-cover-aliases.json`.

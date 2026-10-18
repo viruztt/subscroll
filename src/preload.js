@@ -28,5 +28,8 @@ contextBridge.exposeInMainWorld('api', {
   getFree: () => ipcRenderer.invoke('get-free'),
   refreshFree: () => ipcRenderer.invoke('refresh-free'),
   onFreeChanged: (fn) => ipcRenderer.on('free-changed', () => fn()),
+  getUpdate: () => ipcRenderer.invoke('get-update'),
+  checkUpdate: () => ipcRenderer.invoke('check-update'),
+  onUpdateChanged: (fn) => ipcRenderer.on('update-changed', (_e, st) => fn(st)),
   onRefreshProgress: (fn) => ipcRenderer.on('refresh-progress', (_e, msg) => fn(msg)),
 });
