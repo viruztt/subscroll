@@ -527,3 +527,16 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .cheapest.buy { color: #f2c94c; }
 .ways { display: grid; gap: 2px; }
 .ways .best { font-weight: 600; }
+
+/* Goals on the Statistics page. */
+.goal { display: grid; gap: 6px; padding: 12px 0; border-top: 1px solid var(--line); }
+.goal-head { display: flex; justify-content: space-between; align-items: center; }
+.goal-bar { height: 8px; }
+.goal-meta { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+.goal-strip { display: flex; gap: 4px; }
+.goal-cell { width: 18px; height: 18px; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--line); }
+.goal-cell.met { background: var(--gold); border-color: var(--gold); }
+.goal-cell.now { outline: 2px solid var(--accent); outline-offset: 1px; }
+.goal-add { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.goal-add input.goal-count { width: 70px; flex: none; }
+.finished-date { width: 150px; }

@@ -128,10 +128,29 @@ function markOf(id) {
 }
 
 async function setMark(id, value) {
+  const before = state.marks;
   const marks = { ...state.marks };
+  // A finish date stays with the game when its mark moves to another entry.
+  const kept = value === 'completed' ? markIds(id).map((x) => before[x] === 'completed' && state.finishedOn?.[x]).find(Boolean) : null;
   for (const x of markIds(id)) delete marks[x];
   if (value) marks[id] = value;
-  await saveState({ marks });
+  const finishedOn = Goals.stampFinished(state.finishedOn || {}, before, marks, todayIso());
+  if (kept) finishedOn[id] = kept;
+  await saveState({ marks, finishedOn });
+}
+
+// The day a completed game was marked completed (or the day you gave it).
+function finishedOf(id) {
+  if (markOf(id) !== 'completed') return null;
+  for (const x of markIds(id)) if (state.finishedOn?.[x]) return state.finishedOn[x];
+  return null;
+}
+async function setFinished(id, day) {
+  const finishedOn = { ...(state.finishedOn || {}) };
+  const own = markIds(id).find((x) => state.marks[x] === 'completed') || id;
+  for (const x of markIds(id)) delete finishedOn[x];
+  if (day) finishedOn[own] = day;
+  await saveState({ finishedOn });
 }
 
 // ---------- sale alerts ----------
@@ -845,6 +864,14 @@ function wayText(w, short = false) {
   }
 }
 
+// When you finished a completed game, for goals. Changeable.
+function finishedRows(g) {
+  if (markOf(g.id) !== 'completed') return null;
+  const input = el('input', { type: 'date', class: 'finished-date', value: finishedOf(g.id) || '', max: todayIso(), title: 'When you finished it; goals on the Statistics page count it in that week, month or year' });
+  input.addEventListener('change', () => setFinished(g.id, input.value || null));
+  return [el('dt', {}, 'Finished'), el('dd', {}, input, finishedOf(g.id) ? null : el('span', { class: 'muted', title: 'Goals leave out completed games without a date' }, ' not dated'))];
+}
+
 // In a game's details, when it isn't in your plans now.
 function cheapestRows(g) {
   const ways = waysToPlay(g, { gone: !!(g.departed || g.leftOn) && !isComing(g) });
@@ -1195,6 +1222,72 @@ function statsGames() {
   return [...games, ...gone.values()];
 }
 
+// ---------- goals ----------
+const PER_WORD = { week: ['week', 'weeks'], month: ['month', 'months'], year: ['year', 'years'] };
+const goalTitle = (g) => `Beat ${g.count} ${g.unit === 'hours' ? `hour${g.count === 1 ? '' : 's'} of games` : `game${g.count === 1 ? '' : 's'}`} a ${PER_WORD[g.per][0]}`;
+function periodLabel(start, per) {
+  const d = new Date(`${start}T00:00:00`);
+  if (per === 'year') return start.slice(0, 4);
+  if (per === 'month') return d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  return `Week of ${d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
+}
+
+function finishedList() {
+  return statsGames().filter((g) => markOf(g.id) === 'completed').map((g) => ({ id: g.id, title: g.title, date: finishedOf(g.id), hours: beatHours(g) }));
+}
+
+function goalsPanel() {
+  const goals = state.goals || [];
+  const finished = finishedList();
+  const undated = finished.filter((f) => !f.date).length;
+  const today = todayIso();
+  const saveGoals = async (list) => { await saveState({ goals: list }); render(true); };
+  const fmtAmount = (goal, n) => (goal.unit === 'hours' ? `${Math.round(n)} h` : `${n}`);
+
+  const rows = goals.map((goal) => {
+    const p = Goals.progress(goal, finished, today);
+    const [one, many] = PER_WORD[goal.per];
+    const c = p.current;
+    const pctDone = Math.min(100, (c.done / p.target) * 100);
+    const status = c.met ? `Done this ${one} ✓` : `${fmtAmount(goal, c.done)} of ${fmtAmount(goal, p.target)} this ${one} · ${c.left} day${c.left === 1 ? '' : 's'} left`;
+    const byId = new Map(finished.map((f) => [f.id, f.title]));
+    const strip = p.history.slice(-12).map((x, i, arr) => {
+      const now = i === arr.length - 1;
+      const names = x.games.map((id) => byId.get(id)).filter(Boolean);
+      return el('span', { class: `goal-cell ${x.met ? 'met' : ''} ${now ? 'now' : ''}`, title: `${periodLabel(x.start, goal.per)}: ${fmtAmount(goal, x.done)}${names.length ? ` (${names.slice(0, 6).join(', ')}${names.length > 6 ? '…' : ''})` : ''}` });
+    });
+    return el('div', { class: 'goal' },
+      el('div', { class: 'goal-head' },
+        el('strong', {}, goalTitle(goal)),
+        el('button', { class: 'link danger inline', title: 'Remove this goal', onclick: () => saveGoals(goals.filter((x) => x.id !== goal.id)) }, '✕')),
+      el('div', { class: 'bar goal-bar' }, el('span', { class: 'bar-done', style: `width:${pctDone}%` })),
+      el('div', { class: 'goal-meta' },
+        el('span', {}, status),
+        el('span', { class: 'goal-streak', title: `Best: ${p.best} ${p.best === 1 ? one : many} in a row` },
+          p.streak ? `🔥 ${p.streak} ${p.streak === 1 ? one : many} in a row` : 'No streak yet', el('span', { class: 'muted' }, ` · best ${p.best}`))),
+      el('div', { class: 'goal-strip', title: `The last ${strip.length} ${many}` }, strip));
+  });
+
+  const count = el('input', { type: 'number', min: '1', step: '1', value: '2', class: 'goal-count' });
+  const unit = el('select', {}, el('option', { value: 'games' }, 'games'), el('option', { value: 'hours' }, 'hours of games'));
+  const per = el('select', {}, ['week', 'month', 'year'].map((x) => el('option', { value: x }, x)));
+  per.value = 'month';
+  const add = el('button', { class: 'primary' }, 'Add goal');
+  add.onclick = () => {
+    const n = Math.round(Number(count.value));
+    if (!(n > 0)) return;
+    saveGoals([...goals, { id: `g${Date.now().toString(36)}`, count: n, unit: unit.value, per: per.value, since: today }]);
+  };
+  return el('div', { class: 'panel goals' },
+    el('h2', {}, 'Goals'),
+    el('p', { class: 'muted' }, goals.length
+      ? 'Games count in the week, month or year you marked them completed. Hours are How Long To Beat main story times.'
+      : 'Set a goal, like beating two games a month, and see how you\'re doing and how many months in a row you\'ve made it. Games count in the week, month or year you mark them completed.'),
+    rows,
+    el('div', { class: 'form goal-add' }, el('span', {}, 'Beat'), count, unit, el('span', {}, 'a'), per, add),
+    undated ? el('p', { class: 'muted' }, `${undated} completed game${undated === 1 ? ' has' : 's have'} no finish date (marked before goals existed), so ${undated === 1 ? 'it doesn\'t' : 'they don\'t'} count. Open a game and set when you finished it.`) : null);
+}
+
 function renderStats() {
   const content = $('#content');
   content.replaceChildren();
@@ -1215,6 +1308,7 @@ function renderStats() {
     ? `${totals.inPlans} games in your plans across ${withGames.length} service${withGames.length === 1 ? '' : 's'}`
     : 'Pick your plans in Settings to see how far through them you are';
 
+  content.append(goalsPanel());
   if (!totals.completed && !totals.played) {
     content.append(el('div', { class: 'empty' }, 'Mark games as played or completed (or import your Steam library in Settings) and your statistics will show up here.'));
     return;
@@ -1884,6 +1978,7 @@ function openDrawer(g) {
         isComing(g) ? [el('dt', {}, 'Coming'), el('dd', {}, fmtDate(g.comingOn))] : null,
         g.firstSeen && !isComing(g) ? [el('dt', {}, 'Added'), el('dd', {}, fmtDate(g.firstSeen))] : null,
         ratingRows(g),
+        finishedRows(g),
         cheapestRows(g),
         leave ? [el('dt', {}, 'Leaving'), el('dd', {}, leave.date ? fmtDate(leave.date) : `${leave.from?.length ? `${leave.from.join(', ')}: ` : ''}soon, no date announced`)] : null),
       markButtons(g, true),

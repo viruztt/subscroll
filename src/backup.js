@@ -1,6 +1,6 @@
 // Profile files: everything Subscroll keeps about you in one JSON file, to
 // move to another PC or keep safe. That is your plans, marks, star ratings and notes, own services
-// and games, settings, Value page costs, Steam link, free-game claims, what
+// and games, settings, goals and finish dates, Value page costs, Steam link, free-game claims, what
 // each list's history noticed (join dates, departed games), and optionally
 // the looked-up scores, prices, descriptions and covers, so the other PC
 // needn't look them all up again. Catalogues themselves aren't included; the
@@ -12,7 +12,7 @@ const FREE_MARKS = new Set(['claimed', 'skip']);
 const FIELDS = [
   'subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings', 'costs', 'priceOverrides', 'viaSub',
   'freebies', 'steam', 'alertedLeaving', 'freeKnown', 'freeReminded', 'trayHintShown', 'notes', 'saleAlerted',
-  'xbox', 'psn',
+  'xbox', 'psn', 'finishedOn', 'goals',
 ];
 // Looked-up data, each a map of key -> entry.
 const LOOKUPS = ['ratings', 'prices', 'wikipedia', 'details', 'appstore'];
@@ -91,6 +91,11 @@ function parseBackup(text) {
       const text = typeof n.text === 'string' && n.text.trim() ? n.text : null;
       if (stars || text) state.notes[id] = { ...(stars ? { stars } : {}), ...(text ? { text } : {}), ...(typeof n.at === 'string' ? { at: n.at } : {}) };
     }
+  }
+  if ('finishedOn' in s) state.finishedOn = Object.fromEntries(Object.entries(stringMap(s.finishedOn)).filter(([, d]) => /^\d{4}-\d{2}-\d{2}$/.test(d)));
+  if ('goals' in s) {
+    state.goals = (Array.isArray(s.goals) ? s.goals : []).filter((g) => isObject(g) && typeof g.id === 'string' && Number(g.count) > 0
+      && ['games', 'hours'].includes(g.unit) && ['week', 'month', 'year'].includes(g.per));
   }
   const lookups = {};
   for (const k of LOOKUPS) if (data.lookups && isObject(data.lookups[k])) lookups[k] = mapOf(data.lookups[k], isObject);

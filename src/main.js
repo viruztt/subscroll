@@ -23,6 +23,7 @@ const { listTitles } = alerts;
 const fs = require('fs');
 const linux = require('./linux');
 const updates = require('./updates');
+const Goals = require('../renderer/goals');
 
 const LOGIN_LABEL = process.platform === 'win32' ? 'Start with Windows' : 'Start when you log in';
 
@@ -372,9 +373,13 @@ async function refreshSteam() {
 async function importAchievementsFor(kind, secret) {
   const { [kind]: current = {}, marks } = store.get();
   const r = await achievements.importAchievements(kind, secret, catalogGames(), current || {}, marks);
-  const next = { ...store.get().marks, ...r.marks };
+  const before = store.get().marks;
+  const next = { ...before, ...r.marks };
   for (const id of r.clear) delete next[id];
-  store.update({ [kind]: r.account, marks: next });
+  // Newly completed games are dated by when they were last played, else today.
+  const finishedOn = Goals.stampFinished(store.get().finishedOn || {}, before, next, new Date().toISOString().slice(0, 10));
+  for (const [id, day] of Object.entries(r.finished || {})) if (next[id] === 'completed' && before[id] !== 'completed') finishedOn[id] = day;
+  store.update({ [kind]: r.account, marks: next, finishedOn });
   return r.summary;
 }
 
@@ -445,7 +450,7 @@ function registerIpc() {
   ipcMain.handle('get-state', () => store.get());
   ipcMain.handle('update-state', (_e, patch) => {
     // Only user-owned fields can be written from the window.
-    const allowed = ['subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings', 'costs', 'priceOverrides', 'viaSub', 'freebies', 'notes'];
+    const allowed = ['subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings', 'costs', 'priceOverrides', 'viaSub', 'freebies', 'notes', 'finishedOn', 'goals'];
     const clean = Object.fromEntries(Object.entries(patch || {}).filter(([k]) => allowed.includes(k)));
     const before = store.get().marks;
     const next = store.update(clean);

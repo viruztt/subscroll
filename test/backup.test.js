@@ -90,3 +90,15 @@ test('Importing merges history and fills in missing lookups only', () => {
   assert.strictEqual(mergeLookups(local, { a: { v: 'theirs' }, b: { v: 'new' } }), 1);
   assert.deepStrictEqual(local, { a: { v: 'mine' }, b: { v: 'new' } });
 });
+
+test('Backup: goals and finish dates', () => {
+  const { makeBackup, parseBackup } = require('../src/backup');
+  const state = {
+    marks: { a: 'completed' },
+    finishedOn: { a: '2026-10-01', bad: 'yesterday' },
+    goals: [{ id: 'g1', count: 2, unit: 'games', per: 'month', since: '2026-10-01' }, { id: 'g2', count: 0, unit: 'games', per: 'month' }, { id: 'g3', count: 5, unit: 'laps', per: 'day' }],
+  };
+  const back = parseBackup(JSON.stringify(makeBackup(state)));
+  assert.deepStrictEqual(back.state.finishedOn, { a: '2026-10-01' });
+  assert.deepStrictEqual(back.state.goals.map((g) => g.id), ['g1']);
+});

@@ -106,7 +106,9 @@ function titleIndex(titles) {
     const k = matchKey(t.name);
     if (!k) continue;
     const prev = out[k];
-    if (!prev || t.progress > prev.progress || (t.completed && !prev.completed)) out[k] = { name: t.name, earned: t.earned, total: t.total || null, progress: t.progress, completed: t.completed, played: t.played || (prev && prev.played) };
+    if (!prev || t.progress > prev.progress || (t.completed && !prev.completed)) {
+      out[k] = { name: t.name, earned: t.earned, total: t.total || null, progress: t.progress, completed: t.completed, played: t.played || (prev && prev.played), ...(t.lastPlayed ? { lastPlayed: t.lastPlayed } : {}) };
+    }
   }
   return out;
 }
@@ -115,6 +117,8 @@ function titleIndex(titles) {
 function achievementMarks(games, index, marks, done = []) {
   const skip = new Set(done);
   const add = {};
+  // When a game was completed: the last time it was played, as near as the service says.
+  const finished = {};
   const clear = [];
   const keys = [];
   let found = 0;
@@ -132,11 +136,12 @@ function achievementMarks(games, index, marks, done = []) {
     else if (t.played && current === 'wishlist' && !skip.has(`${k}:played`)) next = 'played';
     if (!next || next === current) continue;
     add[g.id] = next;
+    if (next === 'completed' && /^\d{4}-\d{2}-\d{2}/.test(t.lastPlayed || '')) finished[g.id] = t.lastPlayed.slice(0, 10);
     clear.push(...ids.filter((id) => id !== g.id && marks[id]));
     // A completed game counts as played too, so a removed mark isn't put back as played.
     keys.push(`${k}:${next}`, ...(next === 'completed' ? [`${k}:played`] : []));
   }
-  return { add, clear, keys, found };
+  return { add, clear, keys, found, finished };
 }
 
 async function importAchievements(kind, secret, games, current = {}, marks = {}) {
@@ -154,6 +159,7 @@ async function importAchievements(kind, secret, games, current = {}, marks = {})
       marked: [...new Set([...(current.marked || []), ...r.keys])],
     },
     marks: r.add,
+    finished: r.finished,
     clear: r.clear,
     summary: { titles: titles.length, inCatalogue: r.found, played: Object.keys(r.add).length - completed, completed },
   };

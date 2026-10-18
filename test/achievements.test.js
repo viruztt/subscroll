@@ -4,7 +4,7 @@ const http = require('../src/providers/http');
 const { parseXbox, parsePsn, titleIndex, achievementMarks, importAchievements, cleanTitle } = require('../src/achievements');
 
 const xboxFeed = { xuid: '1', titles: [
-  { name: 'Halo Infinite', type: 'Game', achievement: { currentAchievements: 119, totalAchievements: 119, progressPercentage: 100 } },
+  { name: 'Halo Infinite', type: 'Game', achievement: { currentAchievements: 119, totalAchievements: 119, progressPercentage: 100 }, titleHistory: { lastTimePlayed: '2026-03-14T20:11:00Z' } },
   { name: 'Hades', type: 'Game', achievement: { currentAchievements: 12, totalAchievements: 49, progressPercentage: 24 } },
   { name: 'Starfield', type: 'Game', achievement: { currentAchievements: 0, totalAchievements: 50, progressPercentage: 0 } },
   { name: 'Netflix', type: 'App', achievement: { currentAchievements: 0, totalAchievements: 0 } },
@@ -59,6 +59,9 @@ test('achievementMarks: played and completed, once each, never over ignored or c
   const r = achievementMarks(catalogue, idx, marks);
   assert.strictEqual(r.found, 4);
   assert.strictEqual(r.add['gamepass:halo'], 'completed');
+  // Dated by when it was last played, for goals.
+  assert.strictEqual(r.finished['gamepass:halo'], '2026-03-14');
+  assert.ok(!Object.keys(r.finished).some((id) => id.includes('hades')));
   // One card for Hades on two services: one mark, the To play mark on the other offer cleared.
   const hades = Object.entries(r.add).filter(([id]) => id.includes('hades'));
   assert.deepStrictEqual(hades.map(([, m]) => m), ['played']);
