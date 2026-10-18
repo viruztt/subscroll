@@ -5,9 +5,11 @@ const { key } = require('../ratings');
 const { monthWindow } = require('../monthly');
 
 // Humble Choice: each month's games, yours to keep once claimed while you're
-// a member. Humble's membership page carries the month's games as JSON in a
-// <script type="application/json"> block; the games sit under a `game_data`
-// map (contentChoiceOptions → contentChoiceData), each with a title.
+// a member. The membership page names the current month
+// (activeContentMachineName "october_2026_choice"); that month's own page
+// (/membership/october-2026) carries its games as JSON in a
+// <script type="application/json"> block, under a `game_data` map
+// (contentChoiceOptions → contentChoiceData), each with a title.
 const PAGE = 'https://www.humblebundle.com/membership';
 
 // A new month starts on the first Tuesday, late morning in California.
@@ -85,13 +87,29 @@ function parseChoice(html, { now = new Date() } = {}) {
   return games;
 }
 
+// "october_2026_choice" (from the membership page) -> the month page's URL.
+function monthPage(html) {
+  const name = (String(html || '').match(/"activeContentMachineName"\s*:\s*"([a-z]+)_(\d{4})_choice"/) || [])
+    .slice(1);
+  return name.length ? `${PAGE}/${name[0]}-${name[1]}` : null;
+}
+
+async function getHtml(url) {
+  const res = await fetchRaw(url, { headers: { Accept: 'text/html' } });
+  if (!res.ok) throw new Error(`HTTP ${res.status} from humblebundle.com`);
+  return res.text();
+}
+
 // The page as text; when its games can't be found it's saved next to the
 // catalogue (humble-page.html) so the format change can be looked at.
 async function fetchPage(dir) {
-  const res = await fetchRaw(PAGE, { headers: { Accept: 'text/html' } });
-  if (!res.ok) throw new Error(`HTTP ${res.status} from humblebundle.com`);
-  const html = await res.text();
-  const games = parseChoice(html);
+  let html = await getHtml(PAGE);
+  let games = parseChoice(html);
+  const month = (!games || !games.length) && monthPage(html);
+  if (month) {
+    html = await getHtml(month);
+    games = parseChoice(html);
+  }
   if (!games || !games.length) {
     if (dir) {
       try {
@@ -108,4 +126,4 @@ async function fetchPage(dir) {
 
 const fetchLive = (_settings, dir) => fetchPage(dir);
 
-module.exports = { fetchLive, fetchPage, parseChoice, humbleWindow, PAGE };
+module.exports = { fetchLive, fetchPage, parseChoice, humbleWindow, monthPage, PAGE };
