@@ -1342,7 +1342,7 @@ function beatenPanel(v) {
 }
 
 function renderSubs() {
-  $('#summary').textContent = 'Your plans, region, background, Steam and profile export. Everything is saved on this computer.';
+  $('#summary').textContent = 'Your plans, region, background, Steam, Xbox and PlayStation accounts, and profile export. Everything is saved on this computer.';
   const content = $('#content');
   content.replaceChildren();
 
@@ -1365,7 +1365,7 @@ function renderSubs() {
   content.append(el('div', { class: 'panel' },
     el('div', { class: 'panel-head' }, el('h2', {}, 'My subscriptions'), el('button', { class: 'link', onclick: startOnboarding }, 'Run the welcome setup again')),
     rows));
-  content.append(customServicePanel(), customGamePanel(), regionPanel(), backgroundPanel(), steamPanel(), backupPanel(), sourcesPanel());
+  content.append(customServicePanel(), customGamePanel(), regionPanel(), backgroundPanel(), steamPanel(), achievementsPanel('xbox'), achievementsPanel('psn'), backupPanel(), sourcesPanel());
 }
 
 // Tray, start with Windows and alerts.
@@ -1430,6 +1430,78 @@ function steamPanel() {
     status);
 }
 
+// Xbox achievements (OpenXBL key) and PlayStation trophies (NPSSO code).
+const ACHIEVEMENTS = {
+  xbox: {
+    title: 'Xbox achievements', field: 'key', noun: 'achievements', what: 'Xbox',
+    placeholder: 'OpenXBL API key', saved: 'API key saved (enter a new one to replace it)',
+    link: 'https://xbl.io', linkText: 'xbl.io',
+    how: ' (sign in with your Xbox account, open your profile and create an API key). OpenXBL is a free service that reads your achievements from Xbox Live; its free plan allows 150 requests an hour, far more than Subscroll uses.',
+  },
+  psn: {
+    title: 'PlayStation trophies', field: 'npsso', noun: 'trophies', what: 'PlayStation',
+    placeholder: 'NPSSO code', saved: 'NPSSO code saved (enter a new one to replace it)',
+    link: 'https://ca.account.sony.com/api/v1/ssocookie', linkText: 'ca.account.sony.com/api/v1/ssocookie',
+    how: ' while signed in at playstation.com, and copy the 64-character "npsso" value. Treat it like a password: it signs in to your PlayStation account. Sony makes it run out after about two months, after which you paste a new one.',
+  },
+};
+
+function achievementsPanel(kind) {
+  const c = ACHIEVEMENTS[kind];
+  const a = state[kind];
+  const secret = el('input', { type: 'password', placeholder: a?.[c.field] ? c.saved : c.placeholder, autocomplete: 'off' });
+  const status = el('p', { class: 'muted' });
+  status.id = `${kind}-status`;
+  const games = (n) => `${n} game${n === 1 ? '' : 's'}`;
+  if (a?.importedAt) status.textContent = `Last imported ${new Date(a.importedAt).toLocaleString()}: ${games(a.count)} with ${c.noun}.`;
+  const button = el('button', { class: 'primary' }, a ? 'Import again' : 'Import');
+  button.onclick = async () => {
+    button.disabled = true;
+    status.textContent = `Reading your ${c.noun}…`;
+    const r = await api.importAchievements(kind, secret.value);
+    button.disabled = false;
+    if (!r.ok) {
+      status.textContent = r.error;
+      return;
+    }
+    state = r.state;
+    rebuildGames();
+    render(true);
+    const { titles, inCatalogue, played, completed } = r.summary;
+    const news = [played ? `${played} newly marked as played` : '', completed ? `${completed} as completed` : ''].filter(Boolean).join(' and ');
+    const fresh = document.querySelector(`#${kind}-status`);
+    if (fresh) fresh.textContent = `Found ${games(titles)} with ${c.what} ${c.noun}. ${inCatalogue} of them ${inCatalogue === 1 ? 'is' : 'are'} in the services here${news ? `: ${news}` : ', and none needed new marks'}.`;
+  };
+  const forget = async () => {
+    state = await api.forgetAchievements(kind);
+    rebuildGames();
+    render(true);
+  };
+  return el('div', { class: 'panel' },
+    el('h2', {}, c.title),
+    el('p', { class: 'muted' },
+      `Games you've earned ${c.what} ${c.noun} in are marked as played, and games at 100%${kind === 'psn' ? ' (or with the platinum trophy)' : ''} as completed. Each game is marked once, so you can still change it. It's read again with the daily refresh. You need `,
+      kind === 'xbox' ? 'a free API key from ' : 'your NPSSO code: open ',
+      el('button', { class: 'link inline', onclick: () => api.openExternal(c.link) }, c.linkText),
+      c.how),
+    el('div', { class: 'form' }, secret, button,
+      a ? el('button', { class: 'link danger', onclick: forget }, `Forget ${c.what}`) : null),
+    status);
+}
+
+// "Xbox: 12 of 50 achievements (24%)" in the game drawer.
+function achievementRows(g) {
+  const key = Unify.matchKey(g.title);
+  return ['xbox', 'psn'].flatMap((kind) => {
+    const t = state[kind]?.titles?.[key];
+    if (!t) return [];
+    const label = kind === 'xbox' ? 'Xbox' : 'Trophies';
+    const noun = kind === 'xbox' ? (t.earned === 1 && !t.total ? 'achievement' : 'achievements') : (t.earned === 1 ? 'trophy' : 'trophies');
+    const count = t.total ? `${t.earned} of ${t.total} ${noun}` : `${t.earned} ${noun}`;
+    return [el('dt', {}, label), el('dd', {}, `${count}, ${t.progress}%${t.completed ? ' (completed)' : ''}`)];
+  });
+}
+
 // The last export or import result, kept while the page is rebuilt.
 let profileNote = '';
 // Everything Subscroll keeps about you in one file, to keep safe or move to another PC.
@@ -1460,7 +1532,7 @@ function backupPanel() {
     el('p', { class: 'muted' },
       'Everything Subscroll keeps about you in one JSON file: plans, marks, To play list, your own services and games, settings, Value page costs, Steam link, free games you claimed, and when games joined or left each list. '
       + 'Keep it safe or move it to another PC. Importing replaces your plans, marks and settings on this PC, and adds the history and looked-up data to what it already has. '
-      + 'The file includes your Steam Web API key if you added one, so keep it to yourself.'),
+      + 'The file includes your Steam, OpenXBL and PlayStation sign-in keys if you added them, so keep it to yourself.'),
     el('div', { class: 'checks' }, el('label', { class: 'check-row' }, lookups, el('span', {}, el('strong', {}, 'Include looked-up data.'), el('span', { class: 'muted' }, ' Scores, play times, prices, descriptions and covers, so the other PC needn\'t look them all up again. Makes the file bigger.')))),
     el('div', { class: 'form' },
       el('button', { class: 'primary', onclick: exportIt }, 'Export profile…'),
@@ -1596,6 +1668,7 @@ function openDrawer(g) {
         el('dt', {}, 'Platforms'), el('dd', {}, g.platforms.map(platformName).join(', ') || '—'),
         g.versions?.length ? [el('dt', {}, 'Versions'), el('dd', {}, g.versions.join(', '))] : null,
         cloudRow(g),
+        achievementRows(g),
         g.steam ? [el('dt', {}, 'Steam'), el('dd', {}, el('button', { class: 'link inline', onclick: () => api.openExternal(`https://store.steampowered.com/app/${g.steam.appid}/`) }, steamText(g.steam).replace('You own this on Steam, ', 'Owned, '), ' ↗'))] : null,
         g.genreTags?.length ? [el('dt', {}, 'Genre'), el('dd', {}, g.genreTags.join(', '))]
           : g.genres?.length ? [el('dt', {}, 'Genre'), el('dd', {}, g.genres.join(', '))] : null,

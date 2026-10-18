@@ -10,6 +10,7 @@ const { REGIONS, regionById } = require('./regions');
 const http = require('./providers/http');
 const { makeBackup, parseBackup, mergeHistory, mergeLookups, backupName } = require('./backup');
 const steam = require('./steam');
+const achievements = require('./achievements');
 const alerts = require('./alerts');
 const { Prices } = require('./prices');
 const { Wiki, wanted: wikiWanted } = require('./wiki');
@@ -133,6 +134,7 @@ async function refreshAll() {
     enrichArcade();
     startWiki();
     refreshSteam();
+    refreshAchievements();
     refreshCloud();
     sendAlerts(results, before, waitingBefore);
     win?.webContents.send('catalog-changed');
@@ -327,6 +329,32 @@ async function refreshSteam() {
   }
 }
 
+// ---- Xbox achievements and PlayStation trophies ----
+// kind: 'xbox' (OpenXBL key) or 'psn' (NPSSO code); saved as state.xbox / state.psn.
+async function importAchievementsFor(kind, secret) {
+  const { [kind]: current = {}, marks } = store.get();
+  const r = await achievements.importAchievements(kind, secret, catalogGames(), current || {}, marks);
+  const next = { ...store.get().marks, ...r.marks };
+  for (const id of r.clear) delete next[id];
+  store.update({ [kind]: r.account, marks: next });
+  return r.summary;
+}
+
+// Read again with the daily refresh, as Steam is.
+async function refreshAchievements() {
+  for (const kind of ['xbox', 'psn']) {
+    const a = store.get()[kind];
+    const secret = a && (a.key || a.npsso);
+    if (!secret) continue;
+    try {
+      await importAchievementsFor(kind, secret);
+      win?.webContents.send('state-changed', store.get());
+    } catch {
+      // Tried again with the next refresh; the last import stays.
+    }
+  }
+}
+
 // ---- Apple Arcade icons and details, looked up slowly in the background ----
 let arcadeRunning = false;
 async function enrichArcade() {
@@ -481,6 +509,18 @@ function registerIpc() {
   });
   // Marks stay; only the Steam link, key and owned list go.
   ipcMain.handle('forget-steam', () => store.update({ steam: null }));
+  ipcMain.handle('import-achievements', async (_e, { kind, secret }) => {
+    if (kind !== 'xbox' && kind !== 'psn') return { ok: false, error: 'Unknown account' };
+    try {
+      const saved = store.get()[kind];
+      const summary = await importAchievementsFor(kind, String(secret || '').trim() || saved?.key || saved?.npsso);
+      return { ok: true, summary, state: store.get() };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+  // Marks stay; only the key and the trophy list go.
+  ipcMain.handle('forget-achievements', (_e, kind) => (kind === 'xbox' || kind === 'psn' ? store.update({ [kind]: null }) : store.get()));
   ipcMain.handle('get-prices', () => prices.all());
   // Looked up in the background; results arrive as 'prices' messages.
   ipcMain.handle('lookup-prices', (_e, games) => {

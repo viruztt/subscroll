@@ -12,6 +12,7 @@ const FREE_MARKS = new Set(['claimed', 'skip']);
 const FIELDS = [
   'subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings', 'costs', 'priceOverrides', 'viaSub',
   'freebies', 'steam', 'alertedLeaving', 'freeKnown', 'freeReminded', 'trayHintShown', 'notes', 'saleAlerted',
+  'xbox', 'psn',
 ];
 // Looked-up data, each a map of key -> entry.
 const LOOKUPS = ['ratings', 'prices', 'wikipedia', 'details', 'appstore'];
@@ -75,6 +76,7 @@ function parseBackup(text) {
   // Added in version 2; a version 1 file leaves these as they are.
   if ('freebies' in s) state.freebies = Object.fromEntries(Object.entries(stringMap(s.freebies)).filter(([, m]) => FREE_MARKS.has(m)));
   if ('steam' in s) state.steam = isObject(s.steam) ? s.steam : null;
+  for (const k of ['xbox', 'psn']) if (k in s) state[k] = isObject(s[k]) ? s[k] : null;
   if ('alertedLeaving' in s) state.alertedLeaving = strings(s.alertedLeaving);
   if ('freeKnown' in s) state.freeKnown = Array.isArray(s.freeKnown) ? strings(s.freeKnown) : null;
   if ('freeReminded' in s) state.freeReminded = strings(s.freeReminded);

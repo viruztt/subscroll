@@ -12,6 +12,8 @@ const state = {
   costs: { gamepass: { monthly: 14.99, since: '2024-01' } },
   freebies: { 'epic:ns:o1': 'claimed', 'gp:2': 'skip' },
   steam: { profile: '7656', key: 'KEY', owned: [{ appid: 1 }] },
+  xbox: { key: 'XBL', importedAt: '2026-10-18T10:00:00Z', marked: ['halo:completed'] },
+  psn: null,
   alertedLeaving: ['gamepass:A'],
   freeKnown: ['epic:ns:o1'],
   freeReminded: [],
@@ -33,7 +35,7 @@ test('Profile round trip keeps plans, marks, Steam, freebies, history and lookup
   assert.strictEqual(file.state.lastRefresh, undefined);
   const back = parseBackup(JSON.stringify(file));
   assert.strictEqual(back.exportedAt, '2026-10-16T12:00:00.000Z');
-  for (const k of ['marks', 'subscriptions', 'customGames', 'settings', 'costs', 'freebies', 'steam', 'alertedLeaving', 'freeKnown', 'freeReminded', 'trayHintShown', 'notes']) {
+  for (const k of ['marks', 'subscriptions', 'customGames', 'settings', 'costs', 'freebies', 'steam', 'alertedLeaving', 'freeKnown', 'freeReminded', 'trayHintShown', 'notes', 'xbox', 'psn']) {
     assert.deepStrictEqual(back.state[k], state[k], k);
   }
   assert.deepStrictEqual(back.history, history);

@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld('api', {
   importBackup: () => ipcRenderer.invoke('import-backup'),
   importSteam: (profile, key) => ipcRenderer.invoke('import-steam', { profile, key }),
   forgetSteam: () => ipcRenderer.invoke('forget-steam'),
+  importAchievements: (kind, secret) => ipcRenderer.invoke('import-achievements', { kind, secret }),
+  forgetAchievements: (kind) => ipcRenderer.invoke('forget-achievements', kind),
   onStateChanged: (fn) => ipcRenderer.on('state-changed', (_e, s) => fn(s)),
   onShowView: (fn) => ipcRenderer.on('show-view', (_e, view) => fn(view)),
   getPrices: () => ipcRenderer.invoke('get-prices'),
