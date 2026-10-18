@@ -382,6 +382,7 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .reason.genre { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .reason.score { color: var(--ok); }
 .reason.studio { color: #f2c94c; border-color: color-mix(in srgb, #f2c94c 45%, transparent); }
+.reason.rated { color: #f2c94c; }
 .section-head .seed { font-weight: 600; }
 .hint-row { margin: 8px 0 4px; }
 .reason.leaving { color: var(--warn); }

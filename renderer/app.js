@@ -531,6 +531,7 @@ function recommendations(limit = 12, perService = 5) {
     score: mcScore,
     hours: beatHours,
     genres: (g) => g.genreTags || [],
+    stars: (g) => starsOf(g.id),
   }, { tastes: tastes(), today: todayIso(), limit, perService });
 }
 
@@ -572,13 +573,14 @@ function likeCompleted() {
     isComing,
     score: mcScore,
     genres: (g) => g.genreTags || [],
+    stars: (g) => starsOf(g.id),
   }, { seeds: statsGames(), groups: 4, perGroup: 6 });
 }
 
 function renderForYou() {
   const content = $('#content');
   content.replaceChildren();
-  $('#summary').textContent = 'Picked from your plans: games in genres you like, well-reviewed, leaving soon or just added, then games like the ones you beat. Scores and play times make these better as they load.';
+  $('#summary').textContent = 'Picked from your plans: games in genres you like, well-reviewed, leaving soon or just added, then games like the ones you beat or rated highly. Your star ratings count: games like the ones you rated low drop. Scores and play times make these better as they load.';
   if (!Object.values(state.subscriptions).some(Boolean)) {
     content.append(el('div', { class: 'panel' }, el('h2', {}, 'What you like'), tastePicker()));
     content.append(el('div', { class: 'empty' }, 'Pick your plans in Settings and recommendations show up here.'));
@@ -591,18 +593,18 @@ function renderForYou() {
   content.append(el('div', { class: 'panel' }, tastePicker()));
   const picks = recommendations(24 + shown.size, 10).filter((p) => !shown.has(p.game.id)).slice(0, 24);
   content.append(picks.length ? recommendationGrid(picks) : el('div', { class: 'empty' }, 'Nothing matches these choices yet. Try another genre or length.'));
-  for (const { seed, picks: like } of groups) {
+  for (const { seed, picks: like, reason } of groups) {
     content.append(el('div', { class: 'section-head' },
-      el('h3', {}, 'Because you beat ', el('button', { class: 'link inline seed', onclick: () => openDrawer(seed) }, seed.title)),
+      el('h3', {}, reason === 'loved' ? 'Because you loved ' : 'Because you beat ', el('button', { class: 'link inline seed', onclick: () => openDrawer(seed) }, seed.title)),
       el('span', { class: 'muted' }, 'Same studio or similar genres')));
     content.append(recommendationGrid(like));
   }
   if (!groups.length) {
-    const beaten = statsGames().some((g) => markOf(g.id) === 'completed');
+    const beaten = statsGames().some((g) => markOf(g.id) === 'completed' || (starsOf(g.id) || 0) >= 4);
     content.append(el('div', { class: 'section-head' }, el('h3', {}, 'Because you beat…')));
     content.append(el('div', { class: 'hint-row muted' }, beaten
       ? 'Nothing in your plans is much like the games you\'ve completed yet. Developers and genres fill in over the first few minutes as they\'re looked up.'
-      : 'Mark games as ★ Completed and games like them show up here, by the same studio or with similar genres.'));
+      : 'Mark games as ★ Completed or rate them 4 or 5 stars, and games like them show up here, by the same studio or with similar genres.'));
   }
 }
 

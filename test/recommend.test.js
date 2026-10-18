@@ -80,3 +80,43 @@ test('Like games you beat: same developer, small publisher, rarer genres', () =>
   assert.ok(!groups.some((x) => x.picks.some((p) => p.game.id === 'Generic')));
   assert.deepStrictEqual(similar(list.filter((x) => x.mark !== 'completed'), helpers), []);
 });
+
+test('Star ratings: loved games seed their own row, low-rated ones push lookalikes down', () => {
+  const { similar } = require('../renderer/recommend');
+  const h = { ...helpers, stars: (x) => x.stars || null };
+  const filler = Array.from({ length: 30 }, (_, i) => g(`filler${i}`, 'gamepass', { genreTags: ['Action & adventure'] }));
+  const list = [
+    g('Celeste', 'gamepass', { mark: 'played', stars: 5, genreTags: ['Platformer'], developer: 'Maddy Makes Games' }),
+    g('Bad Racer', 'gamepass', { mark: 'completed', stars: 1, genreTags: ['Racing'], developer: 'Cheap Studio' }),
+    g('Meh RPG', 'gamepass', { mark: 'played', stars: 3, genreTags: ['RPG'], developer: 'Some RPG House' }), // 3 stars and not beaten: no row
+    g('Towerfall', 'gamepass', { genreTags: ['Platformer'], developer: 'Maddy Makes Games' }),
+    g('Bad Racer 2', 'gamepass', { genreTags: ['Racing'], developer: 'Cheap Studio' }),
+    g('RPG Two', 'gamepass', { genreTags: ['RPG'], developer: 'Some RPG House' }),
+    g('Rated already', 'gamepass', { genreTags: ['Platformer'], developer: 'Maddy Makes Games', stars: 4 }),
+    ...filler,
+  ];
+  const groups = similar(list, h);
+  assert.strictEqual(groups[0].seed.id, 'Celeste');
+  assert.strictEqual(groups[0].reason, 'loved');
+  const picked = groups.flatMap((x) => x.picks.map((p) => p.game.id));
+  assert.ok(picked.includes('Towerfall'));
+  assert.ok(!picked.includes('Bad Racer 2'), 'like a 1-star game and nothing liked');
+  assert.ok(!picked.includes('RPG Two'), '3 stars without beating it is not a seed');
+  assert.ok(!picked.includes('Rated already'), 'rated games are not suggested');
+  assert.ok(!groups.some((x) => x.seed.id === 'Bad Racer'), 'a beaten game rated low is not a seed');
+});
+
+test('Star ratings: genres you rate highly rise, genres you rate low sink', () => {
+  const h = { ...helpers, stars: (x) => x.stars || null };
+  const list = [
+    g('loved-puzzle', 'gamepass', { genreTags: ['Puzzle'], stars: 5, mark: 'completed' }),
+    g('hated-sports', 'gamepass', { genreTags: ['Sports'], stars: 1, mark: 'played' }),
+    g('puzzle', 'gamepass', { genreTags: ['Puzzle'] }),
+    g('sports', 'gamepass', { genreTags: ['Sports'] }),
+    g('other', 'gamepass', { genreTags: ['Shooter'] }),
+  ];
+  const picks = recommend(list, h, { tastes: { genres: [], length: 'any' }, today: '2026-10-17' });
+  assert.deepStrictEqual(ids(picks), ['puzzle', 'other', 'sports']);
+  assert.deepStrictEqual(picks[0].reasons.map((r) => r.label), ['You rate Puzzle highly']);
+  assert.ok(picks.every((p) => p.reasons.every((r) => r.label)), 'no empty reason labels');
+});
