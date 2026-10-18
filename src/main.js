@@ -15,6 +15,8 @@ const { Prices } = require('./prices');
 const { Wiki, wanted: wikiWanted } = require('./wiki');
 const { FreeGames, freeAlerts, hasPlan } = require('./freegames');
 const { Cloud } = require('./cloud');
+const Play = require('../renderer/play');
+const { execFile } = require('child_process');
 const { listTitles } = alerts;
 const fs = require('fs');
 
@@ -264,6 +266,21 @@ async function refreshFree() {
   return r;
 }
 
+// Steam notes each installed game in the registry. null when it can't tell.
+function steamInstalled(appid) {
+  if (process.platform !== 'win32' || !/^\d+$/.test(String(appid))) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    execFile('reg', ['query', `HKCU\\Software\\Valve\\Steam\\Apps\\${appid}`, '/v', 'Installed'], { timeout: 3000, windowsHide: true }, (err, out) => {
+      if (err) {
+        // No key: Steam has never seen it on this PC. No Steam at all: unknown.
+        execFile('reg', ['query', 'HKCU\\Software\\Valve\\Steam', '/v', 'SteamExe'], { timeout: 3000, windowsHide: true }, (err2) => resolve(err2 ? null : false));
+        return;
+      }
+      resolve(/Installed\s+REG_DWORD\s+0x1\b/i.test(out));
+    });
+  });
+}
+
 // ---- Steam library ----
 async function importSteam(profile, key) {
   const { steam: current = {}, marks } = store.get();
@@ -450,6 +467,17 @@ function registerIpc() {
   ipcMain.handle('open-external', (_e, url) => {
     if (typeof url === 'string' && /^https:\/\//.test(url)) shell.openExternal(url);
   });
+  // Play buttons: Steam and Xbox app links as well as web pages.
+  ipcMain.handle('launch', async (_e, url) => {
+    if (!Play.allowed(url)) return { ok: false };
+    try {
+      await shell.openExternal(url);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+  ipcMain.handle('steam-installed', (_e, appid) => steamInstalled(appid));
 }
 
 // The app was first called "Subscription Catalogue". Keep its data folder

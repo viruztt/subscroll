@@ -1535,6 +1535,7 @@ function openDrawer(g) {
       cover(g),
       el('h2', {}, g.title),
       serviceMeta(g, keys),
+      playBar(g),
       el('dl', {},
         el('dt', {}, 'Included in'), el('dd', {}, plans.length ? plans : '—'),
         el('dt', {}, 'Platforms'), el('dd', {}, g.platforms.map(platformName).join(', ') || '—'),
@@ -1555,6 +1556,35 @@ function openDrawer(g) {
         o.service === 'nso' ? 'Open the Wikipedia list ↗' : offers.length > 1 ? `Open on ${serviceById(o.service)?.short || o.service} ↗` : 'Open store page ↗')),
       g.custom ? el('button', { class: 'link danger', onclick: deleteCustom }, 'Delete this game') : null));
   drawer.classList.remove('hidden');
+}
+
+// Play / install buttons. Steam is asked whether the game is installed.
+const steamInstalledCache = new Map();
+function playBar(g) {
+  const bar = el('div', { class: 'play-bar' });
+  const draw = (installed) => {
+    const actions = Play.playActions(g, { installed });
+    bar.replaceChildren(...actions.map((a) => el('button', {
+      class: a.primary ? 'primary' : 'mark',
+      title: a.url,
+      onclick: async () => {
+        const r = await api.launch(a.url);
+        if (r.ok) return;
+        bar.querySelector('.play-error')?.remove();
+        bar.append(el('span', { class: 'muted play-error' }, a.kind === 'steam' ? "Couldn't open Steam. Is it installed?" : a.kind === 'xbox' ? "Couldn't open the Xbox app. Is it installed?" : "Couldn't open that link."));
+      },
+    }, a.label)));
+    bar.classList.toggle('hidden', !actions.length);
+  };
+  const appid = g.steam?.appid;
+  draw(appid ? steamInstalledCache.get(appid) ?? null : null);
+  if (appid && !steamInstalledCache.has(appid)) {
+    api.steamInstalled(appid).then((v) => {
+      steamInstalledCache.set(appid, v);
+      if (bar.isConnected) draw(v);
+    }).catch(() => {});
+  }
+  return bar;
 }
 
 // Developer and publisher, from whichever service's list names them.
