@@ -11,7 +11,7 @@ const MARKS = new Set(['played', 'completed', 'ignored', 'wishlist']);
 const FREE_MARKS = new Set(['claimed', 'skip']);
 const FIELDS = [
   'subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings', 'costs', 'priceOverrides', 'viaSub',
-  'freebies', 'steam', 'alertedLeaving', 'freeKnown', 'freeReminded', 'trayHintShown', 'notes',
+  'freebies', 'steam', 'alertedLeaving', 'freeKnown', 'freeReminded', 'trayHintShown', 'notes', 'saleAlerted',
 ];
 // Looked-up data, each a map of key -> entry.
 const LOOKUPS = ['ratings', 'prices', 'wikipedia', 'details', 'appstore'];
@@ -79,6 +79,7 @@ function parseBackup(text) {
   if ('freeKnown' in s) state.freeKnown = Array.isArray(s.freeKnown) ? strings(s.freeKnown) : null;
   if ('freeReminded' in s) state.freeReminded = strings(s.freeReminded);
   if (typeof s.trayHintShown === 'boolean') state.trayHintShown = s.trayHintShown;
+  if ('saleAlerted' in s) state.saleAlerted = mapOf(s.saleAlerted, (x) => typeof x === 'number' && x > 0);
   if ('notes' in s) {
     state.notes = {};
     for (const [id, n] of Object.entries(isObject(s.notes) ? s.notes : {})) {

@@ -481,3 +481,4 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .stars-input:hover .star { color: #ffc83d; }
 .stars-input .star:hover ~ .star { color: #4a5060; }
 .note-text { width: 100%; box-sizing: border-box; resize: vertical; background: var(--panel-2, #161a22); color: inherit; border: 1px solid var(--border, #2a2f3a); border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13px; }
+.badge.sale { background: #5b1a1a; color: #ffb4a8; border: 1px solid #c2453a; }

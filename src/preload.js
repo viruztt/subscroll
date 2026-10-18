@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('api', {
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   launch: (url) => ipcRenderer.invoke('launch', url),
   steamInstalled: (appid) => ipcRenderer.invoke('steam-installed', appid),
+  watchSales: (list) => ipcRenderer.invoke('watch-sales', list),
   exportBackup: (opts) => ipcRenderer.invoke('export-backup', opts),
   importBackup: () => ipcRenderer.invoke('import-backup'),
   importSteam: (profile, key) => ipcRenderer.invoke('import-steam', { profile, key }),

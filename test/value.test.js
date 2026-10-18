@@ -18,7 +18,18 @@ test('Prices: Microsoft list price, PlayStation base price, Steam exact title', 
   assert.strictEqual(playstationPrice('<html>no data</html>'), null);
   const items = [{ id: 1, name: 'Hades II', price: { initial: 2499, currency: 'GBP' } }, { id: 2, name: 'Hades', price: { initial: 1999, currency: 'GBP' } }];
   assert.deepStrictEqual(steamPrice(items, 'Hades'), { amount: 19.99, currency: 'GBP', source: 'Steam', url: 'https://store.steampowered.com/app/2/' });
-  assert.strictEqual(steamPrice(items, 'Celeste'), undefined);
+  assert.strictEqual(steamPrice(items, 'Celeste'), null);
+});
+
+test('Prices: sales from each store, with end dates where given', () => {
+  assert.deepStrictEqual(microsoftPrice({ DisplaySkuAvailabilities: [{ Availabilities: [
+    { Actions: ['Purchase'], Conditions: { EndDate: '9998-12-30T00:00:00.0000000Z' }, OrderManagementData: { Price: { ListPrice: 59.99, MSRP: 59.99, CurrencyCode: 'GBP' } } },
+    { Actions: ['Purchase'], Conditions: { EndDate: '2026-10-27T07:00:00.0000000Z' }, OrderManagementData: { Price: { ListPrice: 23.99, MSRP: 59.99, CurrencyCode: 'GBP' } } },
+  ] }] }), { amount: 59.99, currency: 'GBP', sale: 23.99, saleEnds: '2026-10-27T07:00:00.0000000Z' });
+  assert.deepStrictEqual(playstationPrice('{"basePriceValue":6999,"discountedValue":2099,"endTime":"1793000000000","currencyCode":"GBP"}{"basePriceValue":7999,"discountedValue":7999}'),
+    { amount: 69.99, currency: 'GBP', sale: 20.99, saleEnds: new Date(1793000000000).toISOString() });
+  assert.deepStrictEqual(steamPrice([{ id: 3, name: 'Celeste', price: { initial: 1599, final: 399, currency: 'GBP' } }], 'Celeste'),
+    { amount: 15.99, currency: 'GBP', sale: 3.99, source: 'Steam', url: 'https://store.steampowered.com/app/3/' });
 });
 
 test('Prices: own store first, Steam after, cached per country', async () => {

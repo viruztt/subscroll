@@ -1,7 +1,9 @@
 // What a game costs to buy outright today, for the Value page: the full
 // (not sale) price from the store of a service that has it, falling back to
 // Steam. Looked up only for games you've marked, one at a time, cached for
-// a month (two weeks when nothing was found).
+// a month (two weeks when nothing was found). Each answer also says when the
+// game is on sale (`sale`, with `saleEnds` when the store gives it), which
+// the sale alerts check twice a day for To play games outside your plans.
 const fs = require('fs');
 const path = require('path');
 const { getJson, fetchRaw } = require('./providers/http');
@@ -14,6 +16,8 @@ const MICROSOFT_STORE = ['gamepass', 'eaplay', 'ubisoftplus'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ---- Microsoft Store: the product's list price (MSRP) ----
+// ListPrice below MSRP is a sale; the sale's availability ends on its EndDate
+// (Microsoft writes 9998 for "no end").
 function microsoftPrice(product) {
   let best = null;
   for (const sku of product?.DisplaySkuAvailabilities || []) {
@@ -21,9 +25,21 @@ function microsoftPrice(product) {
       if (!(a.Actions || []).includes('Purchase')) continue;
       const p = a.OrderManagementData?.Price;
       const amount = Number(p?.MSRP) || Number(p?.ListPrice) || 0;
-      if (amount > 0 && (!best || amount < best.amount)) best = { amount, currency: p.CurrencyCode };
+      if (!(amount > 0)) continue;
+      const list = Number(p.ListPrice);
+      const sale = list > 0 && list < amount ? list : null;
+      const end = a.Conditions?.EndDate;
+      const saleEnds = sale && end && !/^9\d{3}/.test(end) ? end : null;
+      if (!best || amount < best.amount || (amount === best.amount && (sale || amount) < (best.sale || best.amount))) {
+        best = { amount, currency: p.CurrencyCode, sale, saleEnds };
+      }
     }
   }
+  if (best && !best.sale) {
+    delete best.sale;
+    delete best.saleEnds;
+  }
+  if (best && !best.saleEnds) delete best.saleEnds;
   return best;
 }
 
@@ -36,11 +52,26 @@ async function fromMicrosoft(offer, { market, language }) {
 
 // ---- PlayStation Store: the page's embedded data has each edition's base
 // price in minor units; the cheapest edition is the standard one. ----
+// Each price object also has discountedValue (the price today) and, during
+// a sale, endTime in milliseconds.
 function playstationPrice(html) {
-  const values = [...html.matchAll(/"basePriceValue":(\d+)/g)].map((m) => Number(m[1])).filter((v) => v > 0);
   const currency = (html.match(/"currencyCode":"([A-Z]{3})"/) || [])[1];
-  if (!values.length || !currency) return null;
-  return { amount: Math.min(...values) / 100, currency };
+  let best = null;
+  for (const m of html.matchAll(/\{[^{}]*"basePriceValue":(\d+)[^{}]*\}/g)) {
+    const base = Number(m[1]);
+    if (!(base > 0)) continue;
+    const now = Number((m[0].match(/"discountedValue":(\d+)/) || [])[1]);
+    const end = Number((m[0].match(/"endTime":"?(\d{10,})"?/) || [])[1]);
+    const sale = now > 0 && now < base ? now : null;
+    if (!best || base < best.base || (base === best.base && (sale || base) < (best.sale || best.base))) best = { base, sale, end: sale && end ? end : null };
+  }
+  if (!best || !currency) return null;
+  return {
+    amount: best.base / 100,
+    currency,
+    ...(best.sale ? { sale: best.sale / 100 } : {}),
+    ...(best.end ? { saleEnds: new Date(best.end).toISOString() } : {}),
+  };
 }
 
 async function fromPlayStation(offer, { psLocale }) {
@@ -56,7 +87,9 @@ async function fromPlayStation(offer, { psLocale }) {
 function steamPrice(items, title) {
   const key = matchKey(title);
   const hit = (items || []).find((i) => matchKey(i.name) === key && i.price?.initial > 0);
-  return hit && { amount: hit.price.initial / 100, currency: hit.price.currency, source: 'Steam', url: `https://store.steampowered.com/app/${hit.id}/` };
+  if (!hit) return null;
+  const sale = hit.price.final > 0 && hit.price.final < hit.price.initial ? hit.price.final / 100 : null;
+  return { amount: hit.price.initial / 100, currency: hit.price.currency, ...(sale ? { sale } : {}), source: 'Steam', url: `https://store.steampowered.com/app/${hit.id}/` };
 }
 
 async function fromSteam(title, { market }) {
@@ -106,12 +139,12 @@ class Prices {
     return this.cache;
   }
 
-  // A different country means different prices.
-  due(id, market, now = Date.now()) {
+  // A different country means different prices. maxHours: sooner, for sales.
+  due(id, market, now = Date.now(), maxHours = null) {
     const e = this.cache[id];
     if (!e || e.market !== market) return true;
-    const days = e.amount ? FRESH_DAYS : MISS_DAYS;
-    return now - new Date(e.at).getTime() > days * 86400000;
+    const hours = Math.min((e.amount ? FRESH_DAYS : MISS_DAYS) * 24, maxHours || Infinity);
+    return now - new Date(e.at).getTime() > hours * 3600000;
   }
 
   save() {
@@ -120,10 +153,10 @@ class Prices {
   }
 
   // games: [{ id, title, offers: [{ id, service, storeUrl }] }]
-  lookup(games, settings) {
+  lookup(games, settings, { maxHours = null } = {}) {
     if (this.running) return this.running;
     this.running = (async () => {
-      const todo = games.filter((g) => this.due(g.id, settings.market));
+      const todo = games.filter((g) => this.due(g.id, settings.market, Date.now(), maxHours));
       for (const [i, g] of todo.entries()) {
         const p = await findPrice(g, settings);
         const at = new Date().toISOString();

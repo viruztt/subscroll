@@ -16,6 +16,7 @@ const { Wiki, wanted: wikiWanted } = require('./wiki');
 const { FreeGames, freeAlerts, hasPlan } = require('./freegames');
 const { Cloud } = require('./cloud');
 const Play = require('../renderer/play');
+const sales = require('./sales');
 const { execFile } = require('child_process');
 const { listTitles } = alerts;
 const fs = require('fs');
@@ -228,9 +229,32 @@ function scheduleRefresh() {
     const hours = Number(settings.autoRefreshHours) || 24;
     if (!lastRefresh || Date.now() - new Date(lastRefresh) > hours * 3600000) refreshAll().catch(() => {});
     if (freeGames.due()) refreshFree().catch(() => {});
+    checkSales().catch(() => {});
   };
   setTimeout(check, 60 * 1000);
   setInterval(check, 30 * 60 * 1000);
+}
+
+// ---- Sale alerts ----
+// To play games outside your plans (the window keeps the list current) are
+// looked up in their stores twice a day; a new or lower sale price is news.
+async function checkSales() {
+  const { saleWatch = [], settings } = store.get();
+  if (!saleWatch.length) return;
+  const region = regionById(settings.region);
+  const currency = region?.currency;
+  await prices.lookup(saleWatch, { market: settings.market, language: settings.language, psLocale: settings.psLocale, currency }, { maxHours: sales.CHECK_HOURS });
+  const r = sales.saleAlerts(saleWatch, prices.all(), store.get().saleAlerted || {}, { currency });
+  store.update({ saleAlerted: r.alerted });
+  if (!r.fresh.length || settings.alerts === false || settings.saleAlerts === false || (win?.isVisible() && win.isFocused())) return;
+  const fmt = (x, cur) => { try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur }).format(x); } catch { return x.toFixed(2); } };
+  if (r.fresh.length === 1) {
+    const [g] = r.fresh;
+    const until = g.saleEnds ? `, until ${new Date(g.saleEnds).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : '';
+    notify({ view: 'toplay', title: `On sale: ${g.title}`, body: `${fmt(g.sale, g.currency)}, ${g.off}% off${until}` });
+  } else {
+    notify({ view: 'toplay', title: `On sale from your To play list: ${r.fresh.length} games`, body: listTitles(r.fresh.map((g) => `${g.title} (${g.off}% off)`)) });
+  }
 }
 
 // ---- Cloud play ----
@@ -478,6 +502,10 @@ function registerIpc() {
     }
   });
   ipcMain.handle('steam-installed', (_e, appid) => steamInstalled(appid));
+  ipcMain.handle('watch-sales', (_e, list) => {
+    store.update({ saleWatch: sales.cleanWatch(list) });
+    checkSales().catch(() => {});
+  });
 }
 
 // The app was first called "Subscription Catalogue". Keep its data folder

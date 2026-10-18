@@ -133,6 +133,33 @@ async function setMark(id, value) {
   await saveState({ marks });
 }
 
+// ---------- sale alerts ----------
+// To play games outside your plans: where to buy them is worth watching.
+function saleWatchList() {
+  const keys = unlocked();
+  const ids = new Set(games.flatMap((g) => offersOf(g).map((o) => o.id)));
+  const list = games.filter((g) => markOf(g.id) === 'wishlist' && !isComing(g) && !isMine(g, keys));
+  const gone = departed.filter((d) => state.marks[d.id] === 'wishlist' && !ids.has(d.id));
+  return [...list, ...gone].map((g) => ({ id: g.id, title: g.title, offers: offersOf(g).map((o) => ({ id: o.id, service: o.service, storeUrl: o.storeUrl || null })) }));
+}
+let saleWatchSent = '';
+function syncSaleWatch() {
+  if (!games.length) return;
+  const list = saleWatchList();
+  const sig = JSON.stringify(list.map((g) => g.id));
+  if (sig === saleWatchSent) return;
+  saleWatchSent = sig;
+  api.watchSales(list).catch(() => {});
+}
+// A sale on a To play game outside your plans, in your currency.
+function saleOf(g) {
+  if (markOf(g.id) !== 'wishlist') return null;
+  const p = prices[g.id];
+  if (!p || !(p.sale > 0) || !(p.amount > p.sale) || p.currency !== regionCurrency()) return null;
+  if (isMine(g, unlocked())) return null;
+  return { ...p, off: Math.round((1 - p.sale / p.amount) * 100) };
+}
+
 // Your own star rating (1-5) and notes, shared by every entry of the game.
 function noteOf(id) {
   const notes = state.notes || {};
@@ -435,6 +462,8 @@ function card(g, keys) {
   if (g.versions?.length > 1) badges.push(el('span', { class: 'badge region', title: 'Regional versions included' }, g.versions.join(' + ')));
   if (markOf(g.id) === 'wishlist') badges.push(el('span', { class: 'badge toplay' }, 'To play'));
   if (g.steam) badges.push(el('span', { class: 'badge steam', title: steamText(g.steam) }, 'On Steam'));
+  const sale = saleOf(g);
+  if (sale) badges.push(el('span', { class: 'badge sale', title: `On sale on ${sale.source || 'its store'}: usually ${money(sale.amount)}${sale.saleEnds ? `, until ${fmtDate(sale.saleEnds.slice(0, 10))}` : ''}` }, `${sale.off}% off · ${money(sale.sale)}`));
   const note = noteOf(g.id);
   if (note) badges.push(el('span', { class: 'badge stars', title: note.text ? `Your note: ${note.text}` : 'Your rating' }, note.stars ? '★'.repeat(note.stars) : '', note.text ? (note.stars ? ' ✎' : '✎ Note') : ''));
   if (cloudKeys(g).size) {
@@ -729,8 +758,8 @@ function renderToPlay() {
   const groups = [
     ['Ready to play', 'In your plans now.', list.filter((g) => !isComing(g) && isMine(g, keys))],
     ['Coming soon', 'Announced, with the date it arrives.', list.filter(isComing).sort((a, b) => a.comingOn.localeCompare(b.comingOn))],
-    ['In other services', "Available, but not in the plans you have.", list.filter((g) => !isComing(g) && !isMine(g, keys))],
-    ['No longer available', 'Left every service that had it.', [...gone.values()]],
+    ['In other services', "Available, but not in the plans you have. Checked for sales twice a day.", list.filter((g) => !isComing(g) && !isMine(g, keys))],
+    ['No longer available', 'Left every service that had it. Checked for sales twice a day.', [...gone.values()]],
   ];
   const total = list.length + gone.size;
   $('#summary').textContent = total ? `${total} game${total === 1 ? '' : 's'} to play · ${groups[0][2].length} ready now` : '';
@@ -1353,7 +1382,8 @@ function backgroundPanel() {
       toggle('closeToTray', 'Keep running in the tray when the window is closed.', 'Quit from the tray icon\'s menu.', true),
       windows ? toggle('startWithWindows', 'Start with Windows.', 'Starts in the tray, without opening the window.', false) : null,
       toggle('alerts', 'Alerts.', 'A notification when games join a service in your plans, or games in your plans start leaving. Completed and ignored games are left out.', true),
-      toggle('freeAlerts', 'Free game alerts.', 'A notification when new games are free to keep, and on the last day of ones you haven\'t marked claimed.', true)));
+      toggle('freeAlerts', 'Free game alerts.', 'A notification when new games are free to keep, and on the last day of ones you haven\'t marked claimed.', true),
+      toggle('saleAlerts', 'Sale alerts.', 'A notification when a To play game that isn\'t in your plans goes on sale (Microsoft Store, PlayStation Store or Steam).', true)));
 }
 
 // Steam library import: owned games get a badge, played ones a mark.
@@ -1868,6 +1898,7 @@ function renderChrome() {
 // keepScroll: redraw in place (after marking a game, new results…) rather
 // than starting the list from the top.
 function render(keepScroll = false) {
+  syncSaleWatch();
   const content = $('#content');
   const top = content.scrollTop;
   if (!keepScroll) ui.shown = PAGE_SIZE;
@@ -1891,8 +1922,8 @@ let priceTimer = null;
 api.onPrices(({ updates, progress }) => {
   Object.assign(prices, updates);
   priceProgress = progress.done < progress.total ? progress : null;
-  if (ui.view !== 'value' || priceTimer) return;
-  priceTimer = setTimeout(() => { priceTimer = null; if (ui.view === 'value') render(true); }, 800);
+  if (!['value', 'toplay'].includes(ui.view) || priceTimer) return;
+  priceTimer = setTimeout(() => { priceTimer = null; if (['value', 'toplay'].includes(ui.view)) render(true); }, 800);
 });
 
 // The daily refresh reads the Steam library again.
