@@ -794,7 +794,7 @@ const CAL_KINDS = {
   'free-start': { label: 'Free from', cls: 'k-free' },
   'free-end': { label: 'Last day free', cls: 'k-free' },
 };
-const CAL_LEGEND = [['coming', 'Arriving'], ['added', 'Added'], ['left', 'Left'], ['free', 'Free to keep']];
+const CAL_LEGEND = [['coming', 'Arriving'], ['added', 'Added'], ['left', 'Left'], ['free', 'Free games']];
 const calGroup = (kind) => (kind.startsWith('free') ? 'free' : kind);
 const isFree = (item) => !!item.store && !item.service;
 
@@ -808,7 +808,7 @@ function renderCalendar() {
   const days = Calendar.events({
     games: filtered(games),
     departed: filtered(departed, { keepDeparted: true }),
-    free: free.games.filter((g) => !freeMark(g)),
+    free: free.games.filter((g) => !freeMark(g) && freeShown(g)),
     comingOn: (g) => (isComing(g) ? g.comingOn : null),
     addedOn: (g) => g.firstSeen || null,
     from: grid[0].iso,
@@ -877,10 +877,20 @@ const FREE_STORES = {
   steam: { name: 'Steam', short: 'Steam', color: '#1b2838' },
   gog: { name: 'GOG', short: 'GOG', color: '#86328a' },
   prime: { name: 'Prime Gaming', short: 'Prime', color: '#00a8e1' },
+  psplus: { name: 'PlayStation Plus', short: 'PS Plus', color: '#0070d1' },
+  fpd: { name: 'Xbox Free Play Days', short: 'Free Play Days', color: '#107c10' },
 };
 const FREE_CHECK_HOURS = 6;
 const freeMark = (g) => (state.freebies || {})[g.id] || null;
-const openFree = () => free.games.filter((g) => !g.upcoming && !freeMark(g));
+// PS Plus monthly games and Free Play Days need that plan (PC Game Pass has no Free Play Days).
+function hasPlanFor(needs) {
+  if (!needs) return true;
+  const tier = (state.subscriptions || {})[needs];
+  return needs === 'gamepass' ? !!tier && tier !== 'pc' : !!tier;
+}
+const NEEDS = { psplus: 'PS Plus', gamepass: 'Game Pass' };
+const freeShown = (g) => ui.freeAll || hasPlanFor(g.needs);
+const openFree = () => free.games.filter((g) => !g.upcoming && !freeMark(g) && hasPlanFor(g.needs));
 
 function whenText(iso) {
   const d = new Date(iso);
@@ -911,36 +921,46 @@ function freeAlsoIn(g) {
   if (!k) return null;
   const hit = games.find((x) => Unify.matchKey(x.title) === k);
   if (!hit) return null;
-  return serviceOffers(hit).map((o) => serviceById(o.service)?.short).filter(Boolean).join(', ');
+  // A PS Plus monthly game is in the PS Plus list itself.
+  return serviceOffers(hit).filter((o) => !(g.store === 'psplus' && o.service === 'psplus')).map((o) => serviceById(o.service)?.short).filter(Boolean).join(', ');
 }
 
 function freeCard(g) {
   const store = FREE_STORES[g.store] || { name: g.store, short: g.store, color: '#444' };
   const mark = freeMark(g);
-  const soon = !mark && g.end && new Date(g.end) - Date.now() < 26 * 3600000;
+  const soon = !mark && g.kind !== 'try' && g.end && new Date(g.end) - Date.now() < 26 * 3600000;
   const img = g.image ? el('img', { src: g.image, loading: 'lazy', alt: '' }) : null;
   const art = el('div', { class: 'free-art' }, img || el('span', {}, g.mystery ? 'Mystery game' : g.title));
   if (img) img.addEventListener('error', () => img.replaceWith(el('span', {}, g.title)));
+  const tryIt = g.kind === 'try';
   const when = g.upcoming
-    ? `Free from ${whenText(g.start)}${g.end ? ` to ${whenText(g.end)}` : ''}`
-    : g.end ? `Claim by ${whenText(g.end)}, ${inText(g.end)}` : 'No end date given';
-  const facts = [g.worth ? `Usually ${g.worth}` : null, g.limited ? 'Keys while they last' : null].filter(Boolean);
+    ? `${tryIt ? 'Play free' : 'Free'} from ${whenText(g.start)}${g.end ? ` to ${whenText(g.end)}` : ''}`
+    : !g.end ? 'No end date given'
+      : tryIt ? `Play free until ${whenText(g.end)}, ${inText(g.end)}` : `Claim by ${whenText(g.end)}, ${inText(g.end)}`;
+  const needs = g.needs ? (hasPlanFor(g.needs) ? `With your ${NEEDS[g.needs]}` : `Needs ${NEEDS[g.needs]}`) : tryIt ? 'Open to everyone' : null;
+  const facts = [
+    g.worth ? `Usually ${g.worth}` : null,
+    g.limited ? 'Keys while they last' : null,
+    g.trial ? 'Timed trial' : tryIt ? 'The full game for the weekend; progress carries over if you buy it' : null,
+    g.store === 'psplus' ? 'Stays in your library while you have PS Plus' : null,
+  ].filter(Boolean);
   const also = freeAlsoIn(g);
-  const claim = g.store === 'prime' ? 'Claim with Prime' : `Claim on ${store.short}`;
+  const claim = g.store === 'prime' ? 'Claim with Prime' : g.store === 'psplus' ? 'Add on PS Store' : tryIt ? 'Get it on Xbox' : `Claim on ${store.short}`;
   return el('div', { class: `free-card ${mark ? 'dim' : ''}` },
     art,
     el('div', { class: 'free-body' },
       el('div', { class: 'free-tags' }, el('span', { class: 'badge', style: `background:${store.color}` }, store.short),
-        mark === 'claimed' ? el('span', { class: 'badge done' }, 'Claimed') : null),
+        mark === 'claimed' ? el('span', { class: 'badge done' }, tryIt ? 'Played' : 'Claimed') : null,
+        needs ? el('span', { class: `free-needs ${g.needs && !hasPlanFor(g.needs) ? 'missing' : ''}` }, needs) : null),
       el('h4', {}, g.title),
       el('div', { class: `free-when ${soon && !g.upcoming ? 'urgent' : ''}` }, when),
       facts.length ? el('div', { class: 'muted' }, facts.join(' · ')) : null,
       also ? el('div', { class: 'muted' }, `Also in ${also}`) : null,
       el('div', { class: 'free-actions' },
-        g.url ? el('button', { class: g.upcoming || mark ? 'mark' : 'primary', onclick: () => api.openExternal(g.url) }, g.upcoming ? 'Store page ↗' : `${claim} ↗`) : null,
+        g.url ? el('button', { class: g.upcoming || mark ? 'mark' : 'primary', onclick: () => api.openExternal(g.url) }, g.upcoming ? (g.store === 'psplus' && /blog\./.test(g.url) ? 'Announcement ↗' : 'Store page ↗') : `${claim} ↗`) : null,
         g.upcoming ? null : mark
           ? el('button', { class: 'mark', onclick: () => setFreeMark(g, null) }, 'Undo')
-          : [el('button', { class: 'mark', title: 'Hide it and skip its reminder', onclick: () => setFreeMark(g, 'claimed') }, '✓ Claimed'),
+          : [el('button', { class: 'mark', title: 'Hide it and skip its reminder', onclick: () => setFreeMark(g, 'claimed') }, tryIt ? '✓ Played' : '✓ Claimed'),
             el('button', { class: 'mark', title: 'Hide it and skip its reminder', onclick: () => setFreeMark(g, 'skip') }, 'Not interested')])));
 }
 
@@ -949,28 +969,38 @@ function renderFree() {
   content.replaceChildren();
   // Ending soonest first; no end date last.
   const byEnd = (a, b) => (a.end || '9').localeCompare(b.end || '9') || a.title.localeCompare(b.title);
-  const now = free.games.filter((g) => !g.upcoming && !freeMark(g)).sort(byEnd);
-  const next = free.games.filter((g) => g.upcoming).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
-  const done = free.games.filter((g) => !g.upcoming && freeMark(g)).sort(byEnd);
+  const shown = free.games.filter(freeShown);
+  const hidden = free.games.filter((g) => !hasPlanFor(g.needs));
+  const now = shown.filter((g) => !g.upcoming && !freeMark(g) && g.kind !== 'try').sort(byEnd);
+  const weekend = shown.filter((g) => !g.upcoming && !freeMark(g) && g.kind === 'try').sort(byEnd);
+  const next = shown.filter((g) => g.upcoming).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+  const done = shown.filter((g) => !g.upcoming && freeMark(g)).sort(byEnd);
   const checked = free.at ? `checked ${new Date(free.at).toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' })}` : 'checking now…';
-  $('#summary').textContent = `${now.length} free to keep right now · ${checked}`;
+  $('#summary').textContent = `${now.length} free to keep right now${weekend.length ? ` · ${weekend.length} free to play this weekend` : ''} · ${checked}`;
+  const SOURCE_NAMES = { epic: "Epic's list", gamerpower: 'GamerPower (Steam, GOG and Prime)', psplus: "PlayStation's monthly games list", psblog: 'the PlayStation Blog', fpd: 'Xbox Wire (Free Play Days)' };
   const failed = Object.keys(free.errors || {});
   if (failed.length) {
-    const names = failed.map((k) => (k === 'epic' ? "Epic's list" : 'GamerPower (Steam, GOG and Prime)'));
-    content.append(el('p', { class: 'muted' }, `Couldn't reach ${names.join(' or ')} this time, so you see what it found before.`));
+    content.append(el('p', { class: 'muted' }, `Couldn't reach ${failed.map((k) => SOURCE_NAMES[k] || k).join(' or ')} this time, so you see what it found before.`));
   }
   content.append(el('p', { class: 'muted free-lead' },
-    'Games you keep for good once claimed. Epic\'s weekly games come from Epic\'s own store list; Steam, GOG and Prime Gaming (claimed through Amazon Luna) giveaways from ',
+    'Games you keep for good once claimed, plus your plans\' monthly games and free weekends. Epic\'s weekly games come from Epic\'s own store list; Steam, GOG and Prime Gaming (claimed through Amazon Luna) giveaways from ',
     el('button', { class: 'link inline', onclick: () => api.openExternal('https://www.gamerpower.com/') }, 'GamerPower'),
-    '. You get an alert when new ones appear and on the last day of ones you haven\'t marked claimed.'));
+    '. PS Plus monthly games come from PlayStation\'s own list and the PlayStation Blog, and Xbox Free Play Days from Xbox Wire. You get an alert when new ones appear and on the last day of ones you haven\'t marked claimed.'));
   const section = (title, hint, items) => {
     if (!items.length) return;
     content.append(el('div', { class: 'section-head' }, el('h3', {}, title, el('span', { class: 'muted' }, ` ${items.length}`)), el('span', { class: 'muted' }, hint)),
       el('div', { class: 'free-grid' }, items.map(freeCard)));
   };
-  section('Free now', 'Ending soonest first.', now);
-  section('Coming next', 'Epic announces next week\'s games.', next);
+  section('Free to keep now', 'Ending soonest first.', now);
+  section('Free to play this weekend', 'Xbox Free Play Days: the full game for a few days.', weekend);
+  section('Coming next', 'Epic\'s next free games and next month\'s PS Plus games.', next);
   section('Claimed or not interested', '', done);
+  if (hidden.length) {
+    const plans = [...new Set(hidden.map((g) => NEEDS[g.needs]))].join(' or ');
+    content.append(el('p', { class: 'muted' },
+      ui.freeAll ? `Showing ${hidden.length} that need ${plans}, which you don't have. ` : `${hidden.length} more need ${plans}, which you don't have. `,
+      el('button', { class: 'link inline', onclick: () => { ui.freeAll = !ui.freeAll; render(true); } }, ui.freeAll ? 'Hide them' : 'Show them')));
+  }
   if (!free.games.length) content.append(el('div', { class: 'empty' }, free.at ? 'No giveaways right now.' : 'Looking for giveaways…'));
 }
 

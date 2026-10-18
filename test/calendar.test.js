@@ -29,6 +29,7 @@ test('events: arrivals, join dates, departures and giveaways by day', () => {
   const free = [
     { id: 'f1', title: 'Out of Sight', start: '2026-10-16T15:00:00Z', end: '2026-10-23T15:00:00Z', upcoming: false },
     { id: 'f2', title: 'Next Week', start: '2026-10-23T15:00:00Z', end: '2026-10-30T15:00:00Z', upcoming: true },
+    { id: 'fpd', title: 'Weekend', start: '2026-10-08T07:01:00Z', end: '2026-10-12T06:59:00Z', startDay: '2026-10-08', endDay: '2026-10-11' },
   ];
   const days = events({
     games, departed, free, from: '2026-09-28', to: '2026-11-01',
@@ -41,5 +42,7 @@ test('events: arrivals, join dates, departures and giveaways by day', () => {
   assert.deepStrictEqual(at('2026-09-30'), ['left:Left Earlier']);
   assert.deepStrictEqual(at('2026-10-23'), ['free-start:Next Week', 'free-end:Out of Sight']);
   assert.deepStrictEqual(at('2026-10-30'), ['free-end:Next Week']);
+  assert.deepStrictEqual(at('2026-10-16'), ['free-start:Out of Sight']);
+  assert.deepStrictEqual(at('2026-10-11'), ['free-end:Weekend']);
   assert.ok(![...days.values()].flat().some((e) => e.item.title === 'Old Game'));
 });

@@ -99,14 +99,20 @@ test('FreeGames: Epic feed wins over GamerPower copy; a failed source keeps its 
 
 test('freeAlerts: new giveaways after the first check, last-day reminders once, not for claimed', () => {
   const games = [
-    { id: 'a', title: 'A', end: '2026-10-18T10:00:00Z' },
-    { id: 'b', title: 'B', end: '2026-10-25T10:00:00Z' },
-    { id: 'c', title: 'C', end: '2026-10-18T09:00:00Z' },
-    { id: 'u', title: 'U', end: '2026-10-30T10:00:00Z', upcoming: true },
+    { id: 'epic:a', title: 'A', end: '2026-10-18T10:00:00Z' },
+    { id: 'epic:b', title: 'B', end: '2026-10-25T10:00:00Z' },
+    { id: 'epic:c', title: 'C', end: '2026-10-18T09:00:00Z' },
+    { id: 'epic:u', title: 'U', end: '2026-10-30T10:00:00Z', upcoming: true },
+    // A source checked for the first time is a baseline too.
+    { id: 'fpd:2026-10-15:X', title: 'X', end: '2026-10-18T09:00:00Z', kind: 'try' },
   ];
   assert.deepStrictEqual(freeAlerts(games, { now }).added, []);
-  const r = freeAlerts(games, { known: ['a'], reminded: [], marks: { c: 'claimed' }, now });
-  assert.deepStrictEqual(r.added.map((g) => g.id), ['b']);
-  assert.deepStrictEqual(r.ending.map((g) => g.id), ['a']);
-  assert.deepStrictEqual(freeAlerts(games, { known: ['a', 'b'], reminded: ['a'], now }).ending.map((g) => g.id), ['c']);
+  const r = freeAlerts(games, { known: ['epic:a'], reminded: [], marks: { 'epic:c': 'claimed' }, now });
+  assert.deepStrictEqual(r.added.map((g) => g.id), ['epic:b']);
+  assert.deepStrictEqual(r.ending.map((g) => g.id), ['epic:a']);
+  assert.deepStrictEqual(freeAlerts(games, { known: ['epic:a', 'epic:b'], reminded: ['epic:a'], now }).ending.map((g) => g.id), ['epic:c']);
+  // Free Play Days: news once the source is known, but no last-day reminder.
+  const f = freeAlerts([...games, { id: 'fpd:2026-10-15:Y', title: 'Y', end: '2026-10-18T09:00:00Z', kind: 'try' }], { known: ['epic:a', 'epic:b', 'epic:c', 'fpd:2026-10-15:X'], reminded: ['epic:a', 'epic:c'], now });
+  assert.deepStrictEqual(f.added.map((g) => g.id), ['fpd:2026-10-15:Y']);
+  assert.deepStrictEqual(f.ending, []);
 });

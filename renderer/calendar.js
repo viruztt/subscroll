@@ -4,7 +4,7 @@
 // what each refresh noticed.
 //   games     catalogue games (merged cards)
 //   departed  games that left a service, with leftOn
-//   free      giveaways { start, end, upcoming }
+//   free      giveaways and subscription freebies { start, end }
 //   comingOn(g)  announced arrival date when still to come, else null
 //   addedOn(g)   date it joined, when known
 (function (root) {
@@ -54,8 +54,9 @@
       add(d.leftOn, 'left', d);
     }
     for (const f of free) {
-      if (f.upcoming) add(f.start, 'free-start', f);
-      if (f.end) add(f.end, 'free-end', f);
+      // startDay/endDay: the day the service gives, where its clock differs.
+      if (f.start) add(f.startDay || f.start, 'free-start', f);
+      if (f.end) add(f.endDay || f.end, 'free-end', f);
     }
     for (const list of days.values()) list.sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.item.title.localeCompare(b.item.title));
     return days;

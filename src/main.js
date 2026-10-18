@@ -13,7 +13,7 @@ const steam = require('./steam');
 const alerts = require('./alerts');
 const { Prices } = require('./prices');
 const { Wiki, wanted: wikiWanted } = require('./wiki');
-const { FreeGames, freeAlerts } = require('./freegames');
+const { FreeGames, freeAlerts, hasPlan } = require('./freegames');
 const { Cloud } = require('./cloud');
 const { listTitles } = alerts;
 const fs = require('fs');
@@ -243,9 +243,11 @@ function refreshCloud() {
 // the last day of ones you haven't claimed.
 async function refreshFree() {
   const { settings } = store.get();
-  const r = await freeGames.refresh({ country: settings.region || settings.market || 'US', locale: 'en-US' });
-  const { freebies = {}, freeKnown = null, freeReminded = [] } = store.get();
-  const picked = freeAlerts(r.games, { known: freeKnown, reminded: freeReminded, marks: freebies });
+  const r = await freeGames.refresh({ country: settings.region || settings.market || 'US', locale: 'en-US', psLocale: settings.psLocale || 'en-us' });
+  const { freebies = {}, freeKnown = null, freeReminded = [], subscriptions } = store.get();
+  // PS Plus monthly games and Free Play Days only matter with that plan.
+  const yours = r.games.filter((g) => hasPlan(g.needs, subscriptions));
+  const picked = freeAlerts(yours, { known: freeKnown, reminded: freeReminded, marks: freebies });
   const live = new Set(r.games.map((g) => g.id));
   store.update({
     freeKnown: r.games.map((g) => g.id),
@@ -254,7 +256,10 @@ async function refreshFree() {
   win?.webContents.send('free-changed');
   if (settings.alerts === false || settings.freeAlerts === false || (win?.isVisible() && win.isFocused())) return r;
   const n = (x) => `${x} game${x === 1 ? '' : 's'}`;
-  if (picked.added.length) notify({ view: 'free', title: `Free to keep: ${n(picked.added.length)}`, body: listTitles(picked.added.map((g) => g.title)) });
+  const keepers = picked.added.filter((g) => g.kind !== 'try');
+  const weekend = picked.added.filter((g) => g.kind === 'try');
+  if (keepers.length) notify({ view: 'free', title: `Free to keep: ${n(keepers.length)}`, body: listTitles(keepers.map((g) => g.title)) });
+  if (weekend.length) notify({ view: 'free', title: `Free Play Days: ${n(weekend.length)}`, body: listTitles(weekend.map((g) => g.title)) });
   if (picked.ending.length) notify({ view: 'free', title: `Last day to claim: ${n(picked.ending.length)}`, body: listTitles(picked.ending.map((g) => g.title)) });
   return r;
 }

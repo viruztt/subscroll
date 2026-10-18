@@ -23,6 +23,18 @@ async function getJson(url, { timeoutMs = 20000, headers = {} } = {}) {
   }
 }
 
+async function getText(url, { timeoutMs = 20000, headers = {} } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetchImpl(url, { signal: controller.signal, headers });
+    if (!res.ok) throw new Error(`HTTP ${res.status} from ${new URL(url).host}`);
+    return await res.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Run fn over items with at most `limit` in flight.
 async function mapLimit(items, limit, fn) {
   const out = new Array(items.length);
@@ -43,4 +55,4 @@ function chunk(arr, size) {
   return out;
 }
 
-module.exports = { setFetch, fetchRaw, getJson, mapLimit, chunk };
+module.exports = { setFetch, fetchRaw, getJson, getText, mapLimit, chunk };

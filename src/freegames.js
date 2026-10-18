@@ -2,13 +2,20 @@ const fs = require('fs');
 const path = require('path');
 const http = require('./providers/http');
 const { key } = require('./ratings');
+const monthly = require('./monthly');
 
 // Games that are free to keep for a limited time: Epic's weekly free games
 // from Epic's own store feed (with exact end dates and next week's games),
 // and Steam, GOG, Prime Gaming (now claimed through Amazon Luna) and Epic
-// giveaways from GamerPower's public giveaway list.
+// giveaways from GamerPower's public giveaway list. Plus the subscription
+// games with a claim window: PS Plus monthly games and Xbox Free Play Days
+// (see monthly.js).
 const EPIC = 'https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions';
 const GAMERPOWER = 'https://www.gamerpower.com/api/filter?platform=epic-games-store.steam.gog.pc&type=game&sort-by=date';
+const PS_MONTHLY = (locale) => `https://www.playstation.com/bin/imagic/gameslist?locale=${locale}&categoryList=plus-monthly-games-list`;
+const PS_MONTHLY_MIRROR = 'https://raw.githubusercontent.com/ppazour/ps-plus-games-list/main/data/plus-monthly-games-list.json';
+const PS_BLOG = ['https://blog.playstation.com/tag/playstation-plus/feed/', 'https://blog.playstation.com/feed/'];
+const FREE_PLAY_DAYS = 'https://news.xbox.com/en-us/tag/free-play-days/feed/';
 const CHECK_HOURS = 6;
 
 const STORES = {
@@ -16,6 +23,8 @@ const STORES = {
   steam: { name: 'Steam', short: 'Steam' },
   gog: { name: 'GOG', short: 'GOG' },
   prime: { name: 'Prime Gaming (Amazon Luna)', short: 'Prime' },
+  psplus: { name: 'PlayStation Plus monthly games', short: 'PS Plus' },
+  fpd: { name: 'Xbox Free Play Days', short: 'Free Play Days' },
 };
 
 // "2026-10-23T15:00:00.000Z" or "2026-10-23 23:59:00" -> ISO, or null.
@@ -147,13 +156,15 @@ function mergeFree(epic, others) {
 
 // ---- reminders ----
 // New giveaways, and ones ending within a day that you haven't claimed.
+// Free Play Days aren't yours to keep, so they get no last-day reminder.
 function freeAlerts(games, { known = null, reminded = [], marks = {}, now = new Date() }) {
   const was = new Set(known || []);
   const told = new Set(reminded);
   const open = games.filter((g) => !g.upcoming && !marks[g.id]);
-  // The first check is a baseline: nothing in it is news.
-  const added = known ? open.filter((g) => !was.has(g.id)) : [];
-  const ending = open.filter((g) => g.end && !told.has(g.id) && new Date(g.end) - now < 26 * 3600000);
+  // The first check of each source is a baseline: nothing in it is news.
+  const sources = new Set([...was].map((id) => id.split(':')[0]));
+  const added = known ? open.filter((g) => !was.has(g.id) && sources.has(g.id.split(':')[0])) : [];
+  const ending = open.filter((g) => g.kind !== 'try' && g.end && !told.has(g.id) && new Date(g.end) - now < 26 * 3600000);
   return { added, ending };
 }
 
@@ -177,13 +188,16 @@ class FreeGames {
     return !this.data.at || now - new Date(this.data.at) > CHECK_HOURS * 3600000;
   }
 
-  refresh({ country = 'US', locale = 'en-US' } = {}) {
+  refresh({ country = 'US', locale = 'en-US', psLocale = 'en-us' } = {}) {
     if (this.running) return this.running;
     this.running = (async () => {
       const now = new Date();
       const errors = {};
       let epic = null;
       let others = null;
+      let ps = null;
+      let psBlog = null;
+      let fpd = null;
       try {
         const qs = new URLSearchParams({ locale, country, allowCountries: country });
         epic = parseEpic(await http.getJson(`${EPIC}?${qs}`), { now, locale });
@@ -195,11 +209,40 @@ class FreeGames {
       } catch (e) {
         errors.gamerpower = e.message;
       }
+      try {
+        ps = monthly.parsePsList(await http.getJson(PS_MONTHLY(psLocale)), { now });
+      } catch (e) {
+        try {
+          // The mirror's store links are for Austria; point them at your country's store.
+          ps = monthly.parsePsList(await http.getJson(PS_MONTHLY_MIRROR), { now })
+            .map((g) => ({ ...g, url: g.url && g.url.replace(/store\.playstation\.com\/[a-z]{2}-[a-z]{2}\//, `store.playstation.com/${psLocale}/`) }));
+        } catch {
+          errors.psplus = e.message;
+        }
+      }
+      for (const url of PS_BLOG) {
+        try {
+          psBlog = [...(psBlog || []), ...monthly.parsePsBlog(await http.getText(url), { now })];
+        } catch (e) {
+          if (!psBlog && url === PS_BLOG[PS_BLOG.length - 1]) errors.psblog = e.message;
+        }
+      }
+      try {
+        fpd = monthly.parseFreePlayDays(await http.getText(FREE_PLAY_DAYS), { now });
+      } catch (e) {
+        errors.fpd = e.message;
+      }
       const prev = this.data.games || [];
       // A source that failed keeps what it last gave.
-      if (!epic) epic = prev.filter((g) => g.id.startsWith('epic:'));
-      if (!others) others = prev.filter((g) => g.id.startsWith('gp:'));
-      this.data = { at: now.toISOString(), games: mergeFree(epic, others), errors };
+      const keep = (list, prefix) => list || prev.filter((g) => g.id.startsWith(prefix) && (!g.end || new Date(g.end) > now));
+      epic = keep(epic, 'epic:');
+      others = keep(others, 'gp:');
+      ps = keep(ps, 'psplus:');
+      fpd = keep(fpd, 'fpd:');
+      // The blog only fills in months playstation.com's list doesn't have yet.
+      const listed = new Set(ps.map((g) => g.id.split(':')[1]));
+      psBlog = keep(psBlog, 'psblog:').filter((g) => !listed.has(g.month));
+      this.data = { at: now.toISOString(), games: mergeFree(epic, [...others, ...ps, ...psBlog, ...fpd]), errors };
       try {
         fs.writeFileSync(this.file, JSON.stringify(this.data));
       } catch {
@@ -211,4 +254,4 @@ class FreeGames {
   }
 }
 
-module.exports = { FreeGames, STORES, parseEpic, parseGamerPower, cleanGiveawayTitle, mergeFree, freeAlerts, isoDate };
+module.exports = { FreeGames, STORES, parseEpic, parseGamerPower, cleanGiveawayTitle, mergeFree, freeAlerts, isoDate, hasPlan: monthly.hasPlan };
