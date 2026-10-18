@@ -66,6 +66,23 @@ const SERVICES = [
     color: '#bf5af2',
     tiers: [{ id: 'any', name: 'Apple Arcade', includes: ['any'] }],
   },
+  {
+    id: 'crunchyroll',
+    name: 'Crunchyroll Game Vault',
+    short: 'Game Vault',
+    color: '#f47521',
+    tiers: [
+      { id: 'megafan', name: 'Mega Fan', includes: ['megafan'] },
+      { id: 'ultimate', name: 'Ultimate Fan', includes: ['megafan'] },
+    ],
+  },
+  {
+    id: 'humble',
+    name: 'Humble Choice',
+    short: 'Humble',
+    color: '#cc2929',
+    tiers: [{ id: 'choice', name: 'Humble Choice', includes: ['choice'] }],
+  },
 ];
 
 // Tier labels shown on game badges, which can differ from the plan name

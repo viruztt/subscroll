@@ -90,7 +90,7 @@ function psStoreUrl(url, locale) {
 }
 
 // Services whose lists already carry descriptions and screenshots.
-const FROM_CATALOG = ['gamepass', 'eaplay', 'ubisoftplus', 'netflix', 'applearcade'];
+const FROM_CATALOG = ['gamepass', 'eaplay', 'ubisoftplus', 'netflix', 'applearcade', 'crunchyroll'];
 const MICROSOFT_STORE = ['gamepass', 'eaplay', 'ubisoftplus'];
 const hasCatalogDetails = (game) => FROM_CATALOG.includes(game.service) && !!(game.description || (game.screenshots || []).length);
 
@@ -117,9 +117,9 @@ async function fetchDetails(game, settings = {}) {
     }
   }
   if (game.service === 'nso') out.screenshots = retroScreenshots(game.image);
-  if (!out.description && ['nso', 'psplus', 'applearcade', 'netflix'].includes(game.service)) {
+  if (!out.description && ['nso', 'psplus', 'applearcade', 'netflix', 'crunchyroll'].includes(game.service)) {
     try {
-      const hint = game.service === 'nso' ? SYSTEM_WORDS[game.platforms[0]] || '' : { psplus: 'PlayStation', applearcade: 'Apple Arcade', netflix: 'Netflix' }[game.service];
+      const hint = game.service === 'nso' ? SYSTEM_WORDS[game.platforms[0]] || '' : { psplus: 'PlayStation', applearcade: 'Apple Arcade', netflix: 'Netflix', crunchyroll: 'Crunchyroll' }[game.service];
       const wiki = await wikipediaIntro(game, hint);
       if (wiki) {
         out.description = wiki.text;

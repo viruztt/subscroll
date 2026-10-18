@@ -14,7 +14,7 @@
 
 ![Games like the ones you beat, on the For you page](docs/screenshots/because.png)
 
-A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus, Nintendo Switch Online, EA Play, Ubisoft+, Netflix Games and Apple Arcade, by tier. You pick the plans you have, mark games as played or completed, and see what's leaving soon. Everything you set is saved on your PC, in `%APPDATA%\Subscription Catalogue` (the app's earlier name).
+A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus, Nintendo Switch Online, EA Play, Ubisoft+, Netflix Games, Apple Arcade, Crunchyroll Game Vault and Humble Choice, by tier. You pick the plans you have, mark games as played or completed, and see what's leaving soon. Everything you set is saved on your PC, in `%APPDATA%\Subscription Catalogue` (the app's earlier name).
 
 ## Install
 
@@ -34,6 +34,10 @@ Your plans and marks stay on your PC and carry over when you download a newer ve
 | EA Play, Ubisoft+ (Classics, Premium) | Microsoft's catalogue service, which lists both subscriptions' Xbox and Microsoft Store editions (`eaaccess`, `nakuconsole`/`nakupc`, `ubisoftplus`) | None |
 | Netflix Games | Netflix's own developer account on the App Store (Apple's public lookup API). Games published under a partner's account and TV-only cloud games are missing | None |
 | Apple Arcade | Wikipedia's [Apple Arcade](https://en.wikipedia.org/wiki/Apple_Arcade) article. Icons, descriptions and screenshots come from Apple's App Store search, a few games a minute in the background (Apple limits it), cached in `catalog/appstore/`. A game whose title differs on the App Store is matched by its developer; one no longer on the App Store has left the service, and gets its Steam cover, or failing that the one from its Wikipedia article | None |
+| Crunchyroll Game Vault | Crunchyroll's own developer account on the App Store, like Netflix (Mega Fan and Ultimate Fan memberships) | None |
+| Humble Choice | This month's games from the JSON on Humble's membership page; they change on the first Tuesday of each month. If Humble changes the page, the app saves it as `catalog/humble-page.html` so the reader can be fixed | None |
+
+Google Play Pass and Amazon Luna don't publish a game list the app can read, so add them under **Add another service** in Settings and add their games yourself.
 
 If a live source fails, the app falls back to community mirrors on GitHub ([catabox](https://github.com/nanhopper/catabox), [ps-plus-games-list](https://github.com/ppazour/ps-plus-games-list)), and if those fail too it keeps the last list it had. A snapshot ships with the app so it works offline from the first launch.
 
@@ -67,7 +71,7 @@ At the top of the To play page, **Which plan to get** helps if you rotate subscr
 
 **Free to keep** lists games you can claim for free and keep for good: Epic's weekly free games (from Epic's own store list, with exact end dates and next week's games), plus Steam, GOG and Prime Gaming giveaways (Prime Gaming is now claimed through Amazon Luna) from [GamerPower](https://www.gamerpower.com/)'s public giveaway list. Each one shows when the offer ends and links straight to the claim page; mark it **Claimed** or **Not interested** to tidy it away. The list is checked every few hours, and with alerts on you get a notification when new ones appear and on the last day of any you haven't claimed (turn that off under Settings → Background).
 
-It also lists your plans' own monthly freebies. **PS Plus monthly games** are added to your library while you have PS Plus, from the first Tuesday of the month until the first Tuesday of the next: this month's come from PlayStation's own list, and next month's appear under "Coming next" once the PlayStation Blog announces them. **Xbox Free Play Days** (from Xbox Wire's weekly post) let you play a few full games free from Thursday to Sunday; most need any Game Pass plan except PC Game Pass, and some, including timed trials, are open to everyone. Ones that need a plan you don't have are hidden, with a link to show them, and only ones you can play send alerts.
+It also lists your plans' own monthly freebies. **Humble Choice** games are listed with the date you need to claim them by. **PS Plus monthly games** are added to your library while you have PS Plus, from the first Tuesday of the month until the first Tuesday of the next: this month's come from PlayStation's own list, and next month's appear under "Coming next" once the PlayStation Blog announces them. **Xbox Free Play Days** (from Xbox Wire's weekly post) let you play a few full games free from Thursday to Sunday; most need any Game Pass plan except PC Game Pass, and some, including timed trials, are open to everyone. Ones that need a plan you don't have are hidden, with a link to show them, and only ones you can play send alerts.
 
 Games can be marked played, completed or ignored (⊘, for games you're not interested in). The toolbar can hide completed, ignored or departed games; ignored games stay on the My games page, and the status filter's "Ignored" option shows them too, so you can un-ignore them.
 

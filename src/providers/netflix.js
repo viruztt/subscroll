@@ -14,17 +14,19 @@ const firstParagraph = (text) => {
   return p.length > 600 ? `${p.slice(0, 597).replace(/\s+\S*$/, '')}…` : p || null;
 };
 
-function normalize(data) {
+// The games a developer account publishes on the App Store, as catalogue
+// games of `service`. Shared with Crunchyroll Game Vault.
+function normalize(data, { service = 'netflix', clean = cleanName, tiers = ['any'] } = {}) {
   if (!data || !Array.isArray(data.results)) throw new Error('Unexpected App Store format');
   return data.results
     .filter((r) => r.wrapperType === 'software' && (r.primaryGenreName === 'Games' || (r.genres || []).includes('Games')))
     .map((r) => ({
-      id: `netflix:${r.trackId}`,
-      service: 'netflix',
-      title: cleanName(r.trackName),
+      id: `${service}:${r.trackId}`,
+      service,
+      title: clean(r.trackName),
       image: r.artworkUrl512 || r.artworkUrl100 || null,
       platforms: ['Mobile'],
-      tiers: ['any'],
+      tiers,
       leavingSoon: false,
       genres: (r.genres || []).filter((g) => g !== 'Games' && g !== 'Entertainment'),
       releaseDate: r.releaseDate ? r.releaseDate.slice(0, 10) : null,
@@ -41,4 +43,4 @@ async function fetchLive({ region = 'US', market = 'US' } = {}) {
   return games;
 }
 
-module.exports = { fetchLive, normalize, cleanName };
+module.exports = { fetchLive, normalize, cleanName, firstParagraph };

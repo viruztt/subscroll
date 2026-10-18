@@ -5,7 +5,7 @@
 // regional versions of the same game, which share a card.
 (function (root) {
   // Which service's entry leads (its artwork, id and details are used).
-  const ORDER = ['gamepass', 'psplus', 'eaplay', 'ubisoftplus', 'netflix', 'applearcade'];
+  const ORDER = ['gamepass', 'psplus', 'eaplay', 'ubisoftplus', 'netflix', 'applearcade', 'crunchyroll', 'humble'];
   const rank = (g) => {
     const i = ORDER.indexOf(g.service);
     return i === -1 ? ORDER.length : i;

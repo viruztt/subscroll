@@ -371,7 +371,7 @@ function cover(g) {
   const src = msStore ? `${g.image}?w=300&h=450&q=80` : g.image;
   // Retro box art comes in every shape, and phone games have square icons,
   // so show those whole instead of cropping.
-  const whole = ['nso', 'netflix', 'applearcade'].includes(g.service);
+  const whole = ['nso', 'netflix', 'applearcade', 'crunchyroll'].includes(g.service);
   const img = el('img', { class: `cover ${whole ? 'contain' : ''}`, src, loading: 'lazy', alt: '' });
   // Offline or a dead link: show the same artwork-free tile Nintendo games use.
   img.addEventListener('error', function failed() {
@@ -931,6 +931,7 @@ const FREE_STORES = {
   prime: { name: 'Prime Gaming', short: 'Prime', color: '#00a8e1' },
   psplus: { name: 'PlayStation Plus', short: 'PS Plus', color: '#0070d1' },
   fpd: { name: 'Xbox Free Play Days', short: 'Free Play Days', color: '#107c10' },
+  humble: { name: 'Humble Choice', short: 'Humble', color: '#cc2929' },
 };
 const FREE_CHECK_HOURS = 6;
 const freeMark = (g) => (state.freebies || {})[g.id] || null;
@@ -940,7 +941,7 @@ function hasPlanFor(needs) {
   const tier = (state.subscriptions || {})[needs];
   return needs === 'gamepass' ? !!tier && tier !== 'pc' : !!tier;
 }
-const NEEDS = { psplus: 'PS Plus', gamepass: 'Game Pass' };
+const NEEDS = { psplus: 'PS Plus', gamepass: 'Game Pass', humble: 'Humble Choice' };
 const freeShown = (g) => ui.freeAll || hasPlanFor(g.needs);
 const openFree = () => free.games.filter((g) => !g.upcoming && !freeMark(g) && hasPlanFor(g.needs));
 
@@ -995,6 +996,7 @@ function freeCard(g) {
     g.limited ? 'Keys while they last' : null,
     g.trial ? 'Timed trial' : tryIt ? 'The full game for the weekend; progress carries over if you buy it' : null,
     g.store === 'psplus' ? 'Stays in your library while you have PS Plus' : null,
+    g.store === 'humble' ? 'Yours to keep once claimed' : null,
   ].filter(Boolean);
   const also = freeAlsoIn(g);
   const claim = g.store === 'prime' ? 'Claim with Prime' : g.store === 'psplus' ? 'Add on PS Store' : tryIt ? 'Get it on Xbox' : `Claim on ${store.short}`;
@@ -1029,7 +1031,7 @@ function renderFree() {
   const done = shown.filter((g) => !g.upcoming && freeMark(g)).sort(byEnd);
   const checked = free.at ? `checked ${new Date(free.at).toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' })}` : 'checking now…';
   $('#summary').textContent = `${now.length} free to keep right now${weekend.length ? ` · ${weekend.length} free to play this weekend` : ''} · ${checked}`;
-  const SOURCE_NAMES = { epic: "Epic's list", gamerpower: 'GamerPower (Steam, GOG and Prime)', psplus: "PlayStation's monthly games list", psblog: 'the PlayStation Blog', fpd: 'Xbox Wire (Free Play Days)' };
+  const SOURCE_NAMES = { epic: "Epic's list", gamerpower: 'GamerPower (Steam, GOG and Prime)', psplus: "PlayStation's monthly games list", psblog: 'the PlayStation Blog', fpd: 'Xbox Wire (Free Play Days)', humble: 'Humble Choice' };
   const failed = Object.keys(free.errors || {});
   if (failed.length) {
     content.append(el('p', { class: 'muted' }, `Couldn't reach ${failed.map((k) => SOURCE_NAMES[k] || k).join(' or ')} this time, so you see what it found before.`));
@@ -1037,7 +1039,7 @@ function renderFree() {
   content.append(el('p', { class: 'muted free-lead' },
     'Games you keep for good once claimed, plus your plans\' monthly games and free weekends. Epic\'s weekly games come from Epic\'s own store list; Steam, GOG and Prime Gaming (claimed through Amazon Luna) giveaways from ',
     el('button', { class: 'link inline', onclick: () => api.openExternal('https://www.gamerpower.com/') }, 'GamerPower'),
-    '. PS Plus monthly games come from PlayStation\'s own list and the PlayStation Blog, and Xbox Free Play Days from Xbox Wire. You get an alert when new ones appear and on the last day of ones you haven\'t marked claimed.'));
+    '. PS Plus monthly games come from PlayStation\'s own list and the PlayStation Blog, Humble Choice games from Humble\'s page, and Xbox Free Play Days from Xbox Wire. You get an alert when new ones appear and on the last day of ones you haven\'t marked claimed.'));
   const section = (title, hint, items) => {
     if (!items.length) return;
     content.append(el('div', { class: 'section-head' }, el('h3', {}, title, el('span', { class: 'muted' }, ` ${items.length}`)), el('span', { class: 'muted' }, hint)),
@@ -1467,7 +1469,7 @@ function backupPanel() {
 }
 
 function customServicePanel() {
-  const name = el('input', { placeholder: 'Service name, e.g. Humble Choice or Prime Gaming' });
+  const name = el('input', { placeholder: 'Service name, e.g. Google Play Pass or Amazon Luna' });
   const tiers = el('input', { placeholder: 'Plans, cheapest first, comma separated (optional)' });
   const add = async () => {
     if (!name.value.trim()) return;

@@ -7,6 +7,8 @@ const covers = require('./providers/covers');
 const msextras = require('./providers/msextras');
 const netflix = require('./providers/netflix');
 const arcade = require('./providers/applearcade');
+const crunchyroll = require('./providers/crunchyroll');
+const humble = require('./providers/humble');
 
 const SNAPSHOT_DIR = path.join(__dirname, '..', 'data', 'snapshot');
 const MAX_DEPARTED = 300;
@@ -19,6 +21,8 @@ const PROVIDERS = {
   ubisoftplus: { live: msextras.fetchUbisoftPlus },
   netflix: { live: netflix.fetchLive },
   applearcade: { live: arcade.fetchLive },
+  crunchyroll: { live: crunchyroll.fetchLive },
+  humble: { live: humble.fetchLive },
 };
 const SERVICES = Object.keys(PROVIDERS);
 
@@ -72,7 +76,7 @@ function originOf(service, source, settings = {}) {
   if (source !== 'live') return source;
   const region = {
     gamepass: settings.market, psplus: settings.psLocale, eaplay: settings.market,
-    ubisoftplus: settings.market, netflix: settings.region || settings.market,
+    ubisoftplus: settings.market, netflix: settings.region || settings.market, crunchyroll: settings.region || settings.market,
   }[service];
   return region ? `live:${region}` : 'live';
 }
@@ -195,7 +199,7 @@ class Catalog {
     const errors = [];
     for (const source of ['live', 'mirror'].filter((s) => provider[s])) {
       try {
-        const all = mergeDuplicates(await provider[source](settings, service === 'applearcade' ? this.appStoreDir() : undefined));
+        const all = mergeDuplicates(await provider[source](settings, service === 'applearcade' ? this.appStoreDir() : this.dir));
         const left = all.filter((g) => g.gone);
         let games = all.filter((g) => !g.gone);
         if (service === 'nso') games = await covers.apply(games, path.join(this.dir, 'covers'));

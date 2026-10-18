@@ -3,6 +3,7 @@ const path = require('path');
 const http = require('./providers/http');
 const { key } = require('./ratings');
 const monthly = require('./monthly');
+const humble = require('./providers/humble');
 
 // Games that are free to keep for a limited time: Epic's weekly free games
 // from Epic's own store feed (with exact end dates and next week's games),
@@ -18,7 +19,7 @@ const PS_BLOG = ['https://blog.playstation.com/tag/playstation-plus/feed/', 'htt
 const FREE_PLAY_DAYS = 'https://news.xbox.com/en-us/tag/free-play-days/feed/';
 const CHECK_HOURS = 6;
 // Bumped when a source is added, so the list is checked again straight away.
-const DATA_VERSION = 2;
+const DATA_VERSION = 3;
 
 const STORES = {
   epic: { name: 'Epic Games Store', short: 'Epic' },
@@ -27,6 +28,7 @@ const STORES = {
   prime: { name: 'Prime Gaming (Amazon Luna)', short: 'Prime' },
   psplus: { name: 'PlayStation Plus monthly games', short: 'PS Plus' },
   fpd: { name: 'Xbox Free Play Days', short: 'Free Play Days' },
+  humble: { name: 'Humble Choice', short: 'Humble' },
 };
 
 // "2026-10-23T15:00:00.000Z" or "2026-10-23 23:59:00" -> ISO, or null.
@@ -172,6 +174,7 @@ function freeAlerts(games, { known = null, reminded = [], marks = {}, now = new 
 
 class FreeGames {
   constructor(dir) {
+    this.dir = dir;
     this.file = path.join(dir, 'freegames.json');
     this.running = null;
     try {
@@ -202,6 +205,7 @@ class FreeGames {
       let ps = null;
       let psBlog = null;
       let fpd = null;
+      let hc = null;
       try {
         const qs = new URLSearchParams({ locale, country, allowCountries: country });
         epic = parseEpic(await http.getJson(`${EPIC}?${qs}`), { now, locale });
@@ -236,6 +240,14 @@ class FreeGames {
       } catch (e) {
         errors.fpd = e.message;
       }
+      try {
+        hc = (await humble.fetchPage(this.dir)).map((g) => ({
+          id: `humble:${g.month}:${g.id.split(':')[1]}`, store: 'humble', title: g.title, image: g.image, url: humble.PAGE,
+          start: g.start, end: g.end, startDay: g.start.slice(0, 10), endDay: g.end.slice(0, 10), upcoming: false, needs: 'humble',
+        }));
+      } catch (e) {
+        errors.humble = e.message;
+      }
       const prev = this.data.games || [];
       // A source that failed keeps what it last gave.
       const keep = (list, prefix) => list || prev.filter((g) => g.id.startsWith(prefix) && (!g.end || new Date(g.end) > now));
@@ -243,10 +255,11 @@ class FreeGames {
       others = keep(others, 'gp:');
       ps = keep(ps, 'psplus:');
       fpd = keep(fpd, 'fpd:');
+      hc = keep(hc, 'humble:');
       // The blog only fills in months playstation.com's list doesn't have yet.
       const listed = new Set(ps.map((g) => g.id.split(':')[1]));
       psBlog = keep(psBlog, 'psblog:').filter((g) => !listed.has(g.month));
-      this.data = { v: DATA_VERSION, at: now.toISOString(), games: mergeFree(epic, [...others, ...ps, ...psBlog, ...fpd]), errors };
+      this.data = { v: DATA_VERSION, at: now.toISOString(), games: mergeFree(epic, [...others, ...ps, ...psBlog, ...fpd, ...hc]), errors };
       try {
         fs.writeFileSync(this.file, JSON.stringify(this.data));
       } catch {
