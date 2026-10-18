@@ -21,6 +21,9 @@ const sales = require('./sales');
 const { execFile } = require('child_process');
 const { listTitles } = alerts;
 const fs = require('fs');
+const linux = require('./linux');
+
+const LOGIN_LABEL = process.platform === 'win32' ? 'Start with Windows' : 'Start when you log in';
 
 let store;
 let catalog;
@@ -200,7 +203,7 @@ function updateTray() {
     { label: 'Open Subscroll', click: () => showWindow() },
     { label: refreshing ? 'Refreshing…' : 'Refresh now', enabled: !refreshing, click: () => refreshAll().catch(() => {}) },
     { type: 'separator' },
-    { label: 'Start with Windows', type: 'checkbox', checked: !!settings.startWithWindows, visible: process.platform === 'win32', click: (item) => setSettings({ startWithWindows: item.checked }) },
+    { label: LOGIN_LABEL, type: 'checkbox', checked: !!settings.startWithWindows, visible: canStartAtLogin(), click: (item) => setSettings({ startWithWindows: item.checked }) },
     { label: 'Alerts', type: 'checkbox', checked: settings.alerts !== false, click: (item) => setSettings({ alerts: item.checked }) },
     { type: 'separator' },
     { label: 'Quit', click: () => { quitting = true; app.quit(); } },
@@ -217,10 +220,17 @@ function setSettings(patch) {
 // The portable exe unpacks itself to a temp folder each run, so the login
 // item points at the exe the user actually has. Each build has its own file
 // name, so this is set again on every launch.
+// On Linux the same goes for the AppImage, through an autostart entry.
+// (The setting keeps its old name, startWithWindows, so saved choices carry over.)
+const canStartAtLogin = () => app.isPackaged && (process.platform === 'win32' || (process.platform === 'linux' && !!process.env.APPIMAGE));
 function applyLoginItem() {
-  if (process.platform !== 'win32' || !app.isPackaged) return;
-  const exe = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+  if (!canStartAtLogin()) return;
   const on = !!store.get().settings.startWithWindows;
+  if (process.platform === 'linux') {
+    linux.setAutostart(on, process.env.APPIMAGE);
+    return;
+  }
+  const exe = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
   app.setLoginItemSettings({ openAtLogin: on, path: exe, args: ['--hidden'] });
 }
 
@@ -294,6 +304,7 @@ async function refreshFree() {
 
 // Steam notes each installed game in the registry. null when it can't tell.
 function steamInstalled(appid) {
+  if (process.platform === 'linux') return Promise.resolve(linux.steamInstalled(appid));
   if (process.platform !== 'win32' || !/^\d+$/.test(String(appid))) return Promise.resolve(null);
   return new Promise((resolve) => {
     execFile('reg', ['query', `HKCU\\Software\\Valve\\Steam\\Apps\\${appid}`, '/v', 'Installed'], { timeout: 3000, windowsHide: true }, (err, out) => {
@@ -403,7 +414,7 @@ function flushRatings() {
 const queueRatings = () => { if (!ratingTimer) ratingTimer = setTimeout(flushRatings, 1500); };
 
 function registerIpc() {
-  ipcMain.handle('get-services', () => ({ services: SERVICES, tierBadges: TIER_BADGES, regions: REGIONS }));
+  ipcMain.handle('get-services', () => ({ services: SERVICES, tierBadges: TIER_BADGES, regions: REGIONS, system: { platform: process.platform, startAtLogin: canStartAtLogin() ? LOGIN_LABEL : null } }));
   ipcMain.handle('get-state', () => store.get());
   ipcMain.handle('update-state', (_e, patch) => {
     // Only user-owned fields can be written from the window.

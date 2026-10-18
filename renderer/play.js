@@ -3,11 +3,12 @@
 // or open its PlayStation Store page.
 //   g          a (merged) game with offers and, when owned on Steam, steam.appid
 //   installed  true / false when Steam says whether it's installed, null when unknown
+//   platform   process.platform; the Xbox app is Windows only
 (function (root) {
   const XBOX = new Set(['gamepass', 'eaplay', 'ubisoftplus']);
   const productId = (id) => String(id || '').split(':').pop().toUpperCase();
 
-  function playActions(g, { installed = null } = {}) {
+  function playActions(g, { installed = null, platform = 'win32' } = {}) {
     const offers = g.offers || [g];
     const out = [];
     if (g.steam && g.steam.appid) {
@@ -16,7 +17,7 @@
       else if (installed === false) out.push({ kind: 'steam', label: 'Install with Steam', url: `steam://install/${id}` });
       else out.push({ kind: 'steam', label: 'Open in Steam', url: `steam://nav/games/details/${id}` });
     }
-    const pc = offers.find((o) => XBOX.has(o.service) && (o.platforms || []).includes('pc') && /^[0-9A-Z]{12}$/.test(productId(o.id)));
+    const pc = platform === 'win32' && offers.find((o) => XBOX.has(o.service) && (o.platforms || []).includes('pc') && /^[0-9A-Z]{12}$/.test(productId(o.id)));
     if (pc) out.push({ kind: 'xbox', label: 'Open in the Xbox app', url: `msxbox://game/?productId=${productId(pc.id)}` });
     const ps = offers.find((o) => o.service === 'psplus' && o.storeUrl);
     if (ps) out.push({ kind: 'ps', label: 'Open in PlayStation Store', url: ps.storeUrl });

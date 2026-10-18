@@ -1438,7 +1438,9 @@ function renderSubs() {
   content.append(customServicePanel(), customGamePanel(), regionPanel(), backgroundPanel(), steamPanel(), achievementsPanel('xbox'), achievementsPanel('psn'), backupPanel(), sourcesPanel());
 }
 
-// Tray, start with Windows and alerts.
+// Tray, start at login and alerts.
+// What the app can do on this computer: { platform, startAtLogin: its label, or null }.
+let system = { platform: 'win32', startAtLogin: null };
 function backgroundPanel() {
   const toggle = (key, label, hint, fallback) => {
     const box = el('input', { type: 'checkbox' });
@@ -1446,13 +1448,12 @@ function backgroundPanel() {
     box.addEventListener('change', () => saveState({ settings: { ...state.settings, [key]: box.checked } }));
     return el('label', { class: 'check-row' }, box, el('span', {}, el('strong', {}, label), el('span', { class: 'muted' }, ` ${hint}`)));
   };
-  const windows = navigator.userAgent.includes('Windows');
   return el('div', { class: 'panel' },
     el('h2', {}, 'Background'),
     el('p', { class: 'muted' }, 'Subscroll can keep running in the system tray and check the lists once a day, so you hear about new and leaving games without opening it.'),
     el('div', { class: 'checks' },
       toggle('closeToTray', 'Keep running in the tray when the window is closed.', 'Quit from the tray icon\'s menu.', true),
-      windows ? toggle('startWithWindows', 'Start with Windows.', 'Starts in the tray, without opening the window.', false) : null,
+      system.startAtLogin ? toggle('startWithWindows', `${system.startAtLogin}.`, 'Starts in the tray, without opening the window.', false) : null,
       toggle('alerts', 'Alerts.', 'A notification when games join a service in your plans, or games in your plans start leaving. Completed and ignored games are left out.', true),
       toggle('freeAlerts', 'Free game alerts.', 'A notification when new games are free to keep, and on the last day of ones you haven\'t marked claimed.', true),
       toggle('saleAlerts', 'Sale alerts.', 'A notification when a To play game that isn\'t in your plans goes on sale (Microsoft Store, PlayStation Store or Steam).', true)));
@@ -1797,7 +1798,7 @@ const steamInstalledCache = new Map();
 function playBar(g) {
   const bar = el('div', { class: 'play-bar' });
   const draw = (installed) => {
-    const actions = Play.playActions(g, { installed });
+    const actions = Play.playActions(g, { installed, platform: system.platform });
     bar.replaceChildren(...actions.map((a) => el('button', {
       class: a.primary ? 'primary' : 'mark',
       title: a.url,
@@ -2182,7 +2183,9 @@ function wire() {
 }
 
 async function init() {
-  ({ services, tierBadges, regions } = await api.getServices());
+  let sys;
+  ({ services, tierBadges, regions, system: sys } = await api.getServices());
+  if (sys) system = sys;
   state = await api.getState();
   catalogs = await api.getCatalog();
   rebuildGames();

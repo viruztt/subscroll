@@ -1,7 +1,7 @@
 {
   "name": "subscription-catalogue",
   "productName": "Subscroll",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Every game you already pay for, in one place.",
   "main": "src/main.js",
   "scripts": {
@@ -33,11 +33,27 @@
         "from": "build/icon.ico",
         "to": "icon.ico"
       }
-    ]
+    ],
+    "linux": {
+      "target": "AppImage",
+      "artifactName": "Subscroll-${version}.${ext}",
+      "icon": "build/icon.png",
+      "category": "Game",
+      "synopsis": "Every game you already pay for, in one place.",
+      "executableName": "subscroll",
+      "syncDesktopName": true
+    },
+    "productName": "Subscroll",
+    "publish": null
   },
   "license": "MIT",
   "devDependencies": {
     "electron": "44.7.2",
     "electron-builder": "26.15.3"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/viruztt/subscroll.git"
+  },
+  "desktopName": "subscroll.desktop"
 }

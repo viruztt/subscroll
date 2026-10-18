@@ -14,15 +14,25 @@
 
 ![Games like the ones you beat, on the For you page](docs/screenshots/because.png)
 
-A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus, Nintendo Switch Online, EA Play, Ubisoft+, Netflix Games, Apple Arcade, Crunchyroll Game Vault, Humble Choice, Google Play Pass and Amazon Luna, by tier. You pick the plans you have, mark games as played or completed, and see what's leaving soon. Everything you set is saved on your PC, in `%APPDATA%\Subscription Catalogue` (the app's earlier name).
+A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus, Nintendo Switch Online, EA Play, Ubisoft+, Netflix Games, Apple Arcade, Crunchyroll Game Vault, Humble Choice, Google Play Pass and Amazon Luna, by tier. You pick the plans you have, mark games as played or completed, and see what's leaving soon. Runs on Windows and Linux. Everything you set is saved on your computer, in `%APPDATA%\Subscription Catalogue` on Windows or `~/.config/Subscription Catalogue` on Linux (the app's earlier name).
 
 ## Install
+
+### Windows
 
 1. Download the latest `Subscroll-<version>.exe` from [Releases](https://github.com/viruztt/subscroll/releases).
 2. Double-click it. There's no installer; the exe is the whole app, so keep it wherever you like.
 3. The first time, Windows may say "Windows protected your PC", because the app isn't signed with a paid certificate. Click **More info**, then **Run anyway**.
 
-Your plans and marks stay on your PC and carry over when you download a newer version. To move them to another PC, use **Export profile** in Settings.
+### Linux
+
+1. Download the latest `Subscroll-<version>.AppImage` from [Releases](https://github.com/viruztt/subscroll/releases).
+2. Make it executable: right-click it, **Properties**, tick **Allow executing file as program** (or run `chmod +x Subscroll-*.AppImage`).
+3. Double-click it, or run `./Subscroll-<version>.AppImage`. There's nothing to install. If it doesn't open, your system may need FUSE 2 (on Ubuntu 22.04 and later: `sudo apt install libfuse2t64`, or `libfuse2` on older releases).
+
+The tray icon needs a desktop with a system tray. GNOME needs the "AppIndicator and KStatusNotifierItem Support" extension, which Ubuntu includes. The Play buttons open Steam games with your installed Steam (native or Flatpak). The Xbox app button only appears on Windows.
+
+Your plans and marks stay on your computer and carry over when you download a newer version. To move them to another PC, use **Export profile** in Settings.
 
 ## Where the game lists come from
 
@@ -50,7 +60,7 @@ A game offered by several services gets one card with a tag for each (dimmed whe
 
 The **Coming soon** page lists announced games with their date: Game Pass from Microsoft's per-plan join dates, Switch Online and Apple Arcade from dates in their Wikipedia lists, Amazon Luna from GameScriptions. PS Plus, EA Play, Ubisoft+ and Netflix don't publish dates in a form the app can read.
 
-Catalogues refresh automatically once a day, including while the window is closed: Subscroll stays in the system tray (right-click the icon to refresh, turn options on or off, or quit) and can start with Windows, minimised to the tray. After each refresh it sends a notification when games join a service in your plans or games in your plans start leaving, leaving out games you've completed or ignored; clicking it opens the right page. These are under **Background** in Settings. Every refresh is compared with the previous one, so the "New & departed" page shows what was added in the last 30 days and what left (Wikipedia's Apple Arcade list keeps every game there has ever been, so an Arcade game that neither your country's nor the US App Store has any more counts as having left). Game Pass games show when they joined, from Microsoft's own dates.
+Catalogues refresh automatically once a day, including while the window is closed: Subscroll stays in the system tray (right-click the icon to refresh, turn options on or off, or quit) and can start when you log in (with Windows, or through your desktop's autostart on Linux), minimised to the tray. After each refresh it sends a notification when games join a service in your plans or games in your plans start leaving, leaving out games you've completed or ignored; clicking it opens the right page. These are under **Background** in Settings. Every refresh is compared with the previous one, so the "New & departed" page shows what was added in the last 30 days and what left (Wikipedia's Apple Arcade list keeps every game there has ever been, so an Arcade game that neither your country's nor the US App Store has any more counts as having left). Game Pass games show when they joined, from Microsoft's own dates.
 
 The **Calendar** shows a month at a time: games arriving (announced dates), games that joined, games that left, and free games (giveaways, PS Plus monthly games and Free Play Days weekends) starting or on their last day, each in its own colour (click a colour in the key to hide that kind). It follows the same filters as the other pages, so with "Only my subscriptions" on it's your plans' month. Click a game to open it, or a day to list everything on it below the calendar. Xbox flags games as leaving soon without a date, so those aren't on it; a note links to Leaving soon instead.
 
@@ -129,7 +139,7 @@ Subscroll isn't affiliated with or endorsed by any of them. Game names, artwork 
 
 ## Building from source
 
-`npm install`, then `npm start` runs the app (Windows, macOS or Linux). `npm test` runs the tests, and `npm run dist:win` / `dist:mac` / `dist:linux` builds a package into `dist/`, which git ignores. Development builds are named `Subscroll-<version>-<commit>.exe`.
+`npm install`, then `npm start` runs the app (Windows, macOS or Linux). `npm test` runs the tests, and `npm run dist:win` / `dist:mac` / `dist:linux` builds a package into `dist/`, which git ignores. Development builds are named `Subscroll-<version>-<commit>.exe`. The Linux AppImage builds on Linux (`npm run dist:linux`). `src/linux.js` holds the Linux versions of start at login and the Steam install check.
 
 ## Layout
 
