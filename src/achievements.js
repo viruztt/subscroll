@@ -8,6 +8,7 @@
 const https = require('https');
 const http = require('./providers/http');
 const { unify, matchKey } = require('../renderer/unify');
+const { t } = require('../renderer/i18n');
 
 const XBL = 'https://xbl.io/api/v2/achievements';
 const PSN_AUTH = 'https://ca.account.sony.com/api/authz/v3/oauth';
@@ -39,9 +40,9 @@ async function fetchXbox(key) {
   try {
     return parseXbox(await http.getJson(XBL, { headers: { 'X-Authorization': key, 'Accept-Language': 'en-US' }, timeoutMs: 30000 }));
   } catch (err) {
-    if (/HTTP (401|403)/.test(err.message)) throw new Error("OpenXBL didn't accept the API key. Check it at xbl.io (Profile → API keys).");
-    if (/HTTP 429/.test(err.message)) throw new Error('OpenXBL is limiting requests right now (its free plan allows 150 an hour). Try again later.');
-    throw new Error(`Couldn't reach OpenXBL (${err.message}).`);
+    if (/HTTP (401|403)/.test(err.message)) throw new Error(t("OpenXBL didn't accept the API key. Check it at xbl.io (Profile → API keys)."));
+    if (/HTTP 429/.test(err.message)) throw new Error(t('OpenXBL is limiting requests right now (its free plan allows 150 an hour). Try again later.'));
+    throw new Error(t("Couldn't reach OpenXBL ({error}).", { error: err.message }));
   }
 }
 
@@ -56,10 +57,10 @@ function psnCode(npsso) {
       const loc = res.headers.location || '';
       const code = (loc.match(/[?&]code=([^&]+)/) || [])[1];
       if (code) resolve(decodeURIComponent(code));
-      else reject(new Error("Sony didn't accept the NPSSO code. Sign in at playstation.com, open ca.account.sony.com/api/v1/ssocookie and copy the new code."));
+      else reject(new Error(t("Sony didn't accept the NPSSO code. Sign in at playstation.com, open ca.account.sony.com/api/v1/ssocookie and copy the new code.")));
     });
     req.on('timeout', () => req.destroy(new Error('timed out')));
-    req.on('error', (err) => reject(new Error(`Couldn't reach Sony (${err.message}).`)));
+    req.on('error', (err) => reject(new Error(t("Couldn't reach Sony ({error}).", { error: err.message }))));
   });
 }
 
@@ -71,7 +72,7 @@ async function psnToken(npsso) {
     body: new URLSearchParams({ code, redirect_uri: PSN_REDIRECT, grant_type: 'authorization_code', token_format: 'jwt' }).toString(),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.access_token) throw new Error("Sony didn't hand out a sign-in token. Get a fresh NPSSO code and try again.");
+  if (!res.ok || !data.access_token) throw new Error(t("Sony didn't hand out a sign-in token. Get a fresh NPSSO code and try again."));
   return data.access_token;
 }
 
@@ -89,7 +90,7 @@ async function fetchPsn(npsso) {
   const all = [];
   for (let offset = 0, guard = 0; guard < 10; guard++) {
     const data = await http.getJson(`${PSN_TROPHIES}?limit=800&offset=${offset}`, { headers: { Authorization: `Bearer ${token}`, 'Accept-Language': 'en-US' }, timeoutMs: 30000 })
-      .catch((err) => { throw new Error(`Couldn't read your trophies (${err.message}).`); });
+      .catch((err) => { throw new Error(t("Couldn't read your trophies ({error}).", { error: err.message })); });
     all.push(...(data.trophyTitles || []));
     if (data.nextOffset == null || data.nextOffset <= offset) break;
     offset = data.nextOffset;
@@ -145,7 +146,7 @@ function achievementMarks(games, index, marks, done = []) {
 }
 
 async function importAchievements(kind, secret, games, current = {}, marks = {}) {
-  if (!secret) throw new Error(kind === 'xbox' ? 'Enter your OpenXBL API key.' : 'Enter your NPSSO code.');
+  if (!secret) throw new Error(kind === 'xbox' ? t('Enter your OpenXBL API key.') : t('Enter your NPSSO code.'));
   const titles = kind === 'xbox' ? await fetchXbox(secret) : await fetchPsn(secret);
   const index = titleIndex(titles);
   const r = achievementMarks(games, index, marks, current.marked);

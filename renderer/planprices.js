@@ -4,6 +4,8 @@
 // price can be changed. Amounts are what one payment costs, keyed by how
 // many months it covers: { '1': 6.99, '12': 59.99 }.
 (function (root) {
+  const I18n = root.I18n || (typeof require === 'function' ? require('./i18n') : null);
+  const { tk } = I18n;
   const AS_OF = '2026-10';
   const PRICES = {
     GBP: {
@@ -49,14 +51,14 @@
 
   // Names for tiers the app's plan list doesn't have (it only needs to know which games each unlocks).
   const TIER_NAMES = {
-    'nso:base': 'Standard',
-    'nso:expansion': 'Expansion Pack',
-    'nso:base_family': 'Family',
-    'nso:expansion_family': 'Expansion Pack Family',
+    'nso:base': tk('Standard'),
+    'nso:expansion': tk('Expansion Pack'),
+    'nso:base_family': tk('Family'),
+    'nso:expansion_family': tk('Expansion Pack Family'),
     'eaplay:pro': 'EA Play Pro',
-    'netflix:ads': 'Standard with adverts',
-    'netflix:standard': 'Standard',
-    'netflix:premium': 'Premium',
+    'netflix:ads': tk('Standard with adverts'),
+    'netflix:standard': tk('Standard'),
+    'netflix:premium': tk('Premium'),
     'luna:prime': 'Prime (Luna Standard)',
   };
   // Which of the app's tiers (the games a plan unlocks) a priced plan gives.

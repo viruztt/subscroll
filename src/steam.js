@@ -4,6 +4,7 @@
 // games get an "On Steam" badge.
 const http = require('./providers/http');
 const { unify, matchKey } = require('../renderer/unify');
+const { t } = require('../renderer/i18n');
 
 const API = 'https://api.steampowered.com';
 // Less than this is a launch, not a play.
@@ -24,18 +25,18 @@ async function call(method, params) {
   try {
     return await http.getJson(`${API}/${method}/?${new URLSearchParams(params)}`);
   } catch (err) {
-    if (/HTTP (401|403)/.test(err.message)) throw new Error("Steam didn't accept the API key. Check it at steamcommunity.com/dev/apikey.");
-    if (/HTTP 429/.test(err.message)) throw new Error('Steam is limiting requests right now. Try again in a few minutes.');
-    throw new Error(`Couldn't reach Steam (${err.message}).`);
+    if (/HTTP (401|403)/.test(err.message)) throw new Error(t("Steam didn't accept the API key. Check it at steamcommunity.com/dev/apikey."));
+    if (/HTTP 429/.test(err.message)) throw new Error(t('Steam is limiting requests right now. Try again in a few minutes.'));
+    throw new Error(t("Couldn't reach Steam ({error}).", { error: err.message }));
   }
 }
 
 async function resolveSteamId(input, key) {
   const p = parseProfile(input);
-  if (!p) throw new Error('Enter your Steam profile link or Steam ID.');
+  if (!p) throw new Error(t('Enter your Steam profile link or Steam ID.'));
   if (p.steamId) return p.steamId;
   const r = await call('ISteamUser/ResolveVanityURL/v1', { key, vanityurl: p.vanity });
-  if (r?.response?.success !== 1) throw new Error(`Steam has no profile called "${p.vanity}".`);
+  if (r?.response?.success !== 1) throw new Error(t('Steam has no profile called "{name}".', { name: p.vanity }));
   return r.response.steamid;
 }
 
@@ -45,7 +46,7 @@ async function fetchOwned(steamId, key) {
   if (!Array.isArray(list)) {
     if (r?.response?.game_count === 0) return [];
     // A private profile answers with an empty response.
-    throw new Error("Steam didn't share this profile's games. In Steam, open your profile's Privacy Settings, set Game details to Public, then import again.");
+    throw new Error(t("Steam didn't share this profile's games. In Steam, open your profile's Privacy Settings, set Game details to Public, then import again."));
   }
   return list.filter((g) => g.name).map((g) => ({ appid: g.appid, name: g.name, minutes: g.playtime_forever || 0 }));
 }
@@ -90,7 +91,7 @@ function playedMarks(games, index, marks, done = []) {
 }
 
 async function importLibrary({ profile, key }, games, current = {}, marks = {}) {
-  if (!key) throw new Error('Enter your Steam Web API key.');
+  if (!key) throw new Error(t('Enter your Steam Web API key.'));
   const steamId = await resolveSteamId(profile, key);
   const owned = await fetchOwned(steamId, key);
   const index = ownedIndex(owned);

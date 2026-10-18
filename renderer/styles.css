@@ -91,7 +91,7 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
   border-bottom: 1px solid var(--line);
 }
 #search { width: 240px; }
-.toolbar select { max-width: 150px; }
+.toolbar select { max-width: 200px; }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip {
   border: 1px solid var(--line);
@@ -169,9 +169,9 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; }
 .tag { padding: 1px 7px; border-radius: 5px; background: color-mix(in srgb, var(--svc) 30%, transparent); border: 1px solid color-mix(in srgb, var(--svc) 60%, transparent); }
 .tier { color: var(--muted); }
-.marks { display: flex; gap: 6px; margin-top: auto; }
+.marks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
 .mark {
-  flex: 1;
+  flex: 1 1 auto;
   font-size: 12px;
   padding: 5px 4px;
   border-radius: 6px;

@@ -1,10 +1,11 @@
-/* global api */
+/* global api, I18n */
+const { t, tn, tEl, tk } = I18n;
 const $ = (sel) => document.querySelector(sel);
 const PAGE_SIZE = 120;
 // Same as PLAYED_MINUTES in src/steam.js.
 const STEAM_PLAYED_MINUTES = 30;
-const SOURCE_LABEL = { live: 'official source', mirror: 'community mirror', bundled: 'bundled list' };
-const SHORT_SOURCE = { live: 'official', mirror: 'mirror', bundled: 'bundled' };
+const SOURCE_LABEL = { live: tk('official source'), mirror: tk('community mirror'), bundled: tk('bundled list') };
+const SHORT_SOURCE = { live: tk('official'), mirror: tk('mirror'), bundled: tk('bundled') };
 
 const ui = {
   view: 'browse',
@@ -55,7 +56,7 @@ function el(tag, attrs = {}, ...children) {
 
 const allServices = () => [...services, ...(state.customServices || [])];
 const serviceById = (id) => allServices().find((s) => s.id === id);
-const fmtDate = (iso) => (iso ? new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+const fmtDate = (iso) => (iso ? new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString(I18n.locale(), { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 const todayIso = () => new Date().toISOString().slice(0, 10);
 const daysUntil = (iso) => Math.round((new Date(`${iso}T00:00:00`) - new Date(`${todayIso()}T00:00:00`)) / 86400000);
 
@@ -98,8 +99,8 @@ function tierLabel(g) {
   if (badge && g.service !== 'nso') return badge;
   const plans = plansFor(g);
   if (!s || plans.length === 0) return '';
-  if (plans.length === s.tiers.length) return 'All plans';
-  return plans.length === 1 ? plans[0].name : `${plans[0].name} and up`;
+  if (plans.length === s.tiers.length) return t('All plans');
+  return plans.length === 1 ? plans[0].name : t('{plan} and up', { plan: plans[0].name });
 }
 
 // Announced for a future date, not playable yet.
@@ -250,10 +251,10 @@ function rebuildGames() {
 function platformsList() {
   const set = new Set();
   games.forEach((g) => g.platforms.forEach((p) => set.add(p)));
-  return [...set].sort((a, b) => a.localeCompare(b));
+  return [...set].sort((a, b) => a.localeCompare(b, I18n.locale()));
 }
 
-const PLATFORM_LABEL = { console: 'Xbox console', pc: 'PC', cloud: 'Cloud streaming' };
+const PLATFORM_LABEL = { console: tk('Xbox console'), pc: tk('PC'), cloud: tk('Cloud streaming') };
 
 // Plans that let you stream a game: "gamepass:premium", "psplus:premium".
 const CLOUD_TIER_ORDER = ['essential', 'premium', 'ultimate'];
@@ -277,9 +278,9 @@ function platformOk(g, keys) {
 function cloudRow(g) {
   if (cloudKeys(g).size) {
     const yours = canStream(g, unlocked());
-    return [el('dt', {}, 'Cloud'), el('dd', {}, `Stream with ${cloudPlans(g)}${yours ? ', which you have' : ''}`)];
+    return [el('dt', {}, t('Cloud')), el('dd', {}, yours ? t('Stream with {plans}, which you have', { plans: cloudPlans(g) }) : t('Stream with {plans}', { plans: cloudPlans(g) }))];
   }
-  if (offersOf(g).some((o) => o.cloud?.own)) return [el('dt', {}, 'Cloud'), el('dd', {}, 'Streams with Xbox Cloud Gaming if you own it')];
+  if (offersOf(g).some((o) => o.cloud?.own)) return [el('dt', {}, t('Cloud')), el('dd', {}, t('Streams with Xbox Cloud Gaming if you own it'))];
   return null;
 }
 
@@ -288,11 +289,11 @@ function cloudPlans(g) {
   const ck = cloudKeys(g);
   const out = [];
   const gp = CLOUD_TIER_ORDER.find((t) => ck.has(`gamepass:${t}`));
-  if (gp) out.push(`${planName('gamepass', gp)}${gp === 'ultimate' ? '' : ' and up'}`);
+  if (gp) out.push(gp === 'ultimate' ? planName('gamepass', gp) : t('{plan} and up', { plan: planName('gamepass', gp) }));
   if (ck.has('psplus:premium')) out.push(planName('psplus', 'premium'));
   return out.join(', ');
 }
-const platformName = (p) => PLATFORM_LABEL[p] || p;
+const platformName = (p) => (PLATFORM_LABEL[p] ? t(PLATFORM_LABEL[p]) : p);
 
 const hideDeparted = () => !!state.settings.hideDeparted;
 // "My games" is where completed games are collected, so they stay there.
@@ -335,12 +336,12 @@ function fitsGenreAndLength(g) {
 
 function fmtHours(h) {
   if (h == null) return '';
-  if (h < 1) return `${Math.max(1, Math.round(h * 60))}m`;
-  return h < 10 ? `${Math.round(h * 2) / 2}h` : `${Math.round(h)}h`;
+  if (h < 1) return t('{n}m', { n: Math.max(1, Math.round(h * 60)) });
+  return h < 10 ? t('{n}h', { n: Math.round(h * 2) / 2 }) : t('{n}h', { n: Math.round(h) });
 }
 
 function sorted(list) {
-  const byTitle = (a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
+  const byTitle = (a, b) => a.title.localeCompare(b.title, I18n.locale(), { sensitivity: 'base' });
   // Games without a score or time go last, whichever way the list runs.
   const byValue = (fn, dir) => (a, b) => {
     const x = fn(a);
@@ -415,8 +416,8 @@ function stats(g) {
   const score = mcScore(g);
   const h = beatHours(g);
   return [
-    score != null ? el('span', { class: `score ${scoreClass(score)}`, title: 'Metacritic score' }, score) : null,
-    h != null ? el('span', { class: 'hltb', title: 'How Long To Beat: main story' }, `⏱ ${fmtHours(h)}`) : null,
+    score != null ? el('span', { class: `score ${scoreClass(score)}`, title: t('Metacritic score') }, score) : null,
+    h != null ? el('span', { class: 'hltb', title: t('How Long To Beat: main story') }, `⏱ ${fmtHours(h)}`) : null,
   ];
 }
 
@@ -428,8 +429,8 @@ function markButtons(g, wide = false) {
     render(true);
   };
   return el('div', { class: 'marks' },
-    el('button', { class: `mark ${mark === 'played' ? 'on' : ''}`, title: 'Mark as played', onclick: set('played') }, '▶ Played'),
-    el('button', { class: `mark ${mark === 'completed' ? 'on done' : ''}`, title: 'Mark as completed', onclick: set('completed') }, '★ Completed'),
+    el('button', { class: `mark ${mark === 'played' ? 'on' : ''}`, title: t('Mark as played'), onclick: set('played') }, `▶ ${t('Played')}`),
+    el('button', { class: `mark ${mark === 'completed' ? 'on done' : ''}`, title: t('Mark as completed'), onclick: set('completed') }, `★ ${t('Completed')}`),
     wide ? toPlayButton(g, 'mark toplay') : null,
     wide ? ignoreButton(g, 'mark ignore') : null);
 }
@@ -439,13 +440,13 @@ function toPlayButton(g, cls) {
   const on = markOf(g.id) === 'wishlist';
   return el('button', {
     class: `${cls} ${on ? 'on' : ''}`,
-    title: on ? 'On your To play list: click to remove' : 'Add to your To play list',
+    title: on ? t('On your To play list: click to remove') : t('Add to your To play list'),
     onclick: async (e) => {
       e.stopPropagation();
       await setMark(g.id, on ? null : 'wishlist');
       render(true);
     },
-  }, cls.startsWith('mark') ? (on ? '✓ To play' : '＋ To play') : (on ? '✓' : '＋'));
+  }, cls.startsWith('mark') ? (on ? `✓ ${t('To play')}` : `＋ ${t('To play')}`) : (on ? '✓' : '＋'));
 }
 
 // Cards keep it on the cover (shown on hover) to leave room for the others.
@@ -453,17 +454,17 @@ function ignoreButton(g, cls) {
   const ignored = markOf(g.id) === 'ignored';
   return el('button', {
     class: `${cls} ${ignored ? 'on ignored' : ''}`,
-    title: ignored ? 'Ignored: click to stop ignoring' : 'Ignore: not interested, hide it',
+    title: ignored ? t('Ignored: click to stop ignoring') : t('Ignore: not interested, hide it'),
     onclick: async (e) => {
       e.stopPropagation();
       await setMark(g.id, ignored ? null : 'ignored');
       render(true);
     },
-  }, cls.startsWith('mark') ? (ignored ? '⊘ Ignored' : '⊘ Ignore') : '⊘');
+  }, cls.startsWith('mark') ? (ignored ? `⊘ ${t('Ignored')}` : `⊘ ${t('Ignore')}`) : '⊘');
 }
 
 function steamText(s) {
-  return s.minutes ? `You own this on Steam, ${fmtHours(s.minutes / 60)} played` : 'You own this on Steam, not played yet';
+  return s.minutes ? t('You own this on Steam, {time} played', { time: fmtHours(s.minutes / 60) }) : t('You own this on Steam, not played yet');
 }
 
 function card(g, keys) {
@@ -471,24 +472,30 @@ function card(g, keys) {
   const mine = isMine(g, keys);
   const badges = [];
   if (leave) {
-    const text = leave.date ? (leave.past ? `Left ${fmtDate(leave.date)}` : `Leaves ${fmtDate(leave.date)}`)
-      : leave.from?.length ? `Leaving ${leave.from.join(', ')} soon` : 'Leaving soon';
+    const text = leave.date ? (leave.past ? t('Left {date}', { date: fmtDate(leave.date) }) : t('Leaves {date}', { date: fmtDate(leave.date) }))
+      : leave.from?.length ? t('Leaving {service} soon', { service: leave.from.join(', ') }) : t('Leaving soon');
     badges.push(el('span', { class: `badge ${leave.soon ? 'warn' : ''}` }, text));
   }
-  if (isComing(g)) badges.push(el('span', { class: 'badge coming' }, `Coming ${fmtDate(g.comingOn)}`));
-  else if (g.firstSeen && daysUntil(g.firstSeen) >= -30) badges.push(el('span', { class: 'badge new' }, 'New'));
-  if (g.leftOn || g.departed) badges.push(el('span', { class: 'badge gone' }, g.leftOn ? `Left ${fmtDate(g.leftOn)}` : 'Left the service'));
+  if (isComing(g)) badges.push(el('span', { class: 'badge coming' }, t('Coming {date}', { date: fmtDate(g.comingOn) })));
+  else if (g.firstSeen && daysUntil(g.firstSeen) >= -30) badges.push(el('span', { class: 'badge new' }, t('New')));
+  if (g.leftOn || g.departed) badges.push(el('span', { class: 'badge gone' }, g.leftOn ? t('Left {date}', { date: fmtDate(g.leftOn) }) : t('Left the service')));
   // Regional versions sharing this card.
-  if (g.versions?.length > 1) badges.push(el('span', { class: 'badge region', title: 'Regional versions included' }, g.versions.join(' + ')));
-  if (markOf(g.id) === 'wishlist') badges.push(el('span', { class: 'badge toplay' }, 'To play'));
-  if (g.steam) badges.push(el('span', { class: 'badge steam', title: steamText(g.steam) }, 'On Steam'));
+  if (g.versions?.length > 1) badges.push(el('span', { class: 'badge region', title: t('Regional versions included') }, g.versions.join(' + ')));
+  if (markOf(g.id) === 'wishlist') badges.push(el('span', { class: 'badge toplay' }, t('To play')));
+  if (g.steam) badges.push(el('span', { class: 'badge steam', title: steamText(g.steam) }, t('On Steam')));
   const sale = saleOf(g);
-  if (sale) badges.push(el('span', { class: 'badge sale', title: `On sale on ${sale.source || 'its store'}: usually ${money(sale.amount)}${sale.saleEnds ? `, until ${fmtDate(sale.saleEnds.slice(0, 10))}` : ''}` }, `${sale.off}% off · ${money(sale.sale)}`));
+  if (sale) {
+    const sp = { store: sale.source, price: money(sale.amount), date: sale.saleEnds ? fmtDate(sale.saleEnds.slice(0, 10)) : '' };
+    const saleTitle = sale.source
+      ? (sale.saleEnds ? t('On sale on {store}: usually {price}, until {date}', sp) : t('On sale on {store}: usually {price}', sp))
+      : (sale.saleEnds ? t('On sale on its store: usually {price}, until {date}', sp) : t('On sale on its store: usually {price}', sp));
+    badges.push(el('span', { class: 'badge sale', title: saleTitle }, t('{percent}% off · {price}', { percent: sale.off, price: money(sale.sale) })));
+  }
   const note = noteOf(g.id);
-  if (note) badges.push(el('span', { class: 'badge stars', title: note.text ? `Your note: ${note.text}` : 'Your rating' }, note.stars ? '★'.repeat(note.stars) : '', note.text ? (note.stars ? ' ✎' : '✎ Note') : ''));
+  if (note) badges.push(el('span', { class: 'badge stars', title: note.text ? t('Your note: {note}', { note: note.text }) : t('Your rating') }, note.stars ? '★'.repeat(note.stars) : '', note.text ? (note.stars ? ' ✎' : `✎ ${t('Note')}`) : ''));
   if (cloudKeys(g).size) {
     const yours = canStream(g, keys);
-    badges.push(el('span', { class: `badge cloud ${yours ? 'yours' : ''}`, title: `Stream it with ${cloudPlans(g)}${yours ? ' (in your plans)' : ''}` }, '☁ Cloud'));
+    badges.push(el('span', { class: `badge cloud ${yours ? 'yours' : ''}`, title: yours ? t('Stream it with {plans} (in your plans)', { plans: cloudPlans(g) }) : t('Stream it with {plans}', { plans: cloudPlans(g) }) }, `☁ ${t('Cloud')}`));
   }
   const open = () => { drawerRoll = null; openDrawer(g); };
   return el('article', { class: `card ${mine ? 'mine' : ''} mark-${markOf(g.id)}`, 'data-id': g.id, onclick: open },
@@ -511,7 +518,7 @@ function renderGrid(list, emptyText) {
   const grid = el('div', { class: 'grid' }, list.slice(0, ui.shown).map((g) => card(g, keys)));
   content.append(grid);
   if (list.length > ui.shown) {
-    const more = el('div', { class: 'more' }, `Showing ${ui.shown} of ${list.length}`);
+    const more = el('div', { class: 'more' }, t('Showing {shown} of {total}', { shown: ui.shown, total: list.length }));
     content.append(more);
     const io = new IntersectionObserver((entries) => {
       if (entries.some((e) => e.isIntersecting)) {
@@ -528,14 +535,15 @@ function summaryText(list) {
   const keys = unlocked();
   const mine = list.filter((g) => isMine(g, keys)).length;
   const subs = Object.keys(state.subscriptions).filter((k) => state.subscriptions[k]).length;
-  const base = subs ? `${list.length} games · ${mine} included in your subscriptions` : `${list.length} games · set your subscriptions to see what you can play`;
-  return ui.length !== 'all' ? `${base} · only games with a How Long To Beat time` : base;
+  const count = tn(list.length, '{n} game', '{n} games');
+  const base = subs ? `${count} · ${tn(mine, '{n} included in your subscriptions', '{n} included in your subscriptions')}` : `${count} · ${t('set your subscriptions to see what you can play')}`;
+  return ui.length !== 'all' ? `${base} · ${t('only games with a How Long To Beat time')}` : base;
 }
 
 function renderBrowse() {
   const list = sorted(filtered(games));
   $('#summary').textContent = summaryText(list);
-  renderGrid(list, 'No games match these filters.');
+  renderGrid(list, t('No games match these filters.'));
 }
 
 // ---------- recommendations ----------
@@ -561,14 +569,14 @@ async function setTastes(patch) {
 
 // Genre chips and a length choice, shared by onboarding and For you.
 function tastePicker() {
-  const t = tastes();
+  const mine = tastes();
   const present = new Set(games.flatMap((g) => g.genreTags || []));
-  const genres = Genres.GENRES.filter((n) => present.has(n) || t.genres.includes(n));
-  const toggle = (n) => setTastes({ genres: t.genres.includes(n) ? t.genres.filter((x) => x !== n) : [...t.genres, n] });
-  const lengths = [['any', 'Any length'], ['short', 'Short (under 10 hours)'], ['long', 'Long (25 hours or more)']];
+  const genres = Genres.GENRES.filter((n) => present.has(n) || mine.genres.includes(n));
+  const toggle = (n) => setTastes({ genres: mine.genres.includes(n) ? mine.genres.filter((x) => x !== n) : [...mine.genres, n] });
+  const lengths = [['any', t('Any length')], ['short', t('Short (under 10 hours)')], ['long', t('Long (25 hours or more)')]];
   return el('div', { class: 'tastes' },
-    el('div', { class: 'chips' }, genres.map((n) => el('button', { class: `chip taste ${t.genres.includes(n) ? 'on' : ''}`, onclick: () => toggle(n) }, n))),
-    el('div', { class: 'seg', style: '--svc:#6aa8ff' }, lengths.map(([id, label]) => el('button', { class: t.length === id ? 'on' : '', onclick: () => setTastes({ length: id }) }, label))));
+    el('div', { class: 'chips' }, genres.map((n) => el('button', { class: `chip taste ${mine.genres.includes(n) ? 'on' : ''}`, onclick: () => toggle(n) }, t(n)))),
+    el('div', { class: 'seg', style: '--svc:#6aa8ff' }, lengths.map(([id, label]) => el('button', { class: mine.length === id ? 'on' : '', onclick: () => setTastes({ length: id }) }, label))));
 }
 
 // Cards with a line saying why each was picked.
@@ -599,31 +607,32 @@ function likeCompleted() {
 function renderForYou() {
   const content = $('#content');
   content.replaceChildren();
-  $('#summary').textContent = 'Picked from your plans: games in genres you like, well-reviewed, leaving soon or just added, then games like the ones you beat or rated highly. Your star ratings count: games like the ones you rated low drop. Scores and play times make these better as they load.';
+  $('#summary').textContent = t('Picked from your plans: games in genres you like, well-reviewed, leaving soon or just added, then games like the ones you beat or rated highly. Your star ratings count: games like the ones you rated low drop. Scores and play times make these better as they load.');
   if (!Object.values(state.subscriptions).some(Boolean)) {
-    content.append(el('div', { class: 'panel' }, el('h2', {}, 'What you like'), tastePicker()));
-    content.append(el('div', { class: 'empty' }, 'Pick your plans in Settings and recommendations show up here.'));
+    content.append(el('div', { class: 'panel' }, el('h2', {}, t('What you like')), tastePicker()));
+    content.append(el('div', { class: 'empty' }, t('Pick your plans in Settings and recommendations show up here.')));
     return;
   }
   // Games in a "Because you beat" row aren't repeated in the picks above it.
   const groups = likeCompleted();
   const shown = new Set(groups.flatMap((x) => x.picks.map((p) => p.game.id)));
-  content.append(el('div', { class: 'section-head' }, el('h3', {}, 'Picked for you'), el('span', { class: 'muted' }, 'From the genres and length you like')));
+  content.append(el('div', { class: 'section-head' }, el('h3', {}, t('Picked for you')), el('span', { class: 'muted' }, t('From the genres and length you like'))));
   content.append(el('div', { class: 'panel' }, tastePicker()));
   const picks = recommendations(24 + shown.size, 10).filter((p) => !shown.has(p.game.id)).slice(0, 24);
-  content.append(picks.length ? recommendationGrid(picks) : el('div', { class: 'empty' }, 'Nothing matches these choices yet. Try another genre or length.'));
+  content.append(picks.length ? recommendationGrid(picks) : el('div', { class: 'empty' }, t('Nothing matches these choices yet. Try another genre or length.')));
   for (const { seed, picks: like, reason } of groups) {
+    const title = el('button', { class: 'link inline seed', onclick: () => openDrawer(seed) }, seed.title);
     content.append(el('div', { class: 'section-head' },
-      el('h3', {}, reason === 'loved' ? 'Because you loved ' : 'Because you beat ', el('button', { class: 'link inline seed', onclick: () => openDrawer(seed) }, seed.title)),
-      el('span', { class: 'muted' }, 'Same studio or similar genres')));
+      el('h3', {}, reason === 'loved' ? tEl('Because you loved {title}', { title }) : tEl('Because you beat {title}', { title })),
+      el('span', { class: 'muted' }, t('Same studio or similar genres'))));
     content.append(recommendationGrid(like));
   }
   if (!groups.length) {
     const beaten = statsGames().some((g) => markOf(g.id) === 'completed' || (starsOf(g.id) || 0) >= 4);
-    content.append(el('div', { class: 'section-head' }, el('h3', {}, 'Because you beat…')));
+    content.append(el('div', { class: 'section-head' }, el('h3', {}, t('Because you beat…'))));
     content.append(el('div', { class: 'hint-row muted' }, beaten
-      ? 'Nothing in your plans is much like the games you\'ve completed yet. Developers and genres fill in over the first few minutes as they\'re looked up.'
-      : 'Mark games as ★ Completed or rate them 4 or 5 stars, and games like them show up here, by the same studio or with similar genres.'));
+      ? t('Nothing in your plans is much like the games you\'ve completed yet. Developers and genres fill in over the first few minutes as they\'re looked up.')
+      : t('Mark games as ★ Completed or rate them 4 or 5 stars, and games like them show up here, by the same studio or with similar genres.')));
   }
 }
 
@@ -668,23 +677,23 @@ function renderOnboarding() {
   const box = $('#onboarding');
   if (!onboarding || !box) return;
   const { step } = onboarding;
-  const back = step > 0 ? el('button', { class: 'link', onclick: () => { onboarding.step -= 1; renderOnboarding(); } }, 'Back') : el('span');
+  const back = step > 0 ? el('button', { class: 'link', onclick: () => { onboarding.step -= 1; renderOnboarding(); } }, t('Back')) : el('span');
   const dots = el('div', { class: 'onboard-dots' }, Array.from({ length: ONBOARD_STEPS }, (_, i) => el('span', { class: i === step ? 'on' : '' })));
   let body;
-  let next = el('button', { class: 'primary', onclick: onboardNext }, 'Next');
+  let next = el('button', { class: 'primary', onclick: onboardNext }, t('Next'));
 
   if (step === 0) {
     const select = el('select', {}, regions.map((r) => el('option', { value: r.id }, r.name)));
     select.value = state.settings.onboardRegionPicked ? state.settings.region : guessRegion();
     const pick = () => saveState({ settings: { ...state.settings, region: select.value, onboardRegionPicked: true } });
     select.addEventListener('change', pick);
-    next = el('button', { class: 'primary', onclick: async () => { await pick(); rebuildGames(); onboardNext(); } }, 'Get started');
+    next = el('button', { class: 'primary', onclick: async () => { await pick(); rebuildGames(); onboardNext(); } }, t('Get started'));
     body = [
       el('img', { class: 'onboard-logo', src: 'logo.svg', alt: '' }),
-      el('h1', {}, 'Welcome to Subscroll'),
-      el('p', { class: 'lead' }, 'Every game you already pay for, in one place. Tell it which subscriptions you have and it shows what\'s in them, what\'s leaving, and what to play next.'),
-      el('label', { class: 'onboard-field' }, el('span', {}, 'Where do you play?'), select),
-      el('p', { class: 'muted' }, 'Game Pass and PS Plus catalogues differ a little by country.'),
+      el('h1', {}, t('Welcome to Subscroll')),
+      el('p', { class: 'lead' }, t('Every game you already pay for, in one place. Tell it which subscriptions you have and it shows what\'s in them, what\'s leaving, and what to play next.')),
+      el('label', { class: 'onboard-field' }, el('span', {}, t('Where do you play?')), select),
+      el('p', { class: 'muted' }, t('Game Pass and PS Plus catalogues differ a little by country.')),
     ];
   } else if (step === 1) {
     const rows = allServices().filter((s) => !s.custom).map((s) => {
@@ -696,76 +705,76 @@ function renderOnboarding() {
       return el('div', { class: 'sub-row', style: `--svc:${s.color}` },
         el('div', { class: 'sub-name' }, el('strong', {}, s.name)),
         el('div', { class: 'seg' },
-          el('button', { class: current ? '' : 'on', onclick: () => pick('') }, 'No'),
+          el('button', { class: current ? '' : 'on', onclick: () => pick('') }, t('No')),
           s.tiers.map((t) => el('button', { class: current === t.id ? 'on' : '', onclick: () => pick(t.id) }, t.name))));
     });
     const any = Object.values(state.subscriptions).some(Boolean);
-    next = el('button', { class: 'primary', disabled: !any, onclick: onboardNext }, 'Next');
+    next = el('button', { class: 'primary', disabled: !any, onclick: onboardNext }, t('Next'));
     body = [
-      el('h1', {}, 'Which services do you have?'),
-      el('p', { class: 'lead' }, 'Pick your plan for each. Game Pass Ultimate already includes EA Play and Ubisoft+ Classics.'),
+      el('h1', {}, t('Which services do you have?')),
+      el('p', { class: 'lead' }, t('Pick your plan for each. Game Pass Ultimate already includes EA Play and Ubisoft+ Classics.')),
       el('div', { class: 'onboard-services' }, rows),
     ];
   } else if (step === 2) {
     body = [
-      el('h1', {}, 'What do you like to play?'),
-      el('p', { class: 'lead' }, 'Pick a few genres and how long you like games to be. You can change this any time on the For you page.'),
+      el('h1', {}, t('What do you like to play?')),
+      el('p', { class: 'lead' }, t('Pick a few genres and how long you like games to be. You can change this any time on the For you page.')),
       tastePicker(),
     ];
   } else {
     const picks = recommendations(8);
-    next = el('button', { class: 'primary', onclick: finishOnboarding }, 'Start browsing');
+    next = el('button', { class: 'primary', onclick: finishOnboarding }, t('Start browsing'));
     body = [
-      el('h1', {}, 'Picked for you'),
-      el('p', { class: 'lead' }, 'From the plans you have. Click ＋ on a cover to save a game to your To play list. More picks, which get better as scores and play times load, are on the For you page.'),
-      picks.length ? recommendationGrid(picks) : el('p', { class: 'muted' }, 'Loading your services\' games…'),
+      el('h1', {}, t('Picked for you')),
+      el('p', { class: 'lead' }, t('From the plans you have. Click ＋ on a cover to save a game to your To play list. More picks, which get better as scores and play times load, are on the For you page.')),
+      picks.length ? recommendationGrid(picks) : el('p', { class: 'muted' }, t('Loading your services\' games…')),
     ];
   }
   box.replaceChildren(el('div', { class: 'onboard-card' },
     el('div', { class: 'onboard-body' }, body),
     el('div', { class: 'onboard-foot' }, back, dots, el('div', { class: 'onboard-actions' },
-      step > 0 && step < 3 ? el('button', { class: 'link', onclick: finishOnboarding }, 'Skip') : null, next))));
+      step > 0 && step < 3 ? el('button', { class: 'link', onclick: finishOnboarding }, t('Skip')) : null, next))));
 }
 
 function renderLeaving() {
   const list = filtered(games.filter((g) => leaveInfo(g)));
-  list.sort((a, b) => (leaveInfo(a).date || '9999').localeCompare(leaveInfo(b).date || '9999') || a.title.localeCompare(b.title));
-  $('#summary').textContent = `${list.length} games leaving. Xbox flags these itself but gives no exact date.`;
-  renderGrid(list, 'Nothing is flagged as leaving right now.');
+  list.sort((a, b) => (leaveInfo(a).date || '9999').localeCompare(leaveInfo(b).date || '9999') || a.title.localeCompare(b.title, I18n.locale()));
+  $('#summary').textContent = tn(list.length, '{n} game leaving. Xbox flags these itself but gives no exact date.', '{n} games leaving. Xbox flags these itself but gives no exact date.');
+  renderGrid(list, t('Nothing is flagged as leaving right now.'));
 }
 
 function renderChanges() {
   // Lists with dates back to launch (Switch Online, Apple Arcade) would make
   // this every game, so only the last 30 days, newest first.
   const added = filtered(games.filter((g) => g.firstSeen && !isComing(g) && daysUntil(g.firstSeen) >= -30 && daysUntil(g.firstSeen) <= 0))
-    .sort((a, b) => b.firstSeen.localeCompare(a.firstSeen) || a.title.localeCompare(b.title));
+    .sort((a, b) => b.firstSeen.localeCompare(a.firstSeen) || a.title.localeCompare(b.title, I18n.locale()));
   const gone = filtered(departed);
   const content = $('#content');
   $('#summary').textContent = hideDeparted()
-    ? 'Games found by comparing each refresh with the last one. Departed games are hidden.'
-    : 'Changes found by comparing each refresh with the last one.';
+    ? t('Games found by comparing each refresh with the last one. Departed games are hidden.')
+    : t('Changes found by comparing each refresh with the last one.');
   content.replaceChildren();
   const keys = unlocked();
   const section = (title, list, empty) => el('div', {},
     el('h2', {}, title),
     list.length ? el('div', { class: 'grid' }, list.slice(0, 240).map((g) => card(g, keys))) : el('div', { class: 'empty small' }, empty));
-  content.append(section(`Added in the last 30 days (${added.length})`, added, 'Nothing added in the last 30 days. New games show up here after a refresh finds them.'));
-  if (!hideDeparted()) content.append(section(`Left the service (${gone.length})`, gone, 'No departures recorded yet.'));
+  content.append(section(t('Added in the last 30 days ({n})', { n: added.length }), added, t('Nothing added in the last 30 days. New games show up here after a refresh finds them.')));
+  if (!hideDeparted()) content.append(section(t('Left the service ({n})', { n: gone.length }), gone, t('No departures recorded yet.')));
 }
 
 function renderComing() {
   const list = filtered(games.filter(isComing));
-  list.sort((a, b) => a.comingOn.localeCompare(b.comingOn) || a.title.localeCompare(b.title));
-  $('#summary').textContent = `${list.length} announced games. Game Pass and Switch Online publish dates ahead; Apple Arcade dates come from Wikipedia. PS Plus, EA Play, Ubisoft+ and Netflix don't announce in a form the app can read.`;
-  renderGrid(list, 'Nothing announced right now.');
+  list.sort((a, b) => a.comingOn.localeCompare(b.comingOn) || a.title.localeCompare(b.title, I18n.locale()));
+  $('#summary').textContent = tn(list.length, '{n} announced game. Game Pass and Switch Online publish dates ahead; Apple Arcade dates come from Wikipedia. PS Plus, EA Play, Ubisoft+ and Netflix don\'t announce in a form the app can read.', '{n} announced games. Game Pass and Switch Online publish dates ahead; Apple Arcade dates come from Wikipedia. PS Plus, EA Play, Ubisoft+ and Netflix don\'t announce in a form the app can read.');
+  renderGrid(list, t('Nothing announced right now.'));
 }
 
 function renderMine() {
   const list = sorted(filtered(games.filter((g) => markOf(g.id) !== 'none')));
   const done = list.filter((g) => markOf(g.id) === 'completed').length;
   const ignored = list.filter((g) => markOf(g.id) === 'ignored').length;
-  $('#summary').textContent = `${list.length} games marked · ${done} completed · ${ignored} ignored`;
-  renderGrid(list, 'Mark games as played, completed or ignored and they will be collected here.');
+  $('#summary').textContent = tn(list.length, '{n} game marked · {done} completed · {ignored} ignored', '{n} games marked · {done} completed · {ignored} ignored', { done, ignored });
+  renderGrid(list, t('Mark games as played, completed or ignored and they will be collected here.'));
 }
 
 // Your To play list, grouped by when and where you can play each game.
@@ -778,15 +787,15 @@ function renderToPlay() {
   for (const d of departed) if (state.marks[d.id] === 'wishlist' && !ids.has(d.id)) gone.set(d.id, d);
   const list = sorted(filtered(games.filter((g) => markOf(g.id) === 'wishlist')));
   const groups = [
-    ['Ready to play', 'In your plans now.', list.filter((g) => !isComing(g) && isMine(g, keys))],
-    ['Coming soon', 'Announced, with the date it arrives.', list.filter(isComing).sort((a, b) => a.comingOn.localeCompare(b.comingOn))],
-    ['In other services', "Available, but not in the plans you have. Checked for sales twice a day.", list.filter((g) => !isComing(g) && !isMine(g, keys))],
-    ['No longer available', 'Left every service that had it. Checked for sales twice a day.', [...gone.values()]],
+    [t('Ready to play'), t('In your plans now.'), list.filter((g) => !isComing(g) && isMine(g, keys))],
+    [t('Coming soon'), t('Announced, with the date it arrives.'), list.filter(isComing).sort((a, b) => a.comingOn.localeCompare(b.comingOn))],
+    [t('In other services'), t('Available, but not in the plans you have. Checked for sales twice a day.'), list.filter((g) => !isComing(g) && !isMine(g, keys))],
+    [t('No longer available'), t('Left every service that had it. Checked for sales twice a day.'), [...gone.values()]],
   ];
   const total = list.length + gone.size;
-  $('#summary').textContent = total ? `${total} game${total === 1 ? '' : 's'} to play · ${groups[0][2].length} ready now` : '';
+  $('#summary').textContent = total ? tn(total, '{n} game to play · {ready} ready now', '{n} games to play · {ready} ready now', { ready: groups[0][2].length }) : '';
   if (!total) {
-    content.append(el('div', { class: 'empty' }, 'Click ＋ on a game\'s cover (or "To play" in its details) to keep it here, whether it\'s out now or coming soon.'));
+    content.append(el('div', { class: 'empty' }, t('Click ＋ on a game\'s cover (or "To play" in its details) to keep it here, whether it\'s out now or coming soon.')));
     return;
   }
   const advice = advisorPanel();
@@ -796,7 +805,7 @@ function renderToPlay() {
     const c = card(g, keys);
     if (!gone && isMine(g, keys) && !isComing(g)) return c;
     const [best] = waysToPlay(g, { gone });
-    if (best && best.kind !== 'included') c.querySelector('.body').insertBefore(el('div', { class: `cheapest ${best.kind}`, title: 'The cheapest way to play it. Open the game for the other ways.' }, wayText(best, true)), c.querySelector('.marks'));
+    if (best && best.kind !== 'included') c.querySelector('.body').insertBefore(el('div', { class: `cheapest ${best.kind}`, title: t('The cheapest way to play it. Open the game for the other ways.') }, wayText(best, true)), c.querySelector('.marks'));
     return c;
   };
   for (const [title, hint, items] of groups) {
@@ -843,22 +852,26 @@ function wayPlanName(w) {
   return w.name.includes(s.short) ? w.name : `${s.short} ${w.name}`;
 }
 
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+// How long a plan's price covers: 'a month', 'a year', '3 months'.
+const planLength = (months) => (months === 1 ? t('a month') : months === 12 ? t('a year') : tn(months, '{n} month', '{n} months'));
 function wayText(w, short = false) {
   switch (w.kind) {
-    case 'owned': return 'You own it on Steam';
-    case 'included': return 'In your plans';
-    case 'wait': return short ? `Wait until ${fmtDate(w.on)}, then it's in your plans` : `Wait: it joins your plans on ${fmtDate(w.on)} (in ${plural(w.days, 'day')})`;
+    case 'owned': return t('You own it on Steam');
+    case 'included': return t('In your plans');
+    case 'wait': return short ? t('Wait until {date}, then it\'s in your plans', { date: fmtDate(w.on) }) : tn(w.days, 'Wait: it joins your plans on {date} (in {n} day)', 'Wait: it joins your plans on {date} (in {n} days)', { date: fmtDate(w.on) });
     case 'plan': {
-      const name = `${w.upgrade ? 'Upgrade to ' : ''}${wayPlanName(w)}`;
-      const when = w.on ? `, from ${fmtDate(w.on)}` : '';
-      return short ? `${name}, ${money(w.cost)} for ${w.length}${when}`
-        : `${name}: ${money(w.cost)} for ${w.length}${when}${w.unsure ? ' (price not confirmed)' : ''}`;
+      const plan = w.upgrade ? t('Upgrade to {plan}', { plan: wayPlanName(w) }) : wayPlanName(w);
+      const p = { plan, price: money(w.cost), length: planLength(w.months), date: w.on ? fmtDate(w.on) : '' };
+      if (short) return w.on ? t('{plan}, {price} for {length}, from {date}', p) : t('{plan}, {price} for {length}', p);
+      if (w.on) return w.unsure ? t('{plan}: {price} for {length}, from {date} (price not confirmed)', p) : t('{plan}: {price} for {length}, from {date}', p);
+      return w.unsure ? t('{plan}: {price} for {length} (price not confirmed)', p) : t('{plan}: {price} for {length}', p);
     }
     case 'buy': {
-      if (short) return `Buy it for ${money(w.cost)}${w.sale ? ' on sale' : ''}`;
-      const sale = w.sale ? ` (${w.off}% off${w.saleEnds ? ` until ${fmtDate(w.saleEnds.slice(0, 10))}` : ''})` : '';
-      return `Buy it: ${money(w.cost)}${sale}${w.source ? ` on ${w.source}` : ''}`;
+      if (short) return w.sale ? t('Buy it for {price} on sale', { price: money(w.cost) }) : t('Buy it for {price}', { price: money(w.cost) });
+      const sale = w.sale ? (w.saleEnds ? t('{off}% off until {date}', { off: w.off, date: fmtDate(w.saleEnds.slice(0, 10)) }) : t('{off}% off', { off: w.off })) : '';
+      const p = { price: money(w.cost), sale, store: w.source };
+      if (w.sale) return w.source ? t('Buy it: {price} ({sale}) on {store}', p) : t('Buy it: {price} ({sale})', p);
+      return w.source ? t('Buy it: {price} on {store}', p) : t('Buy it: {price}', p);
     }
     default: return '';
   }
@@ -867,16 +880,16 @@ function wayText(w, short = false) {
 // When you finished a completed game, for goals. Changeable.
 function finishedRows(g) {
   if (markOf(g.id) !== 'completed') return null;
-  const input = el('input', { type: 'date', class: 'finished-date', value: finishedOf(g.id) || '', max: todayIso(), title: 'When you finished it; goals on the Statistics page count it in that week, month or year' });
+  const input = el('input', { type: 'date', class: 'finished-date', value: finishedOf(g.id) || '', max: todayIso(), title: t('When you finished it; goals on the Statistics page count it in that week, month or year') });
   input.addEventListener('change', () => setFinished(g.id, input.value || null));
-  return [el('dt', {}, 'Finished'), el('dd', {}, input, finishedOf(g.id) ? null : el('span', { class: 'muted', title: 'Goals leave out completed games without a date' }, ' not dated'))];
+  return [el('dt', {}, t('Finished')), el('dd', {}, input, finishedOf(g.id) ? null : el('span', { class: 'muted', title: t('Goals leave out completed games without a date') }, t(' not dated')))];
 }
 
 // In a game's details, when it isn't in your plans now.
 function cheapestRows(g) {
   const ways = waysToPlay(g, { gone: !!(g.departed || g.leftOn) && !isComing(g) });
   if (!ways.length || ways[0].kind === 'included') return null;
-  return [el('dt', {}, 'Cheapest way'), el('dd', { class: 'ways' }, ways.slice(0, 3).map((w, i) => el('div', { class: i ? 'muted' : 'best' }, wayText(w))))];
+  return [el('dt', {}, t('Cheapest way')), el('dd', { class: 'ways' }, ways.slice(0, 3).map((w, i) => el('div', { class: i ? 'muted' : 'best' }, wayText(w))))];
 }
 
 // Which plan to pick up for your To play list, for people who rotate plans.
@@ -892,7 +905,6 @@ function advisorPanel() {
   const idle = r.keep.filter((k) => !k.needs);
   const lower = r.keep.filter((k) => k.lower);
   if (!r.options.length && !idle.length && !lower.length) return null;
-  const n = (x, word) => `${x} ${word}${x === 1 ? '' : 's'}`;
   const thumb = (g) => {
     const ms = ['gamepass', 'eaplay', 'ubisoftplus'].includes(g.service);
     const img = g.image ? el('img', { src: ms ? `${g.image}?w=80&h=120&q=70` : g.image, loading: 'lazy', alt: '' }) : null;
@@ -902,45 +914,45 @@ function advisorPanel() {
   };
   const rows = r.options.slice(0, 4).map((o, i) => {
     const s = serviceById(o.service);
-    const facts = [`Covers ${o.games.length} of your ${r.total} To play games`];
-    if (o.leaving.length) facts.push(`${o.leaving.length} leaving soon`);
-    if (o.arriving.length) facts.push(`${o.arriving.length} arriving this month`);
-    if (o.smaller) facts.push(`${planName(o.service, o.smaller.tier)} alone covers ${o.smaller.count}`);
+    const facts = [tn(r.total, 'Covers {count} of your {n} To play game', 'Covers {count} of your {n} To play games', { count: o.games.length })];
+    if (o.leaving.length) facts.push(tn(o.leaving.length, '{n} leaving soon', '{n} leaving soon'));
+    if (o.arriving.length) facts.push(tn(o.arriving.length, '{n} arriving this month', '{n} arriving this month'));
+    if (o.smaller) facts.push(t('{plan} alone covers {n}', { plan: planName(o.service, o.smaller.tier), n: o.smaller.count }));
     const shown = [...o.leaving, ...o.games.filter((g) => !o.leaving.includes(g))].slice(0, 6);
     return el('div', { class: `adv-row ${i === 0 ? 'best' : ''}` },
       el('span', { class: 'dot', style: `background:${s?.color || 'var(--accent)'}` }),
       el('div', { class: 'adv-main' },
         el('div', { class: 'adv-title' }, el('strong', {}, planName(o.service, o.tier)),
-          i === 0 ? el('span', { class: 'badge toplay' }, 'Best pick') : null,
-          o.upgradeFrom ? el('span', { class: 'muted' }, ` upgrade from ${planName(o.service, o.upgradeFrom)}`) : null),
+          i === 0 ? el('span', { class: 'badge toplay' }, t('Best pick')) : null,
+          o.upgradeFrom ? el('span', { class: 'muted' }, t(' upgrade from {plan}', { plan: planName(o.service, o.upgradeFrom) })) : null),
         el('div', { class: 'muted' }, facts.join(' · '))),
       el('div', { class: 'adv-covers' }, shown.map(thumb), o.games.length > shown.length ? el('span', { class: 'muted' }, `+${o.games.length - shown.length}`) : null));
   });
   const notes = [];
   if (r.rotation.length > 1) {
-    notes.push(el('p', { class: 'adv-note' }, el('strong', {}, 'Month by month: '),
+    notes.push(el('p', { class: 'adv-note' }, el('strong', {}, t('Month by month: ')),
       r.rotation.map((x) => `${planName(x.service, x.tier)} (${x.count})`).join(' → '),
-      el('span', { class: 'muted' }, '. One plan a month, counting games announced for the next few months.')));
+      el('span', { class: 'muted' }, t('. One plan a month, counting games announced for the next few months.'))));
   }
-  for (const k of idle) notes.push(el('p', { class: 'adv-note' }, `${planName(k.service, k.tier)}: nothing on your To play list needs it right now, so you could pause it.`));
-  for (const k of lower) notes.push(el('p', { class: 'adv-note' }, `${planName(k.service, k.tier)}: ${planName(k.service, k.lower)} covers the ${n(k.needs, 'To play game')} you need it for.`));
+  for (const k of idle) notes.push(el('p', { class: 'adv-note' }, t('{plan}: nothing on your To play list needs it right now, so you could pause it.', { plan: planName(k.service, k.tier) })));
+  for (const k of lower) notes.push(el('p', { class: 'adv-note' }, tn(k.needs, '{plan}: {lower} covers the {n} To play game you need it for.', '{plan}: {lower} covers the {n} To play games you need it for.', { plan: planName(k.service, k.tier), lower: planName(k.service, k.lower) })));
   const hint = r.options.length
-    ? `For the To play games you can't play with the plans you have${r.ready ? ` (${r.ready} you can)` : ''}.`
-    : 'Everything on your To play list is in your plans already.';
+    ? (r.ready ? t('For the To play games you can\'t play with the plans you have ({n} you can).', { n: r.ready }) : t('For the To play games you can\'t play with the plans you have.'))
+    : t('Everything on your To play list is in your plans already.');
   return el('div', { class: 'panel advisor' },
-    el('div', { class: 'panel-head' }, el('h2', {}, 'Which plan to get'), el('span', { class: 'muted' }, hint)),
+    el('div', { class: 'panel-head' }, el('h2', {}, t('Which plan to get')), el('span', { class: 'muted' }, hint)),
     rows, notes);
 }
 
 // ---------- calendar ----------
 const CAL_KINDS = {
-  coming: { label: 'Arriving', cls: 'k-coming' },
-  added: { label: 'Added', cls: 'k-added' },
-  left: { label: 'Left', cls: 'k-left' },
-  'free-start': { label: 'Free from', cls: 'k-free' },
-  'free-end': { label: 'Last day free', cls: 'k-free' },
+  coming: { label: tk('Arriving'), cls: 'k-coming' },
+  added: { label: tk('Added'), cls: 'k-added' },
+  left: { label: tk('Left'), cls: 'k-left' },
+  'free-start': { label: tk('Free from'), cls: 'k-free' },
+  'free-end': { label: tk('Last day free'), cls: 'k-free' },
 };
-const CAL_LEGEND = [['coming', 'Arriving'], ['added', 'Added'], ['left', 'Left'], ['free', 'Free games']];
+const CAL_LEGEND = [['coming', tk('Arriving')], ['added', tk('Added')], ['left', tk('Left')], ['free', tk('Free games')]];
 const calGroup = (kind) => (kind.startsWith('free') ? 'free' : kind);
 const isFree = (item) => !!item.store && !item.service;
 
@@ -961,30 +973,31 @@ function renderCalendar() {
     to: grid[grid.length - 1].iso,
   });
   for (const [day, list] of days) days.set(day, list.filter((e) => !ui.calHidden.has(calGroup(e.kind))));
-  const monthName = new Date(`${ui.calMonth}-01T00:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  const monthName = new Date(`${ui.calMonth}-01T00:00:00`).toLocaleDateString(I18n.locale(), { month: 'long', year: 'numeric' });
   const inMonth = [...days].filter(([d]) => d.startsWith(ui.calMonth)).flatMap(([, l]) => l);
   const count = (k) => inMonth.filter((e) => calGroup(e.kind) === k).length;
-  $('#summary').textContent = `${monthName}: ${count('coming')} arriving · ${count('added')} added · ${count('left')} left${ui.mineOnly ? ' · in your plans' : ''}`;
+  const counts = { month: monthName, coming: count('coming'), added: count('added'), left: count('left') };
+  $('#summary').textContent = ui.mineOnly ? t('{month}: {coming} arriving · {added} added · {left} left · in your plans', counts) : t('{month}: {coming} arriving · {added} added · {left} left', counts);
 
   const go = (month, day = null) => { ui.calMonth = month; ui.calDay = day; render(true); };
   const head = el('div', { class: 'cal-head' },
-    el('button', { class: 'cal-nav', title: 'Previous month', onclick: () => go(Calendar.shiftMonth(ui.calMonth, -1)) }, '‹'),
+    el('button', { class: 'cal-nav', title: t('Previous month'), onclick: () => go(Calendar.shiftMonth(ui.calMonth, -1)) }, '‹'),
     el('h2', {}, monthName),
-    el('button', { class: 'cal-nav', title: 'Next month', onclick: () => go(Calendar.shiftMonth(ui.calMonth, 1)) }, '›'),
-    ui.calMonth !== today.slice(0, 7) ? el('button', { class: 'cal-nav', onclick: () => go(today.slice(0, 7)) }, 'Today') : null,
+    el('button', { class: 'cal-nav', title: t('Next month'), onclick: () => go(Calendar.shiftMonth(ui.calMonth, 1)) }, '›'),
+    ui.calMonth !== today.slice(0, 7) ? el('button', { class: 'cal-nav', onclick: () => go(today.slice(0, 7)) }, t('Today')) : null,
     el('div', { class: 'cal-legend' }, CAL_LEGEND.map(([k, label]) => el('button', {
       class: `cal-key k-${k} ${ui.calHidden.has(k) ? 'off' : ''}`,
-      title: ui.calHidden.has(k) ? 'Show these' : 'Hide these',
+      title: ui.calHidden.has(k) ? t('Show these') : t('Hide these'),
       onclick: () => { if (ui.calHidden.has(k)) ui.calHidden.delete(k); else ui.calHidden.add(k); render(true); },
-    }, el('span', { class: 'swatch' }), label))));
+    }, el('span', { class: 'swatch' }), t(label)))));
 
   // Xbox flags games as leaving without a date, so they can't go on a day.
   const undated = filtered(games).filter((g) => { const l = leaveInfo(g); return l && l.soon && !l.date && !l.past; }).length;
-  const note = undated ? el('p', { class: 'muted cal-note' }, `${undated} game${undated === 1 ? ' is' : 's are'} leaving soon without a date, so they aren't on the calendar. `,
-    el('button', { class: 'link inline', onclick: () => { ui.view = 'leaving'; render(); } }, 'See Leaving soon')) : null;
+  const note = undated ? el('p', { class: 'muted cal-note' }, tn(undated, '{n} game is leaving soon without a date, so they aren\'t on the calendar. ', '{n} games are leaving soon without a date, so they aren\'t on the calendar. '),
+    el('button', { class: 'link inline', onclick: () => { ui.view = 'leaving'; render(); } }, t('See Leaving soon'))) : null;
 
   const MAX = 3;
-  const weekdays = grid.slice(0, 7).map((c) => new Date(`${c.iso}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' }));
+  const weekdays = grid.slice(0, 7).map((c) => new Date(`${c.iso}T00:00:00`).toLocaleDateString(I18n.locale(), { weekday: 'short' }));
   const cells = grid.map((c) => {
     const list = days.get(c.iso) || [];
     const pick = (e) => (isFree(e.item) ? () => go(ui.calMonth, c.iso) : () => openDrawer(e.item));
@@ -993,8 +1006,8 @@ function renderCalendar() {
       onclick: (e) => { if (!e.target.closest('.cal-ev')) go(c.iso.slice(0, 7), ui.calDay === c.iso ? null : c.iso); },
     },
     el('div', { class: 'cal-num' }, String(Number(c.iso.slice(8)))),
-    list.slice(0, MAX).map((e) => el('button', { class: `cal-ev ${CAL_KINDS[e.kind].cls}`, title: `${CAL_KINDS[e.kind].label}: ${e.item.title}`, onclick: pick(e) }, e.item.title)),
-    list.length > MAX ? el('div', { class: 'cal-more' }, `+${list.length - MAX} more`) : null);
+    list.slice(0, MAX).map((e) => el('button', { class: `cal-ev ${CAL_KINDS[e.kind].cls}`, title: t('{kind}: {title}', { kind: t(CAL_KINDS[e.kind].label), title: e.item.title }), onclick: pick(e) }, e.item.title)),
+    list.length > MAX ? el('div', { class: 'cal-more' }, t('+{n} more', { n: list.length - MAX })) : null);
   });
   content.append(head, note, el('div', { class: 'cal-grid' }, weekdays.map((w) => el('div', { class: 'cal-wd' }, w)), cells));
 
@@ -1002,15 +1015,15 @@ function renderCalendar() {
   const keys = unlocked();
   const agendaDays = [...days.keys()].filter((d) => (ui.calDay ? d === ui.calDay : d.startsWith(ui.calMonth)) && days.get(d).length).sort();
   const agenda = el('div', { class: 'cal-agenda' },
-    ui.calDay ? el('button', { class: 'link', onclick: () => go(ui.calMonth) }, `Show all of ${monthName}`) : null);
-  if (!agendaDays.length) agenda.append(el('div', { class: 'empty small' }, ui.calDay ? 'Nothing on this day.' : 'Nothing dated this month with these filters.'));
+    ui.calDay ? el('button', { class: 'link', onclick: () => go(ui.calMonth) }, t('Show all of {month}', { month: monthName })) : null);
+  if (!agendaDays.length) agenda.append(el('div', { class: 'empty small' }, ui.calDay ? t('Nothing on this day.') : t('Nothing dated this month with these filters.')));
   for (const d of agendaDays) {
     const list = days.get(d);
-    agenda.append(el('div', { class: 'section-head' }, el('h3', {}, new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }))));
+    agenda.append(el('div', { class: 'section-head' }, el('h3', {}, new Date(`${d}T00:00:00`).toLocaleDateString(I18n.locale(), { weekday: 'long', day: 'numeric', month: 'long' }))));
     for (const kind of Object.keys(CAL_KINDS)) {
       const items = list.filter((e) => e.kind === kind).map((e) => e.item);
       if (!items.length) continue;
-      agenda.append(el('div', { class: `cal-kind ${CAL_KINDS[kind].cls}` }, `${CAL_KINDS[kind].label} (${items.length})`),
+      agenda.append(el('div', { class: `cal-kind ${CAL_KINDS[kind].cls}` }, t('{kind} ({n})', { kind: t(CAL_KINDS[kind].label), n: items.length })),
         kind.startsWith('free') ? el('div', { class: 'free-grid' }, items.map(freeCard)) : el('div', { class: 'grid' }, items.slice(0, 120).map((g) => card(g, keys))));
     }
   }
@@ -1041,17 +1054,17 @@ const openFree = () => free.games.filter((g) => !g.upcoming && !freeMark(g) && h
 
 function whenText(iso) {
   const d = new Date(iso);
-  return d.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString(I18n.locale(), { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 // "in 3 days", "in 5 hours"
 function inText(iso) {
   const ms = new Date(iso) - Date.now();
   const h = Math.round(ms / 3600000);
-  if (h < 1) return 'within the hour';
-  if (h < 36) return `in ${h} hour${h === 1 ? '' : 's'}`;
+  if (h < 1) return t('within the hour');
+  if (h < 36) return tn(h, 'in {n} hour', 'in {n} hours');
   const d = Math.round(h / 24);
-  return `in ${d} days`;
+  return tn(d, 'in {n} day', 'in {n} days');
 }
 
 async function setFreeMark(g, value) {
@@ -1077,79 +1090,82 @@ function freeCard(g) {
   const mark = freeMark(g);
   const soon = !mark && g.kind !== 'try' && g.end && new Date(g.end) - Date.now() < 26 * 3600000;
   const img = g.image ? el('img', { src: g.image, loading: 'lazy', alt: '' }) : null;
-  const art = el('div', { class: 'free-art' }, img || el('span', {}, g.mystery ? 'Mystery game' : g.title));
+  const art = el('div', { class: 'free-art' }, img || el('span', {}, g.mystery ? t('Mystery game') : g.title));
   if (img) img.addEventListener('error', () => img.replaceWith(el('span', {}, g.title)));
   const tryIt = g.kind === 'try';
+  const span = g.upcoming ? { start: whenText(g.start), end: g.end ? whenText(g.end) : '' } : null;
   const when = g.upcoming
-    ? `${tryIt ? 'Play free' : 'Free'} from ${whenText(g.start)}${g.end ? ` to ${whenText(g.end)}` : ''}`
-    : !g.end ? 'No end date given'
-      : tryIt ? `Play free until ${whenText(g.end)}, ${inText(g.end)}` : `Claim by ${whenText(g.end)}, ${inText(g.end)}`;
-  const needs = g.needs ? (hasPlanFor(g.needs) ? `With your ${NEEDS[g.needs]}` : `Needs ${NEEDS[g.needs]}`) : tryIt ? 'Open to everyone' : null;
+    ? (tryIt
+      ? (g.end ? t('Play free from {start} to {end}', span) : t('Play free from {start}', span))
+      : (g.end ? t('Free from {start} to {end}', span) : t('Free from {start}', span)))
+    : !g.end ? t('No end date given')
+      : tryIt ? t('Play free until {date}, {when}', { date: whenText(g.end), when: inText(g.end) }) : t('Claim by {date}, {when}', { date: whenText(g.end), when: inText(g.end) });
+  const needs = g.needs ? (hasPlanFor(g.needs) ? t('With your {plan}', { plan: NEEDS[g.needs] }) : t('Needs {plan}', { plan: NEEDS[g.needs] })) : tryIt ? t('Open to everyone') : null;
   const facts = [
-    g.worth ? `Usually ${g.worth}` : null,
-    g.limited ? 'Keys while they last' : null,
-    g.trial ? 'Timed trial' : tryIt ? 'The full game for the weekend; progress carries over if you buy it' : null,
-    g.store === 'psplus' ? 'Stays in your library while you have PS Plus' : null,
-    g.store === 'humble' ? 'Yours to keep once claimed' : null,
+    g.worth ? t('Usually {price}', { price: g.worth }) : null,
+    g.limited ? t('Keys while they last') : null,
+    g.trial ? t('Timed trial') : tryIt ? t('The full game for the weekend; progress carries over if you buy it') : null,
+    g.store === 'psplus' ? t('Stays in your library while you have PS Plus') : null,
+    g.store === 'humble' ? t('Yours to keep once claimed') : null,
   ].filter(Boolean);
   const also = freeAlsoIn(g);
-  const claim = g.store === 'prime' ? 'Claim with Prime' : g.store === 'psplus' ? 'Add on PS Store' : tryIt ? 'Get it on Xbox' : `Claim on ${store.short}`;
+  const claim = g.store === 'prime' ? t('Claim with Prime') : g.store === 'psplus' ? t('Add on PS Store') : tryIt ? t('Get it on Xbox') : t('Claim on {store}', { store: store.short });
   return el('div', { class: `free-card ${mark ? 'dim' : ''}` },
     art,
     el('div', { class: 'free-body' },
       el('div', { class: 'free-tags' }, el('span', { class: 'badge', style: `background:${store.color}` }, store.short),
-        mark === 'claimed' ? el('span', { class: 'badge done' }, tryIt ? 'Played' : 'Claimed') : null,
+        mark === 'claimed' ? el('span', { class: 'badge done' }, tryIt ? t('Played') : t('Claimed')) : null,
         needs ? el('span', { class: `free-needs ${g.needs && !hasPlanFor(g.needs) ? 'missing' : ''}` }, needs) : null),
       el('h4', {}, g.title),
       el('div', { class: `free-when ${soon && !g.upcoming ? 'urgent' : ''}` }, when),
       facts.length ? el('div', { class: 'muted' }, facts.join(' · ')) : null,
-      also ? el('div', { class: 'muted' }, `Also in ${also}`) : null,
+      also ? el('div', { class: 'muted' }, t('Also in {services}', { services: also })) : null,
       el('div', { class: 'free-actions' },
-        g.url ? el('button', { class: g.upcoming || mark ? 'mark' : 'primary', onclick: () => api.openExternal(g.url) }, g.upcoming ? (g.store === 'psplus' && /blog\./.test(g.url) ? 'Announcement ↗' : 'Store page ↗') : `${claim} ↗`) : null,
+        g.url ? el('button', { class: g.upcoming || mark ? 'mark' : 'primary', onclick: () => api.openExternal(g.url) }, g.upcoming ? (g.store === 'psplus' && /blog\./.test(g.url) ? t('Announcement ↗') : t('Store page ↗')) : `${claim} ↗`) : null,
         g.upcoming ? null : mark
-          ? el('button', { class: 'mark', onclick: () => setFreeMark(g, null) }, 'Undo')
-          : [el('button', { class: 'mark', title: 'Hide it and skip its reminder', onclick: () => setFreeMark(g, 'claimed') }, tryIt ? '✓ Played' : '✓ Claimed'),
-            el('button', { class: 'mark', title: 'Hide it and skip its reminder', onclick: () => setFreeMark(g, 'skip') }, 'Not interested')])));
+          ? el('button', { class: 'mark', onclick: () => setFreeMark(g, null) }, t('Undo'))
+          : [el('button', { class: 'mark', title: t('Hide it and skip its reminder'), onclick: () => setFreeMark(g, 'claimed') }, tryIt ? t('✓ Played') : t('✓ Claimed')),
+            el('button', { class: 'mark', title: t('Hide it and skip its reminder'), onclick: () => setFreeMark(g, 'skip') }, t('Not interested'))])));
 }
 
 function renderFree() {
   const content = $('#content');
   content.replaceChildren();
   // Ending soonest first; no end date last.
-  const byEnd = (a, b) => (a.end || '9').localeCompare(b.end || '9') || a.title.localeCompare(b.title);
+  const byEnd = (a, b) => (a.end || '9').localeCompare(b.end || '9') || a.title.localeCompare(b.title, I18n.locale());
   const shown = free.games.filter(freeShown);
   const hidden = free.games.filter((g) => !hasPlanFor(g.needs));
   const now = shown.filter((g) => !g.upcoming && !freeMark(g) && g.kind !== 'try').sort(byEnd);
   const weekend = shown.filter((g) => !g.upcoming && !freeMark(g) && g.kind === 'try').sort(byEnd);
   const next = shown.filter((g) => g.upcoming).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
   const done = shown.filter((g) => !g.upcoming && freeMark(g)).sort(byEnd);
-  const checked = free.at ? `checked ${new Date(free.at).toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' })}` : 'checking now…';
-  $('#summary').textContent = `${now.length} free to keep right now${weekend.length ? ` · ${weekend.length} free to play this weekend` : ''} · ${checked}`;
-  const SOURCE_NAMES = { epic: "Epic's list", gamerpower: 'GamerPower (Steam, GOG and Prime)', psplus: "PlayStation's monthly games list", psblog: 'the PlayStation Blog', fpd: 'Xbox Wire (Free Play Days)', humble: 'Humble Choice' };
+  const checked = free.at ? t('checked {date}', { date: new Date(free.at).toLocaleString(I18n.locale(), { weekday: 'short', hour: '2-digit', minute: '2-digit' }) }) : t('checking now…');
+  $('#summary').textContent = `${tn(now.length, '{n} free to keep right now', '{n} free to keep right now')}${weekend.length ? ` · ${tn(weekend.length, '{n} free to play this weekend', '{n} free to play this weekend')}` : ''} · ${checked}`;
+  const SOURCE_NAMES = { epic: t("Epic's list"), gamerpower: t('GamerPower (Steam, GOG and Prime)'), psplus: t("PlayStation's monthly games list"), psblog: t('the PlayStation Blog'), fpd: t('Xbox Wire (Free Play Days)'), humble: 'Humble Choice' };
   const failed = Object.keys(free.errors || {});
   if (failed.length) {
-    content.append(el('p', { class: 'muted' }, `Couldn't reach ${failed.map((k) => SOURCE_NAMES[k] || k).join(' or ')} this time, so you see what it found before.`));
+    content.append(el('p', { class: 'muted' }, t('Couldn\'t reach {sources} this time, so you see what it found before.', { sources: failed.map((k) => SOURCE_NAMES[k] || k).join(t(' or ')) })));
   }
   content.append(el('p', { class: 'muted free-lead' },
-    'Games you keep for good once claimed, plus your plans\' monthly games and free weekends. Epic\'s weekly games come from Epic\'s own store list; Steam, GOG and Prime Gaming (claimed through Amazon Luna) giveaways from ',
-    el('button', { class: 'link inline', onclick: () => api.openExternal('https://www.gamerpower.com/') }, 'GamerPower'),
-    '. PS Plus monthly games come from PlayStation\'s own list and the PlayStation Blog, Humble Choice games from Humble\'s page, and Xbox Free Play Days from Xbox Wire. You get an alert when new ones appear and on the last day of ones you haven\'t marked claimed.'));
+    tEl('Games you keep for good once claimed, plus your plans\' monthly games and free weekends. Epic\'s weekly games come from Epic\'s own store list; Steam, GOG and Prime Gaming (claimed through Amazon Luna) giveaways from {link}. PS Plus monthly games come from PlayStation\'s own list and the PlayStation Blog, Humble Choice games from Humble\'s page, and Xbox Free Play Days from Xbox Wire. You get an alert when new ones appear and on the last day of ones you haven\'t marked claimed.', {
+      link: el('button', { class: 'link inline', onclick: () => api.openExternal('https://www.gamerpower.com/') }, 'GamerPower'),
+    })));
   const section = (title, hint, items) => {
     if (!items.length) return;
     content.append(el('div', { class: 'section-head' }, el('h3', {}, title, el('span', { class: 'muted' }, ` ${items.length}`)), el('span', { class: 'muted' }, hint)),
       el('div', { class: 'free-grid' }, items.map(freeCard)));
   };
-  section('Free to keep now', 'Ending soonest first.', now);
-  section('Free to play this weekend', 'Xbox Free Play Days: the full game for a few days.', weekend);
-  section('Coming next', 'Epic\'s next free games and next month\'s PS Plus games.', next);
-  section('Claimed or not interested', '', done);
+  section(t('Free to keep now'), t('Ending soonest first.'), now);
+  section(t('Free to play this weekend'), t('Xbox Free Play Days: the full game for a few days.'), weekend);
+  section(t('Coming next'), t('Epic\'s next free games and next month\'s PS Plus games.'), next);
+  section(t('Claimed or not interested'), '', done);
   if (hidden.length) {
-    const plans = [...new Set(hidden.map((g) => NEEDS[g.needs]))].join(' or ');
+    const plans = [...new Set(hidden.map((g) => NEEDS[g.needs]))].join(t(' or '));
     content.append(el('p', { class: 'muted' },
-      ui.freeAll ? `Showing ${hidden.length} that need ${plans}, which you don't have. ` : `${hidden.length} more need ${plans}, which you don't have. `,
-      el('button', { class: 'link inline', onclick: () => { ui.freeAll = !ui.freeAll; render(true); } }, ui.freeAll ? 'Hide them' : 'Show them')));
+      ui.freeAll ? tn(hidden.length, 'Showing {n} that needs {plans}, which you don\'t have. ', 'Showing {n} that need {plans}, which you don\'t have. ', { plans }) : tn(hidden.length, '{n} more needs {plans}, which you don\'t have. ', '{n} more need {plans}, which you don\'t have. ', { plans }),
+      el('button', { class: 'link inline', onclick: () => { ui.freeAll = !ui.freeAll; render(true); } }, ui.freeAll ? t('Hide them') : t('Show them'))));
   }
-  if (!free.games.length) content.append(el('div', { class: 'empty' }, free.at ? 'No giveaways right now.' : 'Looking for giveaways…'));
+  if (!free.games.length) content.append(el('div', { class: 'empty' }, free.at ? t('No giveaways right now.') : t('Looking for giveaways…')));
 }
 
 function freeDue() {
@@ -1223,13 +1239,42 @@ function statsGames() {
 }
 
 // ---------- goals ----------
-const PER_WORD = { week: ['week', 'weeks'], month: ['month', 'months'], year: ['year', 'years'] };
-const goalTitle = (g) => `Beat ${g.count} ${g.unit === 'hours' ? `hour${g.count === 1 ? '' : 's'} of games` : `game${g.count === 1 ? '' : 's'}`} a ${PER_WORD[g.per][0]}`;
+// Every goal sentence, whole, per period (word order differs between languages).
+const PER_TEXT = {
+  week: {
+    games: (n) => tn(n, 'Beat {n} game a week', 'Beat {n} games a week'),
+    hours: (n) => tn(n, 'Beat {n} hour of games a week', 'Beat {n} hours of games a week'),
+    done: () => t('Done this week ✓'),
+    status: (left, done, target) => tn(left, '{done} of {target} this week · {n} day left', '{done} of {target} this week · {n} days left', { done, target }),
+    streak: (n) => tn(n, '🔥 {n} week in a row', '🔥 {n} weeks in a row'),
+    best: (n) => tn(n, 'Best: {n} week in a row', 'Best: {n} weeks in a row'),
+    last: (n) => tn(n, 'The last {n} week', 'The last {n} weeks'),
+  },
+  month: {
+    games: (n) => tn(n, 'Beat {n} game a month', 'Beat {n} games a month'),
+    hours: (n) => tn(n, 'Beat {n} hour of games a month', 'Beat {n} hours of games a month'),
+    done: () => t('Done this month ✓'),
+    status: (left, done, target) => tn(left, '{done} of {target} this month · {n} day left', '{done} of {target} this month · {n} days left', { done, target }),
+    streak: (n) => tn(n, '🔥 {n} month in a row', '🔥 {n} months in a row'),
+    best: (n) => tn(n, 'Best: {n} month in a row', 'Best: {n} months in a row'),
+    last: (n) => tn(n, 'The last {n} month', 'The last {n} months'),
+  },
+  year: {
+    games: (n) => tn(n, 'Beat {n} game a year', 'Beat {n} games a year'),
+    hours: (n) => tn(n, 'Beat {n} hour of games a year', 'Beat {n} hours of games a year'),
+    done: () => t('Done this year ✓'),
+    status: (left, done, target) => tn(left, '{done} of {target} this year · {n} day left', '{done} of {target} this year · {n} days left', { done, target }),
+    streak: (n) => tn(n, '🔥 {n} year in a row', '🔥 {n} years in a row'),
+    best: (n) => tn(n, 'Best: {n} year in a row', 'Best: {n} years in a row'),
+    last: (n) => tn(n, 'The last {n} year', 'The last {n} years'),
+  },
+};
+const goalTitle = (g) => (g.unit === 'hours' ? PER_TEXT[g.per].hours(g.count) : PER_TEXT[g.per].games(g.count));
 function periodLabel(start, per) {
   const d = new Date(`${start}T00:00:00`);
   if (per === 'year') return start.slice(0, 4);
-  if (per === 'month') return d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
-  return `Week of ${d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
+  if (per === 'month') return d.toLocaleDateString(I18n.locale(), { month: 'short', year: 'numeric' });
+  return t('Week of {date}', { date: d.toLocaleDateString(I18n.locale(), { day: 'numeric', month: 'short' }) });
 }
 
 function finishedList() {
@@ -1242,14 +1287,14 @@ function goalsPanel() {
   const undated = finished.filter((f) => !f.date).length;
   const today = todayIso();
   const saveGoals = async (list) => { await saveState({ goals: list }); render(true); };
-  const fmtAmount = (goal, n) => (goal.unit === 'hours' ? `${Math.round(n)} h` : `${n}`);
+  const fmtAmount = (goal, n) => (goal.unit === 'hours' ? t('{n} h', { n: Math.round(n) }) : `${n}`);
 
   const rows = goals.map((goal) => {
     const p = Goals.progress(goal, finished, today);
-    const [one, many] = PER_WORD[goal.per];
+    const per = PER_TEXT[goal.per];
     const c = p.current;
     const pctDone = Math.min(100, (c.done / p.target) * 100);
-    const status = c.met ? `Done this ${one} ✓` : `${fmtAmount(goal, c.done)} of ${fmtAmount(goal, p.target)} this ${one} · ${c.left} day${c.left === 1 ? '' : 's'} left`;
+    const status = c.met ? per.done() : per.status(c.left, fmtAmount(goal, c.done), fmtAmount(goal, p.target));
     const byId = new Map(finished.map((f) => [f.id, f.title]));
     const strip = p.history.slice(-12).map((x, i, arr) => {
       const now = i === arr.length - 1;
@@ -1259,33 +1304,34 @@ function goalsPanel() {
     return el('div', { class: 'goal' },
       el('div', { class: 'goal-head' },
         el('strong', {}, goalTitle(goal)),
-        el('button', { class: 'link danger inline', title: 'Remove this goal', onclick: () => saveGoals(goals.filter((x) => x.id !== goal.id)) }, '✕')),
+        el('button', { class: 'link danger inline', title: t('Remove this goal'), onclick: () => saveGoals(goals.filter((x) => x.id !== goal.id)) }, '✕')),
       el('div', { class: 'bar goal-bar' }, el('span', { class: 'bar-done', style: `width:${pctDone}%` })),
       el('div', { class: 'goal-meta' },
         el('span', {}, status),
-        el('span', { class: 'goal-streak', title: `Best: ${p.best} ${p.best === 1 ? one : many} in a row` },
-          p.streak ? `🔥 ${p.streak} ${p.streak === 1 ? one : many} in a row` : 'No streak yet', el('span', { class: 'muted' }, ` · best ${p.best}`))),
-      el('div', { class: 'goal-strip', title: `The last ${strip.length} ${many}` }, strip));
+        el('span', { class: 'goal-streak', title: per.best(p.best) },
+          p.streak ? per.streak(p.streak) : t('No streak yet'), el('span', { class: 'muted' }, t(' · best {n}', { n: p.best })))),
+      el('div', { class: 'goal-strip', title: per.last(strip.length) }, strip));
   });
 
   const count = el('input', { type: 'number', min: '1', step: '1', value: '2', class: 'goal-count' });
-  const unit = el('select', {}, el('option', { value: 'games' }, 'games'), el('option', { value: 'hours' }, 'hours of games'));
-  const per = el('select', {}, ['week', 'month', 'year'].map((x) => el('option', { value: x }, x)));
+  const unit = el('select', {}, el('option', { value: 'games' }, t('games')), el('option', { value: 'hours' }, t('hours of games')));
+  const PER_OPTION = { week: t('week'), month: t('month'), year: t('year') };
+  const per = el('select', {}, ['week', 'month', 'year'].map((x) => el('option', { value: x }, PER_OPTION[x])));
   per.value = 'month';
-  const add = el('button', { class: 'primary' }, 'Add goal');
+  const add = el('button', { class: 'primary' }, t('Add goal'));
   add.onclick = () => {
     const n = Math.round(Number(count.value));
     if (!(n > 0)) return;
     saveGoals([...goals, { id: `g${Date.now().toString(36)}`, count: n, unit: unit.value, per: per.value, since: today }]);
   };
   return el('div', { class: 'panel goals' },
-    el('h2', {}, 'Goals'),
+    el('h2', {}, t('Goals')),
     el('p', { class: 'muted' }, goals.length
-      ? 'Games count in the week, month or year you marked them completed. Hours are How Long To Beat main story times.'
-      : 'Set a goal, like beating two games a month, and see how you\'re doing and how many months in a row you\'ve made it. Games count in the week, month or year you mark them completed.'),
+      ? t('Games count in the week, month or year you marked them completed. Hours are How Long To Beat main story times.')
+      : t('Set a goal, like beating two games a month, and see how you\'re doing and how many months in a row you\'ve made it. Games count in the week, month or year you mark them completed.')),
     rows,
-    el('div', { class: 'form goal-add' }, el('span', {}, 'Beat'), count, unit, el('span', {}, 'a'), per, add),
-    undated ? el('p', { class: 'muted' }, `${undated} completed game${undated === 1 ? ' has' : 's have'} no finish date (marked before goals existed), so ${undated === 1 ? 'it doesn\'t' : 'they don\'t'} count. Open a game and set when you finished it.`) : null);
+    el('div', { class: 'form goal-add' }, tEl('Beat {count} {unit} a {per}', { count, unit, per }).map((x) => (typeof x === 'string' ? (x.trim() ? el('span', {}, x.trim()) : null) : x)), add),
+    undated ? el('p', { class: 'muted' }, tn(undated, '{n} completed game has no finish date (marked before goals existed), so it doesn\'t count. Open a game and set when you finished it.', '{n} completed games have no finish date (marked before goals existed), so they don\'t count. Open a game and set when you finished it.')) : null);
 }
 
 function renderStats() {
@@ -1301,72 +1347,72 @@ function renderStats() {
     subscribed,
   });
   const { totals } = st;
-  const nameOf = (id) => (id === Stats.OTHER ? 'Not in your plans' : serviceById(id)?.name || id);
+  const nameOf = (id) => (id === Stats.OTHER ? t('Not in your plans') : serviceById(id)?.name || id);
   const colorOf = (id) => (id === Stats.OTHER ? '#4b5263' : serviceById(id)?.color || '#666');
   const withGames = st.services.filter((r) => r.inPlans);
   $('#summary').textContent = withGames.length
-    ? `${totals.inPlans} games in your plans across ${withGames.length} service${withGames.length === 1 ? '' : 's'}`
-    : 'Pick your plans in Settings to see how far through them you are';
+    ? tn(withGames.length, '{count} games in your plans across {n} service', '{count} games in your plans across {n} services', { count: totals.inPlans })
+    : t('Pick your plans in Settings to see how far through them you are');
 
   content.append(goalsPanel());
   if (!totals.completed && !totals.played) {
-    content.append(el('div', { class: 'empty' }, 'Mark games as played or completed (or import your Steam library in Settings) and your statistics will show up here.'));
+    content.append(el('div', { class: 'empty' }, t('Mark games as played or completed (or import your Steam library in Settings) and your statistics will show up here.')));
     return;
   }
 
   const tile = (value, label, title) => el('div', { class: 'tile', title: title || '' }, el('div', { class: 'tile-num' }, value), el('div', { class: 'tile-label' }, label));
   content.append(el('div', { class: 'tiles' },
-    tile(totals.completed, 'completed'),
-    tile(totals.played, 'playing', 'Marked as played but not completed'),
-    st.finishRate != null ? tile(pct(st.finishRate), 'finish rate', 'Completed out of every game you have started') : null,
-    st.time.completedTimed ? tile(`${Math.round(st.time.completed)}h`, 'of games finished', `How Long To Beat main-story time of ${st.time.completedTimed} of your completed games`) : null,
-    st.averageScore != null ? tile(st.averageScore, 'average Metacritic', 'Average score of the games you completed') : null,
-    totals.inPlans ? tile(share(st.plans.completed / totals.inPlans), 'of your plans done', `${st.plans.completed} completed out of ${totals.inPlans} games in your plans`) : null,
-    state.steam?.owned ? tile(st.steamOwned, 'owned on Steam', 'Games in your plans that you also own on Steam') : null));
+    tile(totals.completed, t('completed')),
+    tile(totals.played, t('playing'), t('Marked as played but not completed')),
+    st.finishRate != null ? tile(pct(st.finishRate), t('finish rate'), t('Completed out of every game you have started')) : null,
+    st.time.completedTimed ? tile(t('{n}h', { n: Math.round(st.time.completed) }), t('of games finished'), t('How Long To Beat main-story time of {n} of your completed games', { n: st.time.completedTimed })) : null,
+    st.averageScore != null ? tile(st.averageScore, t('average Metacritic'), t('Average score of the games you completed')) : null,
+    totals.inPlans ? tile(share(st.plans.completed / totals.inPlans), t('of your plans done'), t('{done} completed out of {total} games in your plans', { done: st.plans.completed, total: totals.inPlans })) : null,
+    state.steam?.owned ? tile(st.steamOwned, t('owned on Steam'), t('Games in your plans that you also own on Steam')) : null));
 
   content.append(el('div', { class: 'chart-row' },
     el('div', { class: 'panel' },
-      el('h2', {}, 'Completed by service'),
-      el('p', { class: 'muted' }, 'A game in several of your services counts for the first one listed on its card.'),
-      donut(st.completedBy.map((x) => ({ label: nameOf(x.service), value: x.count, color: colorOf(x.service) })), totals.completed, 'completed')),
+      el('h2', {}, t('Completed by service')),
+      el('p', { class: 'muted' }, t('A game in several of your services counts for the first one listed on its card.')),
+      donut(st.completedBy.map((x) => ({ label: nameOf(x.service), value: x.count, color: colorOf(x.service) })), totals.completed, t('completed'))),
     el('div', { class: 'panel' },
-      el('h2', {}, 'Your plans by status'),
-      el('p', { class: 'muted' }, 'Every game in your plans, by how far you got with it.'),
+      el('h2', {}, t('Your plans by status')),
+      el('p', { class: 'muted' }, t('Every game in your plans, by how far you got with it.')),
       totals.inPlans
         ? donut([
-          { label: 'Completed', value: st.plans.completed, color: STATUS_COLOR.completed },
-          { label: 'Playing', value: st.plans.played, color: STATUS_COLOR.played },
-          { label: 'To play', value: st.plans.wishlist, color: STATUS_COLOR.wishlist },
-          { label: 'Ignored', value: st.plans.ignored, color: STATUS_COLOR.ignored },
-          { label: 'Not started', value: st.plans.untouched, color: STATUS_COLOR.untouched },
-        ], totals.inPlans, 'in plans')
-        : el('p', { class: 'muted' }, 'No plans picked yet.'))));
+          { label: t('Completed'), value: st.plans.completed, color: STATUS_COLOR.completed },
+          { label: t('Playing'), value: st.plans.played, color: STATUS_COLOR.played },
+          { label: t('To play'), value: st.plans.wishlist, color: STATUS_COLOR.wishlist },
+          { label: t('Ignored'), value: st.plans.ignored, color: STATUS_COLOR.ignored },
+          { label: t('Not started'), value: st.plans.untouched, color: STATUS_COLOR.untouched },
+        ], totals.inPlans, t('in plans'))
+        : el('p', { class: 'muted' }, t('No plans picked yet.')))));
 
   if (withGames.length) {
     content.append(el('div', { class: 'panel' },
-      el('h2', {}, 'Progress per service'),
+      el('h2', {}, t('Progress per service')),
       withGames.map((r) => el('div', { class: 'svc-progress', style: `--svc:${colorOf(r.service)}` },
         el('div', { class: 'svc-progress-name' }, nameOf(r.service)),
-        el('div', { class: 'bar', title: `${r.completed} completed, ${r.played} playing, of ${r.inPlans}` },
+        el('div', { class: 'bar', title: t('{completed} completed, {played} playing, of {total}', { completed: r.completed, played: r.played, total: r.inPlans }) },
           el('span', { class: 'bar-done', style: `width:${r.inPlans ? (r.completed / r.inPlans) * 100 : 0}%` }),
           el('span', { class: 'bar-playing', style: `width:${r.inPlans ? (r.played / r.inPlans) * 100 : 0}%` })),
-        el('div', { class: 'svc-progress-num' }, `${r.completed} of ${r.inPlans} completed · ${r.played} playing`)))));
+        el('div', { class: 'svc-progress-num' }, t('{completed} of {total} completed · {played} playing', { completed: r.completed, total: r.inPlans, played: r.played }))))));
   }
 
   if (st.genres.length) {
     const top = st.genres.slice(0, 8);
     const most = top[0].count;
     content.append(el('div', { class: 'panel' },
-      el('h2', {}, 'What you finish'),
-      el('p', { class: 'muted' }, 'Genres of your completed games (a game can have more than one).'),
+      el('h2', {}, t('What you finish')),
+      el('p', { class: 'muted' }, t('Genres of your completed games (a game can have more than one).')),
       top.map((x) => el('div', { class: 'svc-progress' },
-        el('div', { class: 'svc-progress-name' }, x.genre),
+        el('div', { class: 'svc-progress-name' }, t(x.genre)),
         el('div', { class: 'bar' }, el('span', { class: 'bar-genre', style: `width:${(x.count / most) * 100}%` })),
         el('div', { class: 'svc-progress-num' }, `${x.count}`)))));
   }
 
   if (st.time.playingTimed) {
-    content.append(el('p', { class: 'muted stats-note' }, `The ${st.time.playingTimed} games you're playing that have a How Long To Beat time add up to about ${Math.round(st.time.playing)} hours of main story.`));
+    content.append(el('p', { class: 'muted stats-note' }, t('The {n} games you\'re playing that have a How Long To Beat time add up to about {hours} hours of main story.', { n: st.time.playingTimed, hours: Math.round(st.time.playing) })));
   }
 }
 
@@ -1374,9 +1420,9 @@ function renderStats() {
 const regionCurrency = () => regions.find((r) => r.id === state.settings.region)?.currency || null;
 function money(amount, digits) {
   const currency = regionCurrency();
-  if (!currency) return amount.toFixed(2);
+  if (!currency) return amount.toLocaleString(I18n.locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false });
   const d = digits ?? (amount >= 100 ? 0 : 2);
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency, minimumFractionDigits: d, maximumFractionDigits: d }).format(amount);
+  return new Intl.NumberFormat(I18n.locale(), { style: 'currency', currency, minimumFractionDigits: d, maximumFractionDigits: d }).format(amount);
 }
 
 // The price you entered, else the one found in a store (in your currency).
@@ -1417,23 +1463,25 @@ function renderValue() {
     today: todayIso(),
     includePlayed,
   });
-  const lookingUp = priceProgress && priceProgress.done < priceProgress.total ? ` Looking up prices: ${priceProgress.done} of ${priceProgress.total}.` : '';
-  $('#summary').textContent = `Today's full store prices${regionCurrency() ? ` in ${regionCurrency()}` : ''}, not sale prices.${lookingUp}`;
+  const lookingUp = priceProgress && priceProgress.done < priceProgress.total ? t(' Looking up prices: {done} of {total}.', { done: priceProgress.done, total: priceProgress.total }) : '';
+  $('#summary').textContent = `${regionCurrency() ? t('Today\'s full store prices in {currency}, not sale prices.', { currency: regionCurrency() }) : t('Today\'s full store prices, not sale prices.')}${lookingUp}`;
 
   const tile = (value, label, title, cls = '') => el('div', { class: `tile ${cls}`, title: title || '' }, el('div', { class: 'tile-num' }, value), el('div', { class: 'tile-label' }, label));
   const ahead = v.saved >= 0;
   content.append(el('div', { class: 'tiles' },
-    tile(money(v.worth), `to buy the ${v.games} game${v.games === 1 ? '' : 's'} you beat`, v.priced < v.games ? `${v.games - v.priced} without a price yet` : ''),
-    tile(v.paid ? money(v.paid) : '—', 'paid in subscriptions', v.paid ? '' : 'Enter what you pay below'),
-    v.paid ? tile(money(Math.abs(v.saved)), ahead ? 'saved by subscribing' : 'more than buying them', '', ahead ? 'good' : 'bad') : null,
-    v.perGame ? tile(money(v.perGame), 'per game beaten', 'What each game cost you through subscriptions') : null,
-    v.perHour ? tile(money(v.perHour, 2), 'an hour played', `What you paid in subscriptions over about ${Math.round(v.hoursEst)} hours of play: How Long To Beat main story times${v.timed < v.games ? ` for ${v.timed} of the ${v.games} games, the rest counted at their average` : ''}`) : null,
-    v.boughtPerHour ? tile(money(v.boughtPerHour, 2), 'an hour if bought', 'Store prices over How Long To Beat times, for the games that have both') : null));
+    tile(money(v.worth), tn(v.games, 'to buy the {n} game you beat', 'to buy the {n} games you beat'), v.priced < v.games ? t('{n} without a price yet', { n: v.games - v.priced }) : ''),
+    tile(v.paid ? money(v.paid) : '—', t('paid in subscriptions'), v.paid ? '' : t('Enter what you pay below')),
+    v.paid ? tile(money(Math.abs(v.saved)), ahead ? t('saved by subscribing') : t('more than buying them'), '', ahead ? 'good' : 'bad') : null,
+    v.perGame ? tile(money(v.perGame), t('per game beaten'), t('What each game cost you through subscriptions')) : null,
+    v.perHour ? tile(money(v.perHour, 2), t('an hour played'), v.timed < v.games
+      ? t('What you paid in subscriptions over about {hours} hours of play: How Long To Beat main story times for {timed} of the {total} games, the rest counted at their average', { hours: Math.round(v.hoursEst), timed: v.timed, total: v.games })
+      : t('What you paid in subscriptions over about {hours} hours of play: How Long To Beat main story times', { hours: Math.round(v.hoursEst) })) : null,
+    v.boughtPerHour ? tile(money(v.boughtPerHour, 2), t('an hour if bought'), t('Store prices over How Long To Beat times, for the games that have both')) : null));
 
   const playedBox = el('input', { type: 'checkbox' });
   playedBox.checked = includePlayed;
   playedBox.addEventListener('change', async () => { await saveState({ settings: { ...state.settings, valueIncludePlayed: playedBox.checked } }); render(true); });
-  content.append(el('label', { class: 'check-row value-toggle' }, playedBox, el('span', {}, 'Count games you played but didn\'t finish')));
+  content.append(el('label', { class: 'check-row value-toggle' }, playedBox, el('span', {}, t('Count games you played but didn\'t finish'))));
 
   content.append(costsPanel(v), beatenPanel(v));
 }
@@ -1442,7 +1490,15 @@ function renderValue() {
 // paying per plan (a gap when you'd stopped), each at its own price.
 const thisMonth = () => todayIso().slice(0, 7);
 // The picker's last option: an amount you typed, or a way to type one.
-const listedLabel = (p, choices) => (choices.length ? 'Your own price, a month' : 'Price a month');
+const listedLabel = (p, choices) => (choices.length ? t('Your own price, a month') : t('Price a month'));
+// A listed price in the picker: "Ultimate: €29.99 for 3 months (€10.00 a month)".
+const choiceLabel = (c) => {
+  const v = { plan: t(c.name), price: money(c.amount, 2), monthly: money(c.monthly, 2) };
+  const text = c.months === 1 ? t('{plan}: {price} a month', v)
+    : c.months === 12 ? t('{plan}: {price} for a year ({monthly} a month)', v)
+      : tn(c.months, '{plan}: {price} for {n} month ({monthly} a month)', '{plan}: {price} for {n} months ({monthly} a month)', v);
+  return c.unsure ? t('{label} (unconfirmed)', { label: text }) : text;
+};
 const monthBefore = (m) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo - 2, 1)).toISOString().slice(0, 7); };
 
 function costsPanel(v) {
@@ -1465,18 +1521,18 @@ function costsPanel(v) {
     const choices = PlanPrices.options(s, currency, { tierName });
 
     const row = (p, i) => {
-      const picker = el('select', { class: 'price-pick', title: `List prices as of ${PlanPrices.AS_OF}` },
-        el('option', { value: '' }, choices.length ? 'Pick your plan…' : 'Enter the price'),
-        [...new Set(choices.map((c) => c.name))].map((name) => el('optgroup', { label: name },
+      const picker = el('select', { class: 'price-pick', title: t('List prices as of {date}', { date: PlanPrices.AS_OF }) },
+        el('option', { value: '' }, choices.length ? t('Pick your plan…') : t('Enter the price')),
+        [...new Set(choices.map((c) => c.name))].map((name) => el('optgroup', { label: t(name) },
           choices.filter((c) => c.name === name).map((c) => el('option', { value: `${c.plan}:${c.months}` },
-            `${c.name}: ${money(c.amount, 2)} ${c.months === 1 ? 'a month' : `for ${c.length}`}${c.months > 1 ? ` (${money(c.monthly, 2)} a month)` : ''}${c.unsure ? ' (unconfirmed)' : ''}`)))),
+            choiceLabel(c))))),
         el('option', { value: 'custom' }, listedLabel(p, choices)));
       // A listed price only while the amount still matches it (prices change).
       const listed = p.plan && choices.some((c) => `${c.plan}:${c.months}` === p.plan && c.monthly === p.monthly);
       picker.value = listed ? p.plan : (p.monthly != null || !choices.length ? 'custom' : '');
       // The amount box shows for a price of your own; a listed price says it all.
-      const monthly = el('input', { type: 'number', min: '0', step: '0.01', placeholder: 'a month', value: p.monthly ?? '' });
-      const own = el('span', { class: 'own-price', title: 'What you paid a month' }, monthly);
+      const monthly = el('input', { type: 'number', min: '0', step: '0.01', placeholder: t('a month'), value: p.monthly ?? '' });
+      const own = el('span', { class: 'own-price', title: t('What you paid a month') }, monthly);
       own.hidden = picker.value !== 'custom';
       picker.addEventListener('change', () => {
         const c = choices.find((x) => `${x.plan}:${x.months}` === picker.value);
@@ -1491,51 +1547,51 @@ function costsPanel(v) {
       from.addEventListener('change', () => update(i, { from: from.value || null }));
       const ongoing = el('input', { type: 'checkbox' });
       ongoing.checked = !p.to;
-      const to = p.to ? el('input', { type: 'month', value: p.to, max: thisMonth(), min: p.from || '' }) : el('span', { class: 'period-now' }, 'now');
+      const to = p.to ? el('input', { type: 'month', value: p.to, max: thisMonth(), min: p.from || '' }) : el('span', { class: 'period-now' }, t('now'));
       to.addEventListener('change', () => update(i, { to: to.value || null }));
       ongoing.addEventListener('change', () => update(i, { to: ongoing.checked ? null : (p.from && p.from > monthBefore(thisMonth()) ? p.from : monthBefore(thisMonth())) }));
       const paid = r?.periods?.find((x) => x.from === p.from && x.to === p.to && x.monthly === p.monthly);
       return el('div', { class: 'period' },
         el('div', { class: 'period-price' }, picker, own),
         el('div', { class: 'period-dates' },
-          el('span', { class: 'muted' }, 'from'), from, el('span', { class: 'muted' }, 'to'), to,
-          el('label', { class: 'check-row inline' }, ongoing, el('span', {}, 'still paying'))),
+          el('span', { class: 'muted' }, t('from')), from, el('span', { class: 'muted' }, t('to')), to,
+          el('label', { class: 'check-row inline' }, ongoing, el('span', {}, t('still paying')))),
         el('div', { class: 'period-sum' },
-          el('span', { class: 'muted' }, paid?.months ? `${paid.months} mo, ${money(paid.paid)}` : p.monthly && !p.from ? 'Set a start' : ''),
-          list.length > 1 || periods.length ? el('button', { class: 'link danger inline', title: 'Remove this period', onclick: () => savePeriods(s.id, list.filter((_, j) => j !== i)) }, '✕') : null));
+          el('span', { class: 'muted' }, paid?.months ? tn(paid.months, '{n} mo, {price}', '{n} mo, {price}', { price: money(paid.paid) }) : p.monthly && !p.from ? t('Set a start') : ''),
+          list.length > 1 || periods.length ? el('button', { class: 'link danger inline', title: t('Remove this period'), onclick: () => savePeriods(s.id, list.filter((_, j) => j !== i)) }, '✕') : null));
     };
 
-    const verdict = r && r.paid ? (r.value >= r.paid ? `saved ${money(r.value - r.paid)}` : `${money(r.paid - r.value)} more than buying`) : '';
+    const verdict = r && r.paid ? (r.value >= r.paid ? t('saved {price}', { price: money(r.value - r.paid) }) : t('{price} more than buying', { price: money(r.paid - r.value) })) : '';
     const last = list[list.length - 1];
     return el('div', { class: 'cost-block', style: `--svc:${s.color}` },
       el('div', { class: 'cost-head' },
-        el('div', { class: 'cost-name' }, el('span', { class: 'dot', style: `background:${s.color}` }), s.name, state.subscriptions[s.id] ? null : el('span', { class: 'tier' }, 'not in your plans now')),
+        el('div', { class: 'cost-name' }, el('span', { class: 'dot', style: `background:${s.color}` }), s.name, state.subscriptions[s.id] ? null : el('span', { class: 'tier' }, t('not in your plans now'))),
         el('div', { class: 'cost-sum' },
-          r?.paid ? el('div', {}, `${money(r.paid)} paid over ${r.months} month${r.months === 1 ? '' : 's'}`) : el('div', { class: 'muted' }, 'Not counted yet'),
-          r?.games ? el('div', { class: 'muted' }, `${r.games} beaten, worth ${money(r.value)}${verdict ? ` · ${verdict}` : ''}`) : null,
-          r?.perHour ? el('div', { class: 'muted', title: r.timed < r.games ? `How Long To Beat times for ${r.timed} of ${r.games} games; the rest counted at their average` : 'From How Long To Beat main story times' }, `${money(r.perHour, 2)} an hour over about ${Math.round(r.hoursEst)} hours`) : null)),
+          r?.paid ? el('div', {}, tn(r.months, '{price} paid over {n} month', '{price} paid over {n} months', { price: money(r.paid) })) : el('div', { class: 'muted' }, t('Not counted yet')),
+          r?.games ? el('div', { class: 'muted' }, `${t('{n} beaten, worth {price}', { n: r.games, price: money(r.value) })}${verdict ? ` · ${verdict}` : ''}`) : null,
+          r?.perHour ? el('div', { class: 'muted', title: r.timed < r.games ? t('How Long To Beat times for {timed} of {total} games; the rest counted at their average', { timed: r.timed, total: r.games }) : t('From How Long To Beat main story times') }, t('{price} an hour over about {hours} hours', { price: money(r.perHour, 2), hours: Math.round(r.hoursEst) })) : null)),
       list.map(row),
       el('button', { class: 'link inline add-period', onclick: () => {
         // Usually an earlier stretch: ended, with the same price to start from.
         const end = list.filter((p) => p.from).map((p) => p.from).sort()[0];
         savePeriods(s.id, [...(periods.length ? list : []), { from: null, to: end ? monthBefore(end) : monthBefore(thisMonth()), monthly: last?.monthly ?? null, ...(last?.plan ? { plan: last.plan } : {}) }]);
-      } }, '+ Add another period'));
+      } }, t('+ Add another period')));
   };
 
   const others = allServices().filter((s) => !shown.includes(s));
-  const addPast = el('select', {}, el('option', { value: '' }, 'Add a plan you paid for before…'), others.map((s) => el('option', { value: s.id }, s.name)));
+  const addPast = el('select', {}, el('option', { value: '' }, t('Add a plan you paid for before…')), others.map((s) => el('option', { value: s.id }, s.name)));
   addPast.addEventListener('change', () => {
     if (!addPast.value) return;
     ui.valueAdded = new Set([...(ui.valueAdded || []), addPast.value]);
     render(true);
   });
   return el('div', { class: 'panel' },
-    el('h2', {}, 'What you pay'),
+    el('h2', {}, t('What you pay')),
     el('p', { class: 'muted' },
-      'Pick each plan and its price (the list shows today\'s prices; change the amount if you paid something else), and when you started. ',
-      'If you stopped and came back later, untick "still paying", set when it ended and add another period. ',
-      'Yearly plans count as their price spread over 12 months. Leave out plans that come included with another, like EA Play with Game Pass Ultimate.'),
-    shown.length ? shown.map(block) : el('p', { class: 'muted' }, 'Pick your plans in Settings, or add one you paid for before below.'),
+      t('Pick each plan and its price (the list shows today\'s prices; change the amount if you paid something else), and when you started. '),
+      t('If you stopped and came back later, untick "still paying", set when it ended and add another period. '),
+      t('Yearly plans count as their price spread over 12 months. Leave out plans that come included with another, like EA Play with Game Pass Ultimate.')),
+    shown.length ? shown.map(block) : el('p', { class: 'muted' }, t('Pick your plans in Settings, or add one you paid for before below.')),
     others.length ? el('div', { class: 'form add-past' }, addPast) : null);
 }
 
@@ -1544,15 +1600,15 @@ function beatenPanel(v) {
   const keys = unlocked();
   const all = statsGames().filter((g) => ['completed', ...(state.settings.valueIncludePlayed ? ['played'] : [])].includes(markOf(g.id)));
   const counted = new Set(v.list.map((x) => x.game.id));
-  all.sort((a, b) => (counted.has(b.id) - counted.has(a.id)) || ((priceOf(b)?.amount || 0) - (priceOf(a)?.amount || 0)) || a.title.localeCompare(b.title));
+  all.sort((a, b) => (counted.has(b.id) - counted.has(a.id)) || ((priceOf(b)?.amount || 0) - (priceOf(a)?.amount || 0)) || a.title.localeCompare(b.title, I18n.locale()));
   const rows = all.map((g) => {
     const on = counted.has(g.id);
-    const box = el('input', { type: 'checkbox', title: 'Played through a subscription' });
+    const box = el('input', { type: 'checkbox', title: t('Played through a subscription') });
     box.checked = on;
     box.addEventListener('change', async () => { await saveState({ viaSub: { ...(state.viaSub || {}), [g.id]: box.checked } }); render(true); });
     const p = priceOf(g);
     const looked = prices[g.id];
-    const input = el('input', { type: 'number', min: '0', step: '0.01', class: 'price-input', placeholder: looked ? 'enter price' : 'looking up…', value: p?.manual ? p.amount : '' });
+    const input = el('input', { type: 'number', min: '0', step: '0.01', class: 'price-input', placeholder: looked ? t('enter price') : t('looking up…'), value: p?.manual ? p.amount : '' });
     input.addEventListener('change', async () => {
       const overrides = { ...(state.priceOverrides || {}) };
       if (input.value === '') delete overrides[g.id];
@@ -1561,26 +1617,26 @@ function beatenPanel(v) {
       render(true);
     });
     const shown = p && !p.manual
-      ? el('span', { class: 'price' }, el('button', { class: 'link inline', title: `Full price on ${p.source}`, onclick: () => p.url && api.openExternal(p.url) }, money(p.amount, 2)), el('span', { class: 'muted' }, ` ${p.source}`),
-        el('button', { class: 'link inline price-edit', title: 'Use a different price', onclick: (e) => { e.currentTarget.parentElement.replaceWith(input); input.focus(); } }, 'edit'))
+      ? el('span', { class: 'price' }, el('button', { class: 'link inline', title: t('Full price on {store}', { store: p.source }), onclick: () => p.url && api.openExternal(p.url) }, money(p.amount, 2)), el('span', { class: 'muted' }, ` ${p.source}`),
+        el('button', { class: 'link inline price-edit', title: t('Use a different price'), onclick: (e) => { e.currentTarget.parentElement.replaceWith(input); input.focus(); } }, t('edit')))
       : input;
     const h = beatHours(g);
-    const time = h ? el('span', { class: 'beaten-hours muted', title: p?.amount > 0 ? 'How Long To Beat main story, and the price over those hours' : 'How Long To Beat main story' },
-      `${h < 1 ? '<1' : Math.round(h)} h${p?.amount > 0 ? ` · ${money(p.amount / Math.max(h, 0.5), 2)}/h` : ''}`) : el('span', { class: 'beaten-hours' });
+    const time = h ? el('span', { class: 'beaten-hours muted', title: p?.amount > 0 ? t('How Long To Beat main story, and the price over those hours') : t('How Long To Beat main story') },
+      `${t('{n} h', { n: h < 1 ? '<1' : Math.round(h) })}${p?.amount > 0 ? ` · ${t('{price}/h', { price: money(p.amount / Math.max(h, 0.5), 2) })}` : ''}`) : el('span', { class: 'beaten-hours' });
     return el('div', { class: `beaten-row ${on ? '' : 'off'}` },
       el('label', { class: 'beaten-check' }, box, el('span', { class: 'beaten-title', title: g.title }, g.title)),
-      el('div', { class: 'meta' }, serviceOffers(g).slice(0, 3).map((o) => serviceTag(o)), markOf(g.id) === 'played' ? el('span', { class: 'tier' }, 'played') : null),
+      el('div', { class: 'meta' }, serviceOffers(g).slice(0, 3).map((o) => serviceTag(o)), markOf(g.id) === 'played' ? el('span', { class: 'tier' }, t('played')) : null),
       time,
       shown);
   });
   return el('div', { class: 'panel' },
-    el('h2', {}, 'Games you beat'),
-    el('p', { class: 'muted' }, 'Untick games you bought or played some other way; they don\'t count. Prices come from the service\'s own store, else Steam; Switch Online classics aren\'t sold anywhere, so enter what they\'re worth to you.'),
-    rows.length ? rows : el('p', { class: 'muted' }, 'Mark games as completed and they show up here.'));
+    el('h2', {}, t('Games you beat')),
+    el('p', { class: 'muted' }, t('Untick games you bought or played some other way; they don\'t count. Prices come from the service\'s own store, else Steam; Switch Online classics aren\'t sold anywhere, so enter what they\'re worth to you.')),
+    rows.length ? rows : el('p', { class: 'muted' }, t('Mark games as completed and they show up here.')));
 }
 
 function renderSubs() {
-  $('#summary').textContent = 'Your plans, region, background, updates, Steam, Xbox and PlayStation accounts, and profile export. Everything is saved on this computer.';
+  $('#summary').textContent = t('Your plans, region, background, updates, Steam, Xbox and PlayStation accounts, and profile export. Everything is saved on this computer.');
   const content = $('#content');
   content.replaceChildren();
 
@@ -1593,15 +1649,15 @@ function renderSubs() {
     const cat = catalogs.find((c) => c.service === s.id);
     const count = cat ? cat.games.length : (state.customGames || []).filter((g) => g.service === s.id).length;
     return el('div', { class: 'sub-row', style: `--svc:${s.color}` },
-      el('div', { class: 'sub-name' }, el('strong', {}, s.name), el('span', { class: 'muted' }, `${count} games`)),
+      el('div', { class: 'sub-name' }, el('strong', {}, s.name), el('span', { class: 'muted' }, tn(count, '{n} game', '{n} games'))),
       el('div', { class: 'seg' },
-        el('button', { class: current ? '' : 'on', onclick: () => pick('') }, 'Not subscribed'),
+        el('button', { class: current ? '' : 'on', onclick: () => pick('') }, t('Not subscribed')),
         s.tiers.map((t) => el('button', { class: current === t.id ? 'on' : '', onclick: () => pick(t.id) }, t.name))),
-      s.custom ? el('button', { class: 'link danger', onclick: () => removeCustomService(s) }, 'Remove') : null);
+      s.custom ? el('button', { class: 'link danger', onclick: () => removeCustomService(s) }, t('Remove')) : null);
   });
 
   content.append(el('div', { class: 'panel' },
-    el('div', { class: 'panel-head' }, el('h2', {}, 'My subscriptions'), el('button', { class: 'link', onclick: startOnboarding }, 'Run the welcome setup again')),
+    el('div', { class: 'panel-head' }, el('h2', {}, t('My subscriptions')), el('button', { class: 'link', onclick: startOnboarding }, t('Run the welcome setup again'))),
     rows));
   content.append(customServicePanel(), customGamePanel(), regionPanel(), backgroundPanel(), updatePanel(), steamPanel(), achievementsPanel('xbox'), achievementsPanel('psn'), backupPanel(), sourcesPanel());
 }
@@ -1617,14 +1673,14 @@ function backgroundPanel() {
     return el('label', { class: 'check-row' }, box, el('span', {}, el('strong', {}, label), el('span', { class: 'muted' }, ` ${hint}`)));
   };
   return el('div', { class: 'panel' },
-    el('h2', {}, 'Background'),
-    el('p', { class: 'muted' }, 'Subscroll can keep running in the system tray and check the lists once a day, so you hear about new and leaving games without opening it.'),
+    el('h2', {}, t('Background')),
+    el('p', { class: 'muted' }, t('Subscroll can keep running in the system tray and check the lists once a day, so you hear about new and leaving games without opening it.')),
     el('div', { class: 'checks' },
-      toggle('closeToTray', 'Keep running in the tray when the window is closed.', 'Quit from the tray icon\'s menu.', true),
-      system.startAtLogin ? toggle('startWithWindows', `${system.startAtLogin}.`, 'Starts in the tray, without opening the window.', false) : null,
-      toggle('alerts', 'Alerts.', 'A notification when games join a service in your plans, or games in your plans start leaving. Completed and ignored games are left out.', true),
-      toggle('freeAlerts', 'Free game alerts.', 'A notification when new games are free to keep, and on the last day of ones you haven\'t marked claimed.', true),
-      toggle('saleAlerts', 'Sale alerts.', 'A notification when a To play game that isn\'t in your plans goes on sale (Microsoft Store, PlayStation Store or Steam).', true)));
+      toggle('closeToTray', t('Keep running in the tray when the window is closed.'), t('Quit from the tray icon\'s menu.'), true),
+      system.startAtLogin ? toggle('startWithWindows', `${t(system.startAtLogin)}.`, t('Starts in the tray, without opening the window.'), false) : null,
+      toggle('alerts', t('Alerts.'), t('A notification when games join a service in your plans, or games in your plans start leaving. Completed and ignored games are left out.'), true),
+      toggle('freeAlerts', t('Free game alerts.'), t('A notification when new games are free to keep, and on the last day of ones you haven\'t marked claimed.'), true),
+      toggle('saleAlerts', t('Sale alerts.'), t('A notification when a To play game that isn\'t in your plans goes on sale (Microsoft Store, PlayStation Store or Steam).'), true)));
 }
 
 // ---------- newer version ----------
@@ -1641,20 +1697,20 @@ function renderUpdateBanner() {
     return;
   }
   box.replaceChildren(
-    el('div', { class: 'update-text' }, el('strong', {}, `Subscroll ${v} is out`), el('span', { class: 'muted' }, `You have ${update.current}.`)),
+    el('div', { class: 'update-text' }, el('strong', {}, t('Subscroll {version} is out', { version: v })), el('span', { class: 'muted' }, t('You have {version}.', { version: update.current }))),
     el('div', { class: 'update-actions' },
-      el('button', { class: 'primary', onclick: openDownload }, 'Download'),
-      el('button', { class: 'link', onclick: () => api.openExternal(update.latest.page) }, 'What\'s new')),
-    el('button', { class: 'link close', title: 'Hide until the next version', onclick: async () => { await saveState({ settings: { ...state.settings, updateDismissed: v } }); renderUpdateBanner(); } }, '✕'));
+      el('button', { class: 'primary', onclick: openDownload }, t('Download')),
+      el('button', { class: 'link', onclick: () => api.openExternal(update.latest.page) }, t('What\'s new'))),
+    el('button', { class: 'link close', title: t('Hide until the next version'), onclick: async () => { await saveState({ settings: { ...state.settings, updateDismissed: v } }); renderUpdateBanner(); } }, '✕'));
 }
 
 function updateLine() {
-  if (!update) return 'Not checked yet.';
-  const when = update.checkedAt ? new Date(update.checkedAt).toLocaleString() : null;
-  if (update.newer) return `Subscroll ${update.latest.version} is out.`;
-  if (update.error && !when) return `Couldn't check: ${update.error}`;
-  if (!when) return 'Not checked yet.';
-  return `You have the latest version (checked ${when}).${update.error ? ` The last check failed: ${update.error}` : ''}`;
+  if (!update) return t('Not checked yet.');
+  const when = update.checkedAt ? new Date(update.checkedAt).toLocaleString(I18n.locale()) : null;
+  if (update.newer) return t('Subscroll {version} is out.', { version: update.latest.version });
+  if (update.error && !when) return t('Couldn\'t check: {error}', { error: update.error });
+  if (!when) return t('Not checked yet.');
+  return `${t('You have the latest version (checked {when}).', { when })}${update.error ? ` ${t('The last check failed: {error}', { error: update.error })}` : ''}`;
 }
 
 function updatePanel() {
@@ -1662,10 +1718,10 @@ function updatePanel() {
   box.checked = state.settings.updateCheck !== false;
   box.addEventListener('change', () => saveState({ settings: { ...state.settings, updateCheck: box.checked } }));
   const line = el('p', { class: 'muted' }, updateLine());
-  const button = el('button', {}, 'Check now');
+  const button = el('button', {}, t('Check now'));
   button.onclick = async () => {
     button.disabled = true;
-    line.textContent = 'Checking…';
+    line.textContent = t('Checking…');
     try {
       update = await api.checkUpdate();
     } catch (e) {
@@ -1676,13 +1732,13 @@ function updatePanel() {
     $('#update-panel')?.replaceWith(updatePanel());
   };
   const panel = el('div', { class: 'panel' },
-    el('h2', {}, 'Updates'),
-    el('p', { class: 'muted' }, `You have Subscroll ${system.version || update?.current || ''}. New versions are published on GitHub; the app checks twice a day and tells you when one is out. It never downloads or installs anything itself: you download the new ${system.platform === 'linux' ? 'AppImage' : 'exe'} and use it in place of this one. Your plans, marks and settings carry over.`),
-    el('label', { class: 'check-row' }, box, el('span', {}, el('strong', {}, 'Check for new versions.'))),
+    el('h2', {}, t('Updates')),
+    el('p', { class: 'muted' }, t('You have Subscroll {version}. New versions are published on GitHub; the app checks twice a day and tells you when one is out. It never downloads or installs anything itself: you download the new {file} and use it in place of this one. Your plans, marks and settings carry over.', { version: system.version || update?.current || '', file: system.platform === 'linux' ? 'AppImage' : 'exe' })),
+    el('label', { class: 'check-row' }, box, el('span', {}, el('strong', {}, t('Check for new versions.')))),
     line,
     el('div', { class: 'row-actions' }, button,
-      update?.newer ? el('button', { class: 'primary', onclick: openDownload }, `Download ${update.latest.version}`) : null,
-      el('button', { class: 'link', onclick: () => api.openExternal(update?.latest?.page || update?.releases || 'https://github.com/viruztt/subscroll/releases') }, update?.newer ? 'What\'s new' : 'All releases')));
+      update?.newer ? el('button', { class: 'primary', onclick: openDownload }, t('Download {version}', { version: update.latest.version })) : null,
+      el('button', { class: 'link', onclick: () => api.openExternal(update?.latest?.page || update?.releases || 'https://github.com/viruztt/subscroll/releases') }, update?.newer ? t('What\'s new') : t('All releases'))));
   panel.id = 'update-panel';
   return panel;
 }
@@ -1690,16 +1746,15 @@ function updatePanel() {
 // Steam library import: owned games get a badge, played ones a mark.
 function steamPanel() {
   const s = state.steam;
-  const profile = el('input', { placeholder: 'Steam profile link or Steam ID', value: s?.profile || '' });
-  const key = el('input', { type: 'password', placeholder: s?.key ? 'API key saved (enter a new one to replace it)' : 'Steam Web API key', autocomplete: 'off' });
+  const profile = el('input', { placeholder: t('Steam profile link or Steam ID'), value: s?.profile || '' });
+  const key = el('input', { type: 'password', placeholder: s?.key ? t('API key saved (enter a new one to replace it)') : t('Steam Web API key'), autocomplete: 'off' });
   const status = el('p', { class: 'muted' });
   status.id = 'steam-status';
-  const games = (n) => `${n} game${n === 1 ? '' : 's'}`;
-  if (s?.importedAt) status.textContent = `Last imported ${new Date(s.importedAt).toLocaleString()}: ${games(s.count)} in your Steam library.`;
-  const button = el('button', { class: 'primary' }, s ? 'Import again' : 'Import');
+  if (s?.importedAt) status.textContent = tn(s.count, 'Last imported {date}: {n} game in your Steam library.', 'Last imported {date}: {n} games in your Steam library.', { date: new Date(s.importedAt).toLocaleString(I18n.locale()) });
+  const button = el('button', { class: 'primary' }, s ? t('Import again') : t('Import'));
   button.onclick = async () => {
     button.disabled = true;
-    status.textContent = 'Reading your Steam library…';
+    status.textContent = t('Reading your Steam library…');
     const r = await api.importSteam(profile.value, key.value);
     button.disabled = false;
     if (!r.ok) {
@@ -1711,7 +1766,8 @@ function steamPanel() {
     render(true);
     const { owned, inCatalogue, marked } = r.summary;
     const fresh = document.querySelector('#steam-status');
-    if (fresh) fresh.textContent = `Found ${games(owned)} on Steam. ${inCatalogue} of them ${inCatalogue === 1 ? 'is' : 'are'} in the services here, and ${marked ? `${marked} ${marked === 1 ? 'was' : 'were'} newly marked as played` : 'none needed marking as played'}.`;
+    const markedText = marked ? tn(marked, '{n} was newly marked as played', '{n} were newly marked as played') : t('none needed marking as played');
+    if (fresh) fresh.textContent = `${tn(owned, 'Found {n} game on Steam.', 'Found {n} games on Steam.')} ${tn(inCatalogue, '{n} of them is in the services here, and {marked}.', '{n} of them are in the services here, and {marked}.', { marked: markedText })}`;
   };
   const forget = async () => {
     state = await api.forgetSteam();
@@ -1720,43 +1776,49 @@ function steamPanel() {
   };
   const keyLink = el('button', { class: 'link inline', onclick: () => api.openExternal('https://steamcommunity.com/dev/apikey') }, 'steamcommunity.com/dev/apikey');
   return el('div', { class: 'panel' },
-    el('h2', {}, 'Steam library'),
+    el('h2', {}, t('Steam library')),
     el('p', { class: 'muted' },
-      `Games you own on Steam get an "On Steam" badge, and games you've played there for ${STEAM_PLAYED_MINUTES} minutes or more are marked as played (once, so you can still unmark them). It's read again with the daily refresh. You need a free Web API key from `, keyLink,
-      ' (sign in, type any domain such as localhost, and copy the key), and your Steam profile\'s Game details set to Public.'),
+      t('Games you own on Steam get an "On Steam" badge, and games you\'ve played there for {minutes} minutes or more are marked as played (once, so you can still unmark them). It\'s read again with the daily refresh. ', { minutes: STEAM_PLAYED_MINUTES }),
+      tEl('You need a free Web API key from {link} (sign in, type any domain such as localhost, and copy the key), and your Steam profile\'s Game details set to Public.', { link: keyLink })),
     el('div', { class: 'form' }, profile, key, button,
-      s ? el('button', { class: 'link danger', onclick: forget }, 'Forget Steam') : null),
+      s ? el('button', { class: 'link danger', onclick: forget }, t('Forget Steam')) : null),
     status);
 }
 
 // Xbox achievements (OpenXBL key) and PlayStation trophies (NPSSO code).
+// Sentences are functions, so they're translated when shown.
 const ACHIEVEMENTS = {
   xbox: {
-    title: 'Xbox achievements', field: 'key', noun: 'achievements', what: 'Xbox',
-    placeholder: 'OpenXBL API key', saved: 'API key saved (enter a new one to replace it)',
+    title: tk('Xbox achievements'), field: 'key', forget: tk('Forget Xbox'), reading: tk('Reading your achievements…'),
+    placeholder: tk('OpenXBL API key'), saved: tk('API key saved (enter a new one to replace it)'),
     link: 'https://xbl.io', linkText: 'xbl.io',
-    how: ' (sign in with your Xbox account, open your profile and create an API key). OpenXBL is a free service that reads your achievements from Xbox Live; its free plan allows 150 requests an hour, far more than Subscroll uses.',
+    imported: (n, date) => tn(n, 'Last imported {date}: {n} game with achievements.', 'Last imported {date}: {n} games with achievements.', { date }),
+    found: (n) => tn(n, 'Found {n} game with Xbox achievements.', 'Found {n} games with Xbox achievements.'),
+    intro: () => t('Games you\'ve earned Xbox achievements in are marked as played, and games at 100% as completed. Each game is marked once, so you can still change it. It\'s read again with the daily refresh. '),
+    how: (link) => tEl('You need a free API key from {link} (sign in with your Xbox account, open your profile and create an API key). OpenXBL is a free service that reads your achievements from Xbox Live; its free plan allows 150 requests an hour, far more than Subscroll uses.', { link }),
   },
   psn: {
-    title: 'PlayStation trophies', field: 'npsso', noun: 'trophies', what: 'PlayStation',
-    placeholder: 'NPSSO code', saved: 'NPSSO code saved (enter a new one to replace it)',
+    title: tk('PlayStation trophies'), field: 'npsso', forget: tk('Forget PlayStation'), reading: tk('Reading your trophies…'),
+    placeholder: tk('NPSSO code'), saved: tk('NPSSO code saved (enter a new one to replace it)'),
     link: 'https://ca.account.sony.com/api/v1/ssocookie', linkText: 'ca.account.sony.com/api/v1/ssocookie',
-    how: ' while signed in at playstation.com, and copy the 64-character "npsso" value. Treat it like a password: it signs in to your PlayStation account. Sony makes it run out after about two months, after which you paste a new one.',
+    imported: (n, date) => tn(n, 'Last imported {date}: {n} game with trophies.', 'Last imported {date}: {n} games with trophies.', { date }),
+    found: (n) => tn(n, 'Found {n} game with PlayStation trophies.', 'Found {n} games with PlayStation trophies.'),
+    intro: () => t('Games you\'ve earned PlayStation trophies in are marked as played, and games at 100% (or with the platinum trophy) as completed. Each game is marked once, so you can still change it. It\'s read again with the daily refresh. '),
+    how: (link) => tEl('You need your NPSSO code: open {link} while signed in at playstation.com, and copy the 64-character "npsso" value. Treat it like a password: it signs in to your PlayStation account. Sony makes it run out after about two months, after which you paste a new one.', { link }),
   },
 };
 
 function achievementsPanel(kind) {
   const c = ACHIEVEMENTS[kind];
   const a = state[kind];
-  const secret = el('input', { type: 'password', placeholder: a?.[c.field] ? c.saved : c.placeholder, autocomplete: 'off' });
+  const secret = el('input', { type: 'password', placeholder: a?.[c.field] ? t(c.saved) : t(c.placeholder), autocomplete: 'off' });
   const status = el('p', { class: 'muted' });
   status.id = `${kind}-status`;
-  const games = (n) => `${n} game${n === 1 ? '' : 's'}`;
-  if (a?.importedAt) status.textContent = `Last imported ${new Date(a.importedAt).toLocaleString()}: ${games(a.count)} with ${c.noun}.`;
-  const button = el('button', { class: 'primary' }, a ? 'Import again' : 'Import');
+  if (a?.importedAt) status.textContent = c.imported(a.count, new Date(a.importedAt).toLocaleString(I18n.locale()));
+  const button = el('button', { class: 'primary' }, a ? t('Import again') : t('Import'));
   button.onclick = async () => {
     button.disabled = true;
-    status.textContent = `Reading your ${c.noun}…`;
+    status.textContent = t(c.reading);
     const r = await api.importAchievements(kind, secret.value);
     button.disabled = false;
     if (!r.ok) {
@@ -1767,9 +1829,11 @@ function achievementsPanel(kind) {
     rebuildGames();
     render(true);
     const { titles, inCatalogue, played, completed } = r.summary;
-    const news = [played ? `${played} newly marked as played` : '', completed ? `${completed} as completed` : ''].filter(Boolean).join(' and ');
+    const playedText = played ? tn(played, '{n} newly marked as played', '{n} newly marked as played') : '';
+    const completedText = completed ? tn(completed, '{n} as completed', '{n} as completed') : '';
+    const news = playedText && completedText ? t('{played} and {completed}', { played: playedText, completed: completedText }) : playedText || completedText;
     const fresh = document.querySelector(`#${kind}-status`);
-    if (fresh) fresh.textContent = `Found ${games(titles)} with ${c.what} ${c.noun}. ${inCatalogue} of them ${inCatalogue === 1 ? 'is' : 'are'} in the services here${news ? `: ${news}` : ', and none needed new marks'}.`;
+    if (fresh) fresh.textContent = `${c.found(titles)} ${news ? tn(inCatalogue, '{n} of them is in the services here: {news}.', '{n} of them are in the services here: {news}.', { news }) : tn(inCatalogue, '{n} of them is in the services here, and none needed new marks.', '{n} of them are in the services here, and none needed new marks.')}`;
   };
   const forget = async () => {
     state = await api.forgetAchievements(kind);
@@ -1777,14 +1841,12 @@ function achievementsPanel(kind) {
     render(true);
   };
   return el('div', { class: 'panel' },
-    el('h2', {}, c.title),
+    el('h2', {}, t(c.title)),
     el('p', { class: 'muted' },
-      `Games you've earned ${c.what} ${c.noun} in are marked as played, and games at 100%${kind === 'psn' ? ' (or with the platinum trophy)' : ''} as completed. Each game is marked once, so you can still change it. It's read again with the daily refresh. You need `,
-      kind === 'xbox' ? 'a free API key from ' : 'your NPSSO code: open ',
-      el('button', { class: 'link inline', onclick: () => api.openExternal(c.link) }, c.linkText),
-      c.how),
+      c.intro(),
+      c.how(el('button', { class: 'link inline', onclick: () => api.openExternal(c.link) }, c.linkText))),
     el('div', { class: 'form' }, secret, button,
-      a ? el('button', { class: 'link danger', onclick: forget }, `Forget ${c.what}`) : null),
+      a ? el('button', { class: 'link danger', onclick: forget }, t(c.forget)) : null),
     status);
 }
 
@@ -1792,12 +1854,13 @@ function achievementsPanel(kind) {
 function achievementRows(g) {
   const key = Unify.matchKey(g.title);
   return ['xbox', 'psn'].flatMap((kind) => {
-    const t = state[kind]?.titles?.[key];
-    if (!t) return [];
-    const label = kind === 'xbox' ? 'Xbox' : 'Trophies';
-    const noun = kind === 'xbox' ? (t.earned === 1 && !t.total ? 'achievement' : 'achievements') : (t.earned === 1 ? 'trophy' : 'trophies');
-    const count = t.total ? `${t.earned} of ${t.total} ${noun}` : `${t.earned} ${noun}`;
-    return [el('dt', {}, label), el('dd', {}, `${count}, ${t.progress}%${t.completed ? ' (completed)' : ''}`)];
+    const a = state[kind]?.titles?.[key];
+    if (!a) return [];
+    const label = kind === 'xbox' ? 'Xbox' : t('Trophies');
+    const count = kind === 'xbox'
+      ? (a.total ? tn(a.total, '{earned} of {n} achievement', '{earned} of {n} achievements', { earned: a.earned }) : tn(a.earned, '{n} achievement', '{n} achievements'))
+      : (a.total ? tn(a.total, '{earned} of {n} trophy', '{earned} of {n} trophies', { earned: a.earned }) : tn(a.earned, '{n} trophy', '{n} trophies'));
+    return [el('dt', {}, label), el('dd', {}, a.completed ? t('{count}, {progress}% (completed)', { count, progress: a.progress }) : t('{count}, {progress}%', { count, progress: a.progress }))];
   });
 }
 
@@ -1805,20 +1868,21 @@ function achievementRows(g) {
 let profileNote = '';
 // Everything Subscroll keeps about you in one file, to keep safe or move to another PC.
 function backupPanel() {
-  const games = (n) => `${n} marked game${n === 1 ? '' : 's'}`;
-  const size = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+  const size = (b) => (b >= 1048576 ? t('{size} MB', { size: (b / 1048576).toFixed(1) }) : t('{size} KB', { size: Math.max(1, Math.round(b / 1024)) }));
   const status = el('p', { class: 'muted' }, profileNote);
   const lookups = el('input', { type: 'checkbox', checked: '' });
   const exportIt = async () => {
     const r = await api.exportBackup({ lookups: lookups.checked });
-    if (r.ok) status.textContent = profileNote = `Exported ${games(r.marks)}, your plans and settings (${size(r.bytes)}) to ${r.file}`;
+    if (r.ok) status.textContent = profileNote = tn(r.marks, 'Exported {n} marked game, your plans and settings ({size}) to {file}', 'Exported {n} marked games, your plans and settings ({size}) to {file}', { size: size(r.bytes), file: r.file });
   };
   const restore = async () => {
     const r = await api.importBackup();
     if (r.error) {
       status.textContent = profileNote = r.error;
     } else if (r.ok) {
-      profileNote = `Imported ${games(r.marks)}, your plans and settings${r.looked ? `, plus ${r.looked} looked-up detail${r.looked === 1 ? '' : 's'} such as scores and prices` : ''}.`;
+      profileNote = r.looked
+        ? tn(r.marks, 'Imported {n} marked game, your plans and settings, plus {looked}.', 'Imported {n} marked games, your plans and settings, plus {looked}.', { looked: tn(r.looked, '{n} looked-up detail such as scores and prices', '{n} looked-up details such as scores and prices') })
+        : tn(r.marks, 'Imported {n} marked game, your plans and settings.', 'Imported {n} marked games, your plans and settings.');
       state = r.state;
       rebuildGames();
       // Rebuilds this panel, which shows the note.
@@ -1827,21 +1891,21 @@ function backupPanel() {
   };
   status.id = 'backup-status';
   return el('div', { class: 'panel' },
-    el('h2', {}, 'Export & import profile'),
+    el('h2', {}, t('Export & import profile')),
     el('p', { class: 'muted' },
-      'Everything Subscroll keeps about you in one JSON file: plans, marks, To play list, your own services and games, settings, Value page costs, Steam link, free games you claimed, and when games joined or left each list. '
-      + 'Keep it safe or move it to another PC. Importing replaces your plans, marks and settings on this PC, and adds the history and looked-up data to what it already has. '
-      + 'The file includes your Steam, OpenXBL and PlayStation sign-in keys if you added them, so keep it to yourself.'),
-    el('div', { class: 'checks' }, el('label', { class: 'check-row' }, lookups, el('span', {}, el('strong', {}, 'Include looked-up data.'), el('span', { class: 'muted' }, ' Scores, play times, prices, descriptions and covers, so the other PC needn\'t look them all up again. Makes the file bigger.')))),
+      t('Everything Subscroll keeps about you in one JSON file: plans, marks, To play list, your own services and games, settings, Value page costs, Steam link, free games you claimed, and when games joined or left each list. ')
+      + t('Keep it safe or move it to another PC. Importing replaces your plans, marks and settings on this PC, and adds the history and looked-up data to what it already has. ')
+      + t('The file includes your Steam, OpenXBL and PlayStation sign-in keys if you added them, so keep it to yourself.')),
+    el('div', { class: 'checks' }, el('label', { class: 'check-row' }, lookups, el('span', {}, el('strong', {}, t('Include looked-up data.')), el('span', { class: 'muted' }, t(' Scores, play times, prices, descriptions and covers, so the other PC needn\'t look them all up again. Makes the file bigger.'))))),
     el('div', { class: 'form' },
-      el('button', { class: 'primary', onclick: exportIt }, 'Export profile…'),
-      el('button', { onclick: restore }, 'Import profile…')),
+      el('button', { class: 'primary', onclick: exportIt }, t('Export profile…')),
+      el('button', { onclick: restore }, t('Import profile…'))),
     status);
 }
 
 function customServicePanel() {
-  const name = el('input', { placeholder: 'Service name, e.g. Google Play Pass or Amazon Luna' });
-  const tiers = el('input', { placeholder: 'Plans, cheapest first, comma separated (optional)' });
+  const name = el('input', { placeholder: t('Service name, e.g. Google Play Pass or Amazon Luna') });
+  const tiers = el('input', { placeholder: t('Plans, cheapest first, comma separated (optional)') });
   const add = async () => {
     if (!name.value.trim()) return;
     const id = `custom-${Date.now().toString(36)}`;
@@ -1854,13 +1918,13 @@ function customServicePanel() {
     render(true);
   };
   return el('div', { class: 'panel' },
-    el('h2', {}, 'Add another service'),
-    el('p', { class: 'muted' }, 'For services without a public game list, add the service here and its games below.'),
-    el('div', { class: 'form' }, name, tiers, el('button', { class: 'primary', onclick: add }, 'Add service')));
+    el('h2', {}, t('Add another service')),
+    el('p', { class: 'muted' }, t('For services without a public game list, add the service here and its games below.')),
+    el('div', { class: 'form' }, name, tiers, el('button', { class: 'primary', onclick: add }, t('Add service'))));
 }
 
 async function removeCustomService(s) {
-  if (!confirm(`Remove ${s.name} and its games?`)) return;
+  if (!confirm(t('Remove {service} and its games?', { service: s.name }))) return;
   const subscriptions = { ...state.subscriptions };
   delete subscriptions[s.id];
   await saveState({
@@ -1875,7 +1939,7 @@ async function removeCustomService(s) {
 function customGamePanel() {
   const custom = state.customServices || [];
   if (custom.length === 0) return el('div');
-  const title = el('input', { placeholder: 'Game title' });
+  const title = el('input', { placeholder: t('Game title') });
   const svc = el('select', {}, custom.map((s) => el('option', { value: s.id }, s.name)));
   const tier = el('select');
   const fillTiers = () => {
@@ -1884,8 +1948,8 @@ function customGamePanel() {
   };
   svc.addEventListener('change', fillTiers);
   fillTiers();
-  const platform = el('input', { placeholder: 'Platform (optional)' });
-  const leave = el('input', { type: 'date', title: 'Leaving date (optional)' });
+  const platform = el('input', { placeholder: t('Platform (optional)') });
+  const leave = el('input', { type: 'date', title: t('Leaving date (optional)') });
   const add = async () => {
     if (!title.value.trim()) return;
     const id = `${svc.value}:${Date.now().toString(36)}`;
@@ -1898,45 +1962,67 @@ function customGamePanel() {
     render(true);
   };
   return el('div', { class: 'panel' },
-    el('h2', {}, 'Add a game to your own service'),
-    el('div', { class: 'form' }, title, svc, tier, platform, leave, el('button', { class: 'primary', onclick: add }, 'Add game')));
+    el('h2', {}, t('Add a game to your own service')),
+    el('div', { class: 'form' }, title, svc, tier, platform, leave, el('button', { class: 'primary', onclick: add }, t('Add game'))));
 }
 
 function regionPanel() {
   const current = state.settings.region || '';
   const select = el('select', {},
-    current ? null : el('option', { value: '' }, `Custom (${state.settings.market})`),
+    current ? null : el('option', { value: '' }, t('Custom ({market})', { market: state.settings.market })),
     regions.map((r) => el('option', { value: r.id }, r.name)));
   select.value = current;
   const note = el('span', { class: 'muted' });
   select.addEventListener('change', async () => {
     await saveState({ settings: { ...state.settings, region: select.value } });
     rebuildGames();
-    note.textContent = 'Refreshing the lists for this country…';
+    note.textContent = t('Refreshing the lists for this country…');
     await refresh();
     note.textContent = '';
   });
+  // The app's language: the system's (when it's one of these), or one you pick.
+  const language = el('select', {},
+    el('option', { value: 'auto' }, t('System language ({language})', { language: I18n.LANGS.find((l) => l.id === I18n.pick(navigator.language))?.name || 'English' })),
+    I18n.LANGS.map((l) => el('option', { value: l.id }, l.name)));
+  language.value = state.settings.uiLanguage || 'auto';
+  language.addEventListener('change', async () => {
+    await saveState({ settings: { ...state.settings, uiLanguage: language.value } });
+    // Everything on screen is built in the old language; start again in the new one.
+    try { sessionStorage.setItem('subscroll-view', 'subs'); } catch { /* opens on Browse instead */ }
+    location.reload();
+  });
   return el('div', { class: 'panel' },
-    el('h2', {}, 'Region'),
-    el('p', { class: 'muted' }, 'Game Pass and PS Plus catalogues differ a little by country. Switch Online only differs in Japan, which has some games the rest of the world doesn\'t (and the other way round).'),
-    el('div', { class: 'form' }, el('label', {}, 'Country ', select), note));
+    el('h2', {}, t('Region and language')),
+    el('p', { class: 'muted' }, t('Game Pass and PS Plus catalogues differ a little by country. Switch Online only differs in Japan, which has some games the rest of the world doesn\'t (and the other way round).')),
+    el('div', { class: 'form' }, el('label', {}, t('Country '), select), note),
+    el('div', { class: 'form language-row' }, el('label', {}, t('Language '), language)));
+}
+
+// Before anything is drawn: the language, and the static text in index.html.
+function applyLanguage() {
+  I18n.setLanguage(state.settings.uiLanguage || 'auto', navigator.languages || [navigator.language]);
+  document.documentElement.lang = I18n.language();
+  I18n.translatePage(document);
+  $('#refresh-btn').textContent = t('Refresh catalogues');
 }
 
 function sourcesPanel() {
   const rows = catalogs.map((c) => {
     const s = serviceById(c.service);
-    const when = c.fetchedAt ? new Date(c.fetchedAt).toLocaleString() : 'unknown';
-    return el('li', {}, el('strong', {}, s.name), `: ${c.games.length} games from the ${SOURCE_LABEL[c.source] || c.source}, updated ${when}`);
+    const when = c.fetchedAt ? new Date(c.fetchedAt).toLocaleString(I18n.locale()) : t('unknown');
+    const source = SOURCE_LABEL[c.source] ? t(SOURCE_LABEL[c.source]) : c.source;
+    return el('li', {}, el('strong', {}, s.name), tn(c.games.length, ': {n} game from the {source}, updated {when}', ': {n} games from the {source}, updated {when}', { source, when }));
   });
   return el('div', { class: 'panel' },
-    el('h2', {}, 'Where the lists come from'),
+    el('h2', {}, t('Where the lists come from')),
     el('ul', { class: 'sources' }, rows),
     el('p', { class: 'muted' },
-      'Game Pass, EA Play and Ubisoft+ come from Microsoft\'s catalogue service (so EA Play and Ubisoft+ show their Xbox and Microsoft Store editions), PS Plus from playstation.com\'s game lists. If Game Pass or PS Plus are unreachable the app falls back to community mirrors on GitHub. ',
-      'Nintendo publishes no list, so Switch Online comes from Wikipedia\'s "Nintendo Classics" article, with box art from the libretro-thumbnails collection. ',
-      'Netflix games are the apps Netflix publishes on the App Store. Apple Arcade comes from Wikipedia\'s "Apple Arcade" article, with icons and details from the App Store, looked up a few at a time. ',
-      'Crunchyroll Game Vault is Crunchyroll\'s App Store account, Humble Choice the month\'s page on humblebundle.com. Google and Amazon publish no lists, so Google Play Pass comes from the playpassBrowser project and Amazon Luna from GameScriptions. ',
-      el('button', { class: 'link inline', onclick: () => api.openExternal('https://github.com/viruztt/subscroll#credits') }, 'Every source and credit'), '.'));
+      t('Game Pass, EA Play and Ubisoft+ come from Microsoft\'s catalogue service (so EA Play and Ubisoft+ show their Xbox and Microsoft Store editions), PS Plus from playstation.com\'s game lists. If Game Pass or PS Plus are unreachable the app falls back to community mirrors on GitHub. '),
+      t('Nintendo publishes no list, so Switch Online comes from Wikipedia\'s "Nintendo Classics" article, with box art from the libretro-thumbnails collection. '),
+      t('Netflix games are the apps Netflix publishes on the App Store. Apple Arcade comes from Wikipedia\'s "Apple Arcade" article, with icons and details from the App Store, looked up a few at a time. '),
+      tEl('Crunchyroll Game Vault is Crunchyroll\'s App Store account, Humble Choice the month\'s page on humblebundle.com. Google and Amazon publish no lists, so Google Play Pass comes from the playpassBrowser project and Amazon Luna from GameScriptions. {link}.', {
+        link: el('button', { class: 'link inline', onclick: () => api.openExternal('https://github.com/viruztt/subscroll#credits') }, t('Every source and credit')),
+      })));
 }
 
 function openDrawer(g) {
@@ -1947,7 +2033,7 @@ function openDrawer(g) {
   const keys = unlocked();
   // Per service when the game is in more than one.
   const plans = offers.length === 1 ? plansFor(g).map((t) => t.name).join(', ')
-    : offers.map((o) => el('div', {}, `${serviceById(o.service)?.name || o.service}: ${plansFor(o).map((t) => t.name).join(', ') || '—'}`));
+    : offers.map((o) => el('div', {}, t('{service}: {plans}', { service: serviceById(o.service)?.name || o.service, plans: plansFor(o).map((t) => t.name).join(', ') || '—' })));
   const close = closeDrawer;
   const deleteCustom = async () => {
     await saveState({ customGames: state.customGames.filter((c) => c.id !== g.id) });
@@ -1958,45 +2044,45 @@ function openDrawer(g) {
   drawer.replaceChildren(
     el('div', { class: 'drawer-backdrop', onclick: close }),
     el('div', { class: 'drawer-panel' },
-      el('button', { class: 'close', onclick: close, title: 'Close' }, '✕'),
+      el('button', { class: 'close', onclick: close, title: t('Close') }, '✕'),
       drawerRoll ? rollBar() : null,
       cover(g),
       el('h2', {}, g.title),
       serviceMeta(g, keys),
       playBar(g),
       el('dl', {},
-        el('dt', {}, 'Included in'), el('dd', {}, plans.length ? plans : '—'),
-        el('dt', {}, 'Platforms'), el('dd', {}, g.platforms.map(platformName).join(', ') || '—'),
-        g.versions?.length ? [el('dt', {}, 'Versions'), el('dd', {}, g.versions.join(', '))] : null,
+        el('dt', {}, t('Included in')), el('dd', {}, plans.length ? plans : '—'),
+        el('dt', {}, t('Platforms')), el('dd', {}, g.platforms.map(platformName).join(', ') || '—'),
+        g.versions?.length ? [el('dt', {}, t('Versions')), el('dd', {}, g.versions.join(', '))] : null,
         cloudRow(g),
         achievementRows(g),
-        g.steam ? [el('dt', {}, 'Steam'), el('dd', {}, el('button', { class: 'link inline', onclick: () => api.openExternal(`https://store.steampowered.com/app/${g.steam.appid}/`) }, steamText(g.steam).replace('You own this on Steam, ', 'Owned, '), ' ↗'))] : null,
-        g.genreTags?.length ? [el('dt', {}, 'Genre'), el('dd', {}, g.genreTags.join(', '))]
-          : g.genres?.length ? [el('dt', {}, 'Genre'), el('dd', {}, g.genres.join(', '))] : null,
+        g.steam ? [el('dt', {}, 'Steam'), el('dd', {}, el('button', { class: 'link inline', onclick: () => api.openExternal(`https://store.steampowered.com/app/${g.steam.appid}/`) }, g.steam.minutes ? t('Owned, {hours} played', { hours: fmtHours(g.steam.minutes / 60) }) : t('Owned, not played yet'), ' ↗'))] : null,
+        g.genreTags?.length ? [el('dt', {}, t('Genre')), el('dd', {}, g.genreTags.map((x) => t(x)).join(', '))]
+          : g.genres?.length ? [el('dt', {}, t('Genre')), el('dd', {}, g.genres.join(', '))] : null,
         studioRows(g),
-        g.releaseDate ? [el('dt', {}, 'Released'), el('dd', {}, fmtDate(g.releaseDate))] : null,
-        isComing(g) ? [el('dt', {}, 'Coming'), el('dd', {}, fmtDate(g.comingOn))] : null,
-        g.firstSeen && !isComing(g) ? [el('dt', {}, 'Added'), el('dd', {}, fmtDate(g.firstSeen))] : null,
+        g.releaseDate ? [el('dt', {}, t('Released')), el('dd', {}, fmtDate(g.releaseDate))] : null,
+        isComing(g) ? [el('dt', {}, t('Coming')), el('dd', {}, fmtDate(g.comingOn))] : null,
+        g.firstSeen && !isComing(g) ? [el('dt', {}, t('Added')), el('dd', {}, fmtDate(g.firstSeen))] : null,
         ratingRows(g),
         finishedRows(g),
         cheapestRows(g),
-        leave ? [el('dt', {}, 'Leaving'), el('dd', {}, leave.date ? fmtDate(leave.date) : `${leave.from?.length ? `${leave.from.join(', ')}: ` : ''}soon, no date announced`)] : null),
+        leave ? [el('dt', {}, t('Leaving')), el('dd', {}, leave.date ? fmtDate(leave.date) : leave.from?.length ? t('{services}: soon, no date announced', { services: leave.from.join(', ') }) : t('soon, no date announced'))] : null),
       markButtons(g, true),
       notesSection(g),
       detailsSection(g),
       offers.filter((o) => o.storeUrl).map((o) => el('button', { class: 'link', onclick: () => api.openExternal(o.storeUrl) },
-        o.service === 'nso' ? 'Open the Wikipedia list ↗' : offers.length > 1 ? `Open on ${serviceById(o.service)?.short || o.service} ↗` : 'Open store page ↗')),
-      g.custom ? el('button', { class: 'link danger', onclick: deleteCustom }, 'Delete this game') : null));
+        o.service === 'nso' ? t('Open the Wikipedia list ↗') : offers.length > 1 ? t('Open on {service} ↗', { service: serviceById(o.service)?.short || o.service }) : t('Open store page ↗'))),
+      g.custom ? el('button', { class: 'link danger', onclick: deleteCustom }, t('Delete this game')) : null));
   drawer.classList.remove('hidden');
 }
 
 // Your star rating and notes, saved as you type.
 function notesSection(g) {
   const note = noteOf(g.id) || {};
-  const stars = el('div', { class: 'stars-input', role: 'radiogroup', 'aria-label': 'Your rating' });
+  const stars = el('div', { class: 'stars-input', role: 'radiogroup', 'aria-label': t('Your rating') });
   const drawStars = (n) => stars.replaceChildren(...[1, 2, 3, 4, 5].map((i) => el('button', {
     class: `star ${i <= (n || 0) ? 'on' : ''}`,
-    title: n === i ? 'Clear your rating' : `${i} star${i === 1 ? '' : 's'}`,
+    title: n === i ? t('Clear your rating') : tn(i, '{n} star', '{n} stars'),
     'aria-checked': String(n === i),
     role: 'radio',
     onclick: async () => {
@@ -2007,7 +2093,7 @@ function notesSection(g) {
     },
   }, '★')));
   drawStars(note.stars);
-  const text = el('textarea', { class: 'note-text', rows: 3, placeholder: 'Your notes: where you got to, what to try, who recommended it…' });
+  const text = el('textarea', { class: 'note-text', rows: 3, placeholder: t('Your notes: where you got to, what to try, who recommended it…') });
   text.value = note.text || '';
   let timer;
   const saveText = async () => {
@@ -2019,7 +2105,7 @@ function notesSection(g) {
   // Re-drawing the list on blur shows the note badge without losing focus while typing.
   text.addEventListener('blur', async () => { await saveText(); render(true); });
   return el('section', { class: 'notes' },
-    el('div', { class: 'notes-head' }, el('span', { class: 'muted' }, 'Your rating'), stars),
+    el('div', { class: 'notes-head' }, el('span', { class: 'muted' }, t('Your rating')), stars),
     text);
 }
 
@@ -2036,7 +2122,7 @@ function playBar(g) {
         const r = await api.launch(a.url);
         if (r.ok) return;
         bar.querySelector('.play-error')?.remove();
-        bar.append(el('span', { class: 'muted play-error' }, a.kind === 'steam' ? "Couldn't open Steam. Is it installed?" : a.kind === 'xbox' ? "Couldn't open the Xbox app. Is it installed?" : "Couldn't open that link."));
+        bar.append(el('span', { class: 'muted play-error' }, a.kind === 'steam' ? t('Couldn\'t open Steam. Is it installed?') : a.kind === 'xbox' ? t('Couldn\'t open the Xbox app. Is it installed?') : t('Couldn\'t open that link.')));
       },
     }, a.label)));
     bar.classList.toggle('hidden', !actions.length);
@@ -2058,8 +2144,8 @@ function studioRows(g) {
   const dev = pick('developer');
   const pub = pick('publisher');
   return [
-    ...(dev ? [el('dt', {}, 'Developer'), el('dd', {}, dev)] : []),
-    ...(pub && pub !== dev ? [el('dt', {}, 'Publisher'), el('dd', {}, pub)] : []),
+    ...(dev ? [el('dt', {}, t('Developer')), el('dd', {}, dev)] : []),
+    ...(pub && pub !== dev ? [el('dt', {}, t('Publisher')), el('dd', {}, pub)] : []),
   ];
 }
 
@@ -2070,13 +2156,13 @@ function ratingRows(g) {
   if (r?.mc > 0) {
     rows.push(el('dt', {}, 'Metacritic'), el('dd', {}, link(r.mcUrl, el('span', { class: `score ${scoreClass(r.mc)}` }, r.mc), ' ↗')));
   } else if (r?.mcUrl) {
-    rows.push(el('dt', {}, 'Metacritic'), el('dd', {}, link(r.mcUrl, 'Not scored yet ↗')));
+    rows.push(el('dt', {}, 'Metacritic'), el('dd', {}, link(r.mcUrl, t('Not scored yet ↗'))));
   }
   if (r?.hltb) {
-    const parts = [['Main', r.hltb.main], ['+ Extras', r.hltb.plus], ['100%', r.hltb.all]]
+    const parts = [[t('Main'), r.hltb.main], [t('+ Extras'), r.hltb.plus], ['100%', r.hltb.all]]
       .filter(([, h]) => h != null)
       .map(([label, h]) => `${label} ${fmtHours(h)}`);
-    rows.push(el('dt', {}, 'Time to beat'), el('dd', {}, link(r.hltbUrl, parts.join(' · '), ' ↗')));
+    rows.push(el('dt', {}, t('Time to beat')), el('dd', {}, link(r.hltbUrl, parts.join(' · '), ' ↗')));
   }
   return rows;
 }
@@ -2109,22 +2195,22 @@ function detailsSection(g) {
   const d = loadDetails(g);
   const slot = el('section', { class: 'details', 'data-id': g.id });
   if (d instanceof Promise) {
-    slot.append(el('p', { class: 'muted loading' }, 'Loading description and screenshots…'));
+    slot.append(el('p', { class: 'muted loading' }, t('Loading description and screenshots…')));
     return slot;
   }
   if (d.description) {
     slot.append(el('p', { class: 'description' }, d.description));
     if (d.descriptionSource) {
-      slot.append(el('button', { class: 'link small', onclick: () => api.openExternal(d.descriptionSource) }, 'From Wikipedia ↗'));
+      slot.append(el('button', { class: 'link small', onclick: () => api.openExternal(d.descriptionSource) }, t('From Wikipedia ↗')));
     }
   } else {
-    slot.append(el('p', { class: 'muted' }, 'No description found for this game.'));
+    slot.append(el('p', { class: 'muted' }, t('No description found for this game.')));
   }
   const shots = d.screenshots || [];
   if (shots.length) {
     const gallery = el('div', { class: `shots ${g.service === 'nso' ? 'retro' : ''}` });
     for (const src of shots) {
-      const img = el('img', { src, loading: 'lazy', alt: 'Screenshot', onclick: () => openLightbox(src, g) });
+      const img = el('img', { src, loading: 'lazy', alt: t('Screenshot'), onclick: () => openLightbox(src, g) });
       // Not every retro game has a title screen or snap; drop missing ones.
       img.addEventListener('error', () => {
         img.remove();
@@ -2165,16 +2251,21 @@ function rollScope() {
   const parts = [];
   if (ui.services.size) parts.push([...ui.services].map((id) => serviceById(id)?.name || id).join(', '));
   if (ui.platform !== 'all') parts.push(platformName(ui.platform));
-  if (ui.genre !== 'all') parts.push(ui.genre);
-  if (ui.length !== 'all') parts.push(Genres.LENGTHS.find((l) => l.id === ui.length)?.label.toLowerCase());
+  if (ui.genre !== 'all') parts.push(t(ui.genre));
+  if (ui.length !== 'all') {
+    const label = Genres.LENGTHS.find((l) => l.id === ui.length)?.label;
+    parts.push(label && t(label).toLowerCase());
+  }
   return parts.length ? ` (${parts.join(', ')})` : '';
 }
 
 function rollBar() {
   const subs = unlocked().size > 0;
   return el('div', { class: 'roll-bar' },
-    el('span', { class: 'muted' }, `Rolled from ${drawerRoll.pool} ${subs ? 'games in your subscriptions' : 'games'}${rollScope()}, completed and ignored ones left out`),
-    el('button', { class: 'primary', onclick: roll }, '🎲 Roll again'));
+    el('span', { class: 'muted' }, subs
+      ? tn(drawerRoll.pool, 'Rolled from {n} game in your subscriptions{scope}, completed and ignored ones left out', 'Rolled from {n} games in your subscriptions{scope}, completed and ignored ones left out', { scope: rollScope() })
+      : tn(drawerRoll.pool, 'Rolled from {n} game{scope}, completed and ignored ones left out', 'Rolled from {n} games{scope}, completed and ignored ones left out', { scope: rollScope() })),
+    el('button', { class: 'primary', onclick: roll }, t('🎲 Roll again')));
 }
 
 function roll() {
@@ -2185,9 +2276,9 @@ function roll() {
     $('#drawer').replaceChildren(
       el('div', { class: 'drawer-backdrop', onclick: closeDrawer }),
       el('div', { class: 'drawer-panel' },
-        el('button', { class: 'close', onclick: closeDrawer, title: 'Close' }, '✕'),
-        el('h2', {}, 'Nothing to roll'),
-        el('p', { class: 'muted' }, 'No games match: everything in your subscriptions is completed, or the filters leave nothing.')));
+        el('button', { class: 'close', onclick: closeDrawer, title: t('Close') }, '✕'),
+        el('h2', {}, t('Nothing to roll')),
+        el('p', { class: 'muted' }, t('No games match: everything in your subscriptions is completed, or the filters leave nothing.'))));
     $('#drawer').classList.remove('hidden');
     return;
   }
@@ -2241,18 +2332,18 @@ function renderChrome() {
 
   const pf = $('#platform-filter');
   const current = ui.platform;
-  pf.replaceChildren(el('option', { value: 'all' }, 'Any platform'), ...platformsList().map((p) => el('option', { value: p }, platformName(p))),
+  pf.replaceChildren(el('option', { value: 'all' }, t('Any platform')), ...platformsList().map((p) => el('option', { value: p }, platformName(p))),
     el('option', { value: 'cloud' }, platformName('cloud')));
   pf.value = current;
 
   // Only genres some game actually has.
   const present = new Set(games.flatMap((g) => g.genreTags || []));
   const gf = $('#genre-filter');
-  gf.replaceChildren(el('option', { value: 'all' }, 'Any genre'), ...Genres.GENRES.filter((n) => present.has(n)).map((n) => el('option', { value: n }, n)));
+  gf.replaceChildren(el('option', { value: 'all' }, t('Any genre')), ...Genres.GENRES.filter((n) => present.has(n)).map((n) => el('option', { value: n }, t(n))));
   gf.value = present.has(ui.genre) ? ui.genre : 'all';
   if (gf.value !== ui.genre) ui.genre = 'all';
   const lf = $('#length-filter');
-  if (!lf.options.length) lf.replaceChildren(el('option', { value: 'all' }, 'Any length'), ...Genres.LENGTHS.map((l) => el('option', { value: l.id }, l.label)));
+  if (!lf.options.length) lf.replaceChildren(el('option', { value: 'all' }, t('Any length')), ...Genres.LENGTHS.map((l) => el('option', { value: l.id }, t(l.label))));
   lf.value = ui.length;
 
   const keys = unlocked();
@@ -2266,9 +2357,9 @@ function renderChrome() {
   const sync = catalogs.map((c) => {
     const s = serviceById(c.service);
     // Services added later have no bundled list until their first refresh.
-    if (!c.games.length) return el('div', {}, `${s.short}: `, el('span', { class: 'muted' }, 'not loaded yet'));
-    const when = c.fetchedAt ? new Date(c.fetchedAt).toLocaleDateString() : '—';
-    return el('div', {}, `${s.short}: ${when}`, el('span', { class: 'muted' }, ` (${SHORT_SOURCE[c.source] || c.source})`));
+    if (!c.games.length) return el('div', {}, tEl('{service}: {status}', { service: s.short, status: el('span', { class: 'muted' }, t('not loaded yet')) }));
+    const when = c.fetchedAt ? new Date(c.fetchedAt).toLocaleDateString(I18n.locale()) : '—';
+    return el('div', {}, tEl('{service}: {date} {source}', { service: s.short, date: when, source: el('span', { class: 'muted' }, t('({source})', { source: SHORT_SOURCE[c.source] ? t(SHORT_SOURCE[c.source]) : c.source })) }));
   });
   $('#sync').replaceChildren(...sync);
 }
@@ -2326,11 +2417,11 @@ function showRatingProgress(p) {
   if (!p || p.finished) {
     // A site that stopped answering is asked again on the next run.
     const names = (p?.stopped || []).map((x) => x.replace(/ \(.*\)$/, ''));
-    status.textContent = names.length ? `${names.join(' and ')} stopped answering, will try again later` : '';
+    status.textContent = names.length ? t('{sites} stopped answering, will try again later', { sites: new Intl.ListFormat(I18n.locale(), { type: 'conjunction' }).format(names) }) : '';
     status.title = (p?.stopped || []).join('\n');
     return;
   }
-  status.textContent = `Fetching scores and times: ${p.done} of ${p.total}`;
+  status.textContent = t('Fetching scores and times: {done} of {total}', { done: p.done, total: p.total });
 }
 
 api.onRatings(({ updates, progress }) => {
@@ -2354,18 +2445,18 @@ api.onRatings(({ updates, progress }) => {
 async function refresh() {
   const btn = $('#refresh-btn');
   btn.disabled = true;
-  btn.textContent = 'Refreshing…';
+  btn.textContent = t('Refreshing…');
   try {
     const { results, catalog } = await api.refresh();
     catalogs = catalog;
     rebuildGames();
     ratings = (await api.getRatings()).ratings;
     const failed = results.filter((r) => !r.ok);
-    btn.textContent = failed.length ? 'Some lists failed, retry' : 'Refresh catalogues';
+    btn.textContent = failed.length ? t('Some lists failed, retry') : t('Refresh catalogues');
     if (failed.length) btn.title = failed.map((r) => `${r.service}: ${r.errors.join('; ')}`).join('\n');
     render(true);
   } catch (err) {
-    btn.textContent = 'Refresh failed, retry';
+    btn.textContent = t('Refresh failed, retry');
     btn.title = String(err);
   } finally {
     btn.disabled = false;
@@ -2373,7 +2464,7 @@ async function refresh() {
 }
 
 api.onRefreshProgress(({ service, state: s }) => {
-  if (s === 'running') $('#refresh-btn').textContent = `Refreshing ${serviceById(service)?.name || service}…`;
+  if (s === 'running') $('#refresh-btn').textContent = t('Refreshing {service}…', { service: serviceById(service)?.name || service });
 });
 
 // ---------- wiring ----------
@@ -2385,10 +2476,10 @@ function wire() {
     $('#content').scrollTop = 0;
     render();
   });
-  let t;
+  let searchTimer;
   $('#search').addEventListener('input', (e) => {
-    clearTimeout(t);
-    t = setTimeout(() => { ui.search = e.target.value; render(); }, 120);
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => { ui.search = e.target.value; render(); }, 120);
   });
   $('#status-filter').addEventListener('change', (e) => { ui.status = e.target.value; render(); });
   $('#platform-filter').addEventListener('change', (e) => { ui.platform = e.target.value; render(); });
@@ -2417,6 +2508,7 @@ async function init() {
   ({ services, tierBadges, regions, system: sys } = await api.getServices());
   if (sys) system = sys;
   state = await api.getState();
+  applyLanguage();
   catalogs = await api.getCatalog();
   rebuildGames();
   prices = await api.getPrices();
@@ -2430,6 +2522,12 @@ async function init() {
   $('#hide-completed').checked = !!state.settings.hideCompleted;
   $('#hide-ignored').checked = state.settings.hideIgnored !== false;
   if (!hasSubs) ui.view = 'subs';
+  // Back where you were after switching language.
+  try {
+    const back = sessionStorage.getItem('subscroll-view');
+    if (back) ui.view = back;
+    sessionStorage.removeItem('subscroll-view');
+  } catch { /* not available */ }
   wire();
   render();
   loadFree().catch(() => {});

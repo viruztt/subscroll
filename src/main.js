@@ -24,8 +24,12 @@ const fs = require('fs');
 const linux = require('./linux');
 const updates = require('./updates');
 const Goals = require('../renderer/goals');
+const I18n = require('../renderer/i18n');
+require('../renderer/locales');
 
-const LOGIN_LABEL = process.platform === 'win32' ? 'Start with Windows' : 'Start when you log in';
+const { t, tn, tk, locale } = I18n;
+
+const LOGIN_LABEL = process.platform === 'win32' ? tk('Start with Windows') : tk('Start when you log in');
 
 let store;
 let catalog;
@@ -88,7 +92,7 @@ function createWindow() {
     win.hide();
     if (!store.get().trayHintShown) {
       store.update({ trayHintShown: true });
-      notify({ title: 'Subscroll is still running', body: 'It keeps checking your services in the background. Right-click the tray icon to quit.' });
+      notify({ title: t('Subscroll is still running'), body: t('It keeps checking your services in the background. Right-click the tray icon to quit.') });
     }
   });
   // Store links open in the user's browser, never inside the app.
@@ -200,16 +204,27 @@ function createTray() {
 function updateTray() {
   if (!tray) return;
   const { settings, lastRefresh } = store.get();
-  tray.setToolTip(lastRefresh ? `Subscroll: lists checked ${new Date(lastRefresh).toLocaleString()}` : 'Subscroll');
+  tray.setToolTip(lastRefresh ? t('Subscroll: lists checked {date}', { date: new Date(lastRefresh).toLocaleString(locale()) }) : 'Subscroll');
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Open Subscroll', click: () => showWindow() },
-    { label: refreshing ? 'Refreshing…' : 'Refresh now', enabled: !refreshing, click: () => refreshAll().catch(() => {}) },
+    { label: t('Open Subscroll'), click: () => showWindow() },
+    { label: refreshing ? t('Refreshing…') : t('Refresh now'), enabled: !refreshing, click: () => refreshAll().catch(() => {}) },
     { type: 'separator' },
-    { label: LOGIN_LABEL, type: 'checkbox', checked: !!settings.startWithWindows, visible: canStartAtLogin(), click: (item) => setSettings({ startWithWindows: item.checked }) },
-    { label: 'Alerts', type: 'checkbox', checked: settings.alerts !== false, click: (item) => setSettings({ alerts: item.checked }) },
+    { label: t(LOGIN_LABEL), type: 'checkbox', checked: !!settings.startWithWindows, visible: canStartAtLogin(), click: (item) => setSettings({ startWithWindows: item.checked }) },
+    { label: t('Alerts'), type: 'checkbox', checked: settings.alerts !== false, click: (item) => setSettings({ alerts: item.checked }) },
     { type: 'separator' },
-    { label: 'Quit', click: () => { quitting = true; app.quit(); } },
+    { label: t('Quit'), click: () => { quitting = true; app.quit(); } },
   ]));
+}
+
+// The tray menu and notifications follow the window's language setting.
+function applyLanguage() {
+  let system = [];
+  try {
+    system = app.getPreferredSystemLanguages();
+  } catch {
+    system = [app.getLocale()];
+  }
+  I18n.setLanguage(store.get().settings.uiLanguage || 'auto', system);
 }
 
 function setSettings(patch) {
@@ -269,7 +284,7 @@ async function checkUpdate(force = false) {
   if (st.newer && store.get().updateNotified !== st.latest.version) {
     store.update({ updateNotified: st.latest.version });
     if (settings.alerts !== false && !(win?.isVisible() && win.isFocused())) {
-      notify({ title: `Subscroll ${st.latest.version} is out`, body: `You have ${st.current}. Open Subscroll to download the new version.` });
+      notify({ title: t('Subscroll {version} is out', { version: st.latest.version }), body: t('You have {current}. Open Subscroll to download the new version.', { current: st.current }) });
     }
   }
   return st;
@@ -287,13 +302,16 @@ async function checkSales() {
   const r = sales.saleAlerts(saleWatch, prices.all(), store.get().saleAlerted || {}, { currency });
   store.update({ saleAlerted: r.alerted });
   if (!r.fresh.length || settings.alerts === false || settings.saleAlerts === false || (win?.isVisible() && win.isFocused())) return;
-  const fmt = (x, cur) => { try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur }).format(x); } catch { return x.toFixed(2); } };
+  const fmt = (x, cur) => { try { return new Intl.NumberFormat(locale(), { style: 'currency', currency: cur }).format(x); } catch { return x.toFixed(2); } };
   if (r.fresh.length === 1) {
     const [g] = r.fresh;
-    const until = g.saleEnds ? `, until ${new Date(g.saleEnds).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : '';
-    notify({ view: 'toplay', title: `On sale: ${g.title}`, body: `${fmt(g.sale, g.currency)}, ${g.off}% off${until}` });
+    const price = fmt(g.sale, g.currency);
+    const body = g.saleEnds
+      ? t('{price}, {off}% off, until {date}', { price, off: g.off, date: new Date(g.saleEnds).toLocaleDateString(locale(), { day: 'numeric', month: 'short' }) })
+      : t('{price}, {off}% off', { price, off: g.off });
+    notify({ view: 'toplay', title: t('On sale: {title}', { title: g.title }), body });
   } else {
-    notify({ view: 'toplay', title: `On sale from your To play list: ${r.fresh.length} games`, body: listTitles(r.fresh.map((g) => `${g.title} (${g.off}% off)`)) });
+    notify({ view: 'toplay', title: tn(r.fresh.length, 'On sale from your To play list: {n} game', 'On sale from your To play list: {n} games'), body: listTitles(r.fresh.map((g) => t('{title} ({off}% off)', { title: g.title, off: g.off }))) });
   }
 }
 
@@ -321,12 +339,11 @@ async function refreshFree() {
   });
   win?.webContents.send('free-changed');
   if (settings.alerts === false || settings.freeAlerts === false || (win?.isVisible() && win.isFocused())) return r;
-  const n = (x) => `${x} game${x === 1 ? '' : 's'}`;
   const keepers = picked.added.filter((g) => g.kind !== 'try');
   const weekend = picked.added.filter((g) => g.kind === 'try');
-  if (keepers.length) notify({ view: 'free', title: `Free to keep: ${n(keepers.length)}`, body: listTitles(keepers.map((g) => g.title)) });
-  if (weekend.length) notify({ view: 'free', title: `Free Play Days: ${n(weekend.length)}`, body: listTitles(weekend.map((g) => g.title)) });
-  if (picked.ending.length) notify({ view: 'free', title: `Last day to claim: ${n(picked.ending.length)}`, body: listTitles(picked.ending.map((g) => g.title)) });
+  if (keepers.length) notify({ view: 'free', title: tn(keepers.length, 'Free to keep: {n} game', 'Free to keep: {n} games'), body: listTitles(keepers.map((g) => g.title)) });
+  if (weekend.length) notify({ view: 'free', title: tn(weekend.length, 'Free Play Days: {n} game', 'Free Play Days: {n} games'), body: listTitles(weekend.map((g) => g.title)) });
+  if (picked.ending.length) notify({ view: 'free', title: tn(picked.ending.length, 'Last day to claim: {n} game', 'Last day to claim: {n} games'), body: listTitles(picked.ending.map((g) => g.title)) });
   return r;
 }
 
@@ -457,6 +474,7 @@ function registerIpc() {
     // A newly completed game is looked up for "Because you beat".
     if (clean.marks && Object.keys(clean.marks).some((id) => clean.marks[id] === 'completed' && before[id] !== 'completed')) startWiki();
     if (clean.settings) {
+      applyLanguage();
       applyLoginItem();
       updateTray();
     }
@@ -488,9 +506,9 @@ function registerIpc() {
   });
   ipcMain.handle('export-backup', async (_e, opts = {}) => {
     const { canceled, filePath } = await dialog.showSaveDialog(win, {
-      title: 'Export your Subscroll profile',
+      title: t('Export your Subscroll profile'),
       defaultPath: path.join(app.getPath('documents'), backupName()),
-      filters: [{ name: 'Subscroll profile', extensions: ['json'] }],
+      filters: [{ name: t('Subscroll profile'), extensions: ['json'] }],
     });
     if (canceled || !filePath) return { ok: false };
     const history = Object.fromEntries(catalog.loadAll().map((c) => [c.service, c.history || { firstSeen: {}, departed: [] }]));
@@ -501,9 +519,9 @@ function registerIpc() {
   });
   ipcMain.handle('import-backup', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-      title: 'Import a Subscroll profile',
+      title: t('Import a Subscroll profile'),
       properties: ['openFile'],
-      filters: [{ name: 'Subscroll profile', extensions: ['json'] }],
+      filters: [{ name: t('Subscroll profile'), extensions: ['json'] }],
     });
     if (canceled || !filePaths.length) return { ok: false };
     let backup;
@@ -513,15 +531,16 @@ function registerIpc() {
       return { ok: false, error: err.message };
     }
     const count = (marks) => Object.keys(marks).length;
-    const when = backup.exportedAt ? ` from ${new Date(backup.exportedAt).toLocaleDateString()}` : '';
     const { response } = await dialog.showMessageBox(win, {
       type: 'question',
-      buttons: ['Import', 'Cancel'],
+      buttons: [t('Import'), t('Cancel')],
       defaultId: 0,
       cancelId: 1,
-      message: `Import the profile${when}?`,
-      detail: `Your plans, settings and ${count(store.get().marks)} marked games on this PC are replaced by the profile's ${count(backup.state.marks)} marked games. `
-        + 'List history and looked-up scores, prices and descriptions are added to what this PC already has.',
+      message: backup.exportedAt
+        ? t('Import the profile from {date}?', { date: new Date(backup.exportedAt).toLocaleDateString(locale()) })
+        : t('Import the profile?'),
+      detail: t('Your plans, settings and {mine} marked games on this PC are replaced by the profile\'s {theirs} marked games. ', { mine: count(store.get().marks), theirs: count(backup.state.marks) })
+        + t('List history and looked-up scores, prices and descriptions are added to what this PC already has.'),
     });
     if (response !== 0) return { ok: false };
     const { settings, ...rest } = backup.state;
@@ -613,6 +632,7 @@ app.whenReady().then(() => {
   if (!firstCopy) return;
   const dataDir = app.getPath('userData');
   store = new Store(dataDir);
+  applyLanguage();
   catalog = new Catalog(dataDir);
   details = new DetailsCache(dataDir);
   ratings = new Ratings(dataDir, {

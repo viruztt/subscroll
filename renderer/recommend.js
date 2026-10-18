@@ -6,6 +6,7 @@
 //   today ('YYYY-MM-DD')
 //   tastes: { genres: [...], length: 'any' | 'short' | 'long' }
 (function (root) {
+  const I18n = root.I18n || (typeof require === 'function' ? require('./i18n') : null);
   const DAY = 86400000;
   const daysBetween = (a, b) => Math.round((new Date(b) - new Date(a)) / DAY);
   const starsOf = (h, g) => (h.stars ? Number(h.stars(g)) || null : null);
@@ -45,21 +46,21 @@
     if (feelings && feelings.size) {
       const mine = ownGenres(h, g).map((x) => [x, feelings.get(x) || 0]).sort((a, b) => b[1] - a[1]);
       const [best] = mine;
-      if (best && best[1] >= 0.6) out.push({ id: 'rated', label: `You rate ${best[0]} highly`, weight: Math.min(2.5, 1.5 * best[1]) });
+      if (best && best[1] >= 0.6) out.push({ id: 'rated', label: I18n.t('You rate {genre} highly', { genre: I18n.t(best[0]) }), weight: Math.min(2.5, 1.5 * best[1]) });
       // Only genres you've rated low: pushed down, with no label.
       else if (mine.length && mine[mine.length - 1][1] <= -0.6) out.push({ id: 'disliked', label: '', weight: -Math.min(3, 1.5 * -mine[mine.length - 1][1]) });
     }
     const liked = h.genres(g).filter((x) => tastes.genres.includes(x));
-    if (liked.length) out.push({ id: 'genre', label: liked.slice(0, 2).join(' + '), weight: 3 + Math.min(liked.length - 1, 1) });
+    if (liked.length) out.push({ id: 'genre', label: liked.slice(0, 2).map((x) => I18n.t(x)).join(' + '), weight: 3 + Math.min(liked.length - 1, 1) });
     const score = h.score(g);
-    if (score >= 85) out.push({ id: 'score', label: `Metacritic ${score}`, weight: 2.5 });
-    else if (score >= 75) out.push({ id: 'score', label: `Metacritic ${score}`, weight: 1.2 });
-    if (g.leavingSoon) out.push({ id: 'leaving', label: 'Leaving soon', weight: 1.5 });
-    if (g.firstSeen && daysBetween(g.firstSeen, today) <= 30) out.push({ id: 'new', label: 'Just added', weight: 1.2 });
+    if (score >= 85) out.push({ id: 'score', label: I18n.t('Metacritic {score}', { score }), weight: 2.5 });
+    else if (score >= 75) out.push({ id: 'score', label: I18n.t('Metacritic {score}', { score }), weight: 1.2 });
+    if (g.leavingSoon) out.push({ id: 'leaving', label: I18n.t('Leaving soon'), weight: 1.5 });
+    if (g.firstSeen && daysBetween(g.firstSeen, today) <= 30) out.push({ id: 'new', label: I18n.t('Just added'), weight: 1.2 });
     const hours = h.hours(g);
-    if (hours != null && tastes.length === 'short' && hours <= 10) out.push({ id: 'length', label: `${Math.max(1, Math.round(hours))}h to beat`, weight: 1.5 });
-    if (hours != null && tastes.length === 'long' && hours >= 25) out.push({ id: 'length', label: `${Math.round(hours)}h to beat`, weight: 1.5 });
-    if (g.releaseDate && daysBetween(g.releaseDate, today) <= 365) out.push({ id: 'recent', label: 'Out this year', weight: 0.8 });
+    if (hours != null && tastes.length === 'short' && hours <= 10) out.push({ id: 'length', label: I18n.t('{hours}h to beat', { hours: Math.max(1, Math.round(hours)) }), weight: 1.5 });
+    if (hours != null && tastes.length === 'long' && hours >= 25) out.push({ id: 'length', label: I18n.t('{hours}h to beat', { hours: Math.round(hours) }), weight: 1.5 });
+    if (g.releaseDate && daysBetween(g.releaseDate, today) <= 365) out.push({ id: 'recent', label: I18n.t('Out this year'), weight: 0.8 });
     return out;
   }
 
@@ -205,13 +206,13 @@
         // A studio behind dozens of the games (Nintendo EAD) counts for less.
         const big = [...b.dev.keys()].some((k) => (devCount.get(k) || 0) > smallPub);
         sim += big ? 2 : 4;
-        reasons.push({ id: 'studio', label: `By ${dev}`, weight: big ? 2 : 4 });
+        reasons.push({ id: 'studio', label: I18n.t('By {studio}', { studio: dev }), weight: big ? 2 : 4 });
       } else {
         const pubKeys = [...b.pub.keys()].filter((k) => (pubCount.get(k) || 0) <= smallPub);
         const pub = findStudio([...a.pub.keys(), ...a.dev.keys()], new Map(pubKeys.map((k) => [k, b.pub.get(k)])));
         if (pub) {
           sim += 2;
-          reasons.push({ id: 'studio', label: `From ${pub}`, weight: 2 });
+          reasons.push({ id: 'studio', label: I18n.t('From {studio}', { studio: pub }), weight: 2 });
         }
       }
       const shared = a.genres.filter((x) => b.genres.includes(x)).sort((x, y) => idf(y) - idf(x));
@@ -221,7 +222,7 @@
         // A single very common genre isn't enough on its own.
         if (cosine >= 0.5 && sum(shared) >= Math.log(5)) {
           sim += 3 * cosine;
-          reasons.push({ id: 'genre', label: shared.slice(0, 2).join(' + '), weight: 3 * cosine });
+          reasons.push({ id: 'genre', label: shared.slice(0, 2).map((x) => I18n.t(x)).join(' + '), weight: 3 * cosine });
         } else if (reasons.length) {
           sim += cosine;
         }
@@ -258,7 +259,7 @@
       let total = best.sim + 0.75 * Math.min(others, 2) - 0.5 * worst;
       if (score >= 85) total += 1;
       else if (score >= 75) total += 0.5;
-      if (score >= 75) reasons.push({ id: 'score', label: `Metacritic ${score}`, weight: 1 });
+      if (score >= 75) reasons.push({ id: 'score', label: I18n.t('Metacritic {score}', { score }), weight: 1 });
       if (!bySeed.has(best.seed)) bySeed.set(best.seed, []);
       bySeed.get(best.seed).push({ game: cand, reasons, total });
     }

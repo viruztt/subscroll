@@ -4,6 +4,7 @@ const http = require('./providers/http');
 const { key } = require('./ratings');
 const monthly = require('./monthly');
 const humble = require('./providers/humble');
+const { tk } = require('../renderer/i18n');
 
 // Games that are free to keep for a limited time: Epic's weekly free games
 // from Epic's own store feed (with exact end dates and next week's games),
@@ -26,7 +27,7 @@ const STORES = {
   steam: { name: 'Steam', short: 'Steam' },
   gog: { name: 'GOG', short: 'GOG' },
   prime: { name: 'Prime Gaming (Amazon Luna)', short: 'Prime' },
-  psplus: { name: 'PlayStation Plus monthly games', short: 'PS Plus' },
+  psplus: { name: tk('PlayStation Plus monthly games'), short: 'PS Plus' },
   fpd: { name: 'Xbox Free Play Days', short: 'Free Play Days' },
   humble: { name: 'Humble Choice', short: 'Humble' },
 };

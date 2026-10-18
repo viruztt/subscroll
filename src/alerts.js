@@ -2,6 +2,7 @@
 // in their plans, and games in their plans that started leaving. Games
 // they've completed or ignored are left out.
 const { unify, matchKey } = require('../renderer/unify');
+const { t, tn } = require('../renderer/i18n');
 
 const mineIn = (keys) => (o) => (o.tiers || []).some((t) => keys.has(`${o.service}:${t}`));
 const coming = (o, today) => !!o.comingOn && o.comingOn > today;
@@ -51,18 +52,17 @@ function pickAlerts({ games, newIds, keys, marks, alertedLeaving = [] }) {
 
 // "Hades, Celeste and 3 more"
 function listTitles(titles, max = 3) {
-  if (titles.length <= max) return titles.length > 1 ? `${titles.slice(0, -1).join(', ')} and ${titles[titles.length - 1]}` : titles.join('');
-  return `${titles.slice(0, max).join(', ')} and ${titles.length - max} more`;
+  if (titles.length <= max) return titles.length > 1 ? t('{list} and {last}', { list: titles.slice(0, -1).join(', '), last: titles[titles.length - 1] }) : titles.join('');
+  return tn(titles.length - max, '{list} and {n} more', '{list} and {n} more', { list: titles.slice(0, max).join(', ') });
 }
 
 function messages({ added, leaving, ready = [] }) {
   const out = [];
-  const games = (n) => `${n} game${n === 1 ? '' : 's'}`;
-  if (ready.length) out.push({ view: 'toplay', title: `Ready to play from your list: ${games(ready.length)}`, body: listTitles(ready) });
+  if (ready.length) out.push({ view: 'toplay', title: tn(ready.length, 'Ready to play from your list: {n} game', 'Ready to play from your list: {n} games'), body: listTitles(ready) });
   // A game on your list that just arrived is announced once, as ready.
   added = added.filter((t) => !ready.includes(t));
-  if (added.length) out.push({ view: 'changes', title: `New in your plans: ${games(added.length)}`, body: listTitles(added) });
-  if (leaving.length) out.push({ view: 'leaving', title: `Leaving your plans soon: ${games(leaving.length)}`, body: listTitles(leaving) });
+  if (added.length) out.push({ view: 'changes', title: tn(added.length, 'New in your plans: {n} game', 'New in your plans: {n} games'), body: listTitles(added) });
+  if (leaving.length) out.push({ view: 'leaving', title: tn(leaving.length, 'Leaving your plans soon: {n} game', 'Leaving your plans soon: {n} games'), body: listTitles(leaving) });
   return out;
 }
 
