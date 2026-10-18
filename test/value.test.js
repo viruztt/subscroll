@@ -106,3 +106,31 @@ test('Value: paid periods with gaps and price changes', () => {
   assert.deepStrictEqual(periodsOf({ monthly: 10, since: '2026-08' }), [{ from: '2026-08', to: null, monthly: 10 }]);
   assert.deepStrictEqual(periodsOf({}), []);
 });
+
+test('Value: cost per hour, per service and per game', () => {
+  const games = [
+    { id: 'a', title: 'A', svc: 'gamepass', price: 60, h: 30 },
+    { id: 'b', title: 'B', svc: 'gamepass', price: 20, h: 10 },
+    { id: 'c', title: 'C', svc: 'gamepass', price: null, h: null }, // no time: counted at the average (20 h)
+    { id: 'd', title: 'D', svc: 'psplus', price: 15, h: 5 },
+  ];
+  const v = compute(games, {
+    markOf: () => 'completed',
+    myServices: (g) => [g.svc],
+    price: (g) => (g.price ? { amount: g.price } : null),
+    viaSub: () => true,
+    hours: (g) => g.h,
+    costs: { gamepass: { periods: [{ from: '2026-01', to: '2026-06', monthly: 10 }] }, psplus: { periods: [{ from: '2026-10', to: null, monthly: 10 }] } },
+    today: '2026-10-18',
+  });
+  assert.deepStrictEqual([v.hours, v.timed, v.hoursEst], [45, 3, 60]);
+  assert.strictEqual(v.perHour, 70 / 60);
+  assert.strictEqual(v.boughtPerHour, 95 / 45);
+  const gp = v.services.find((r) => r.service === 'gamepass');
+  assert.deepStrictEqual([gp.hours, gp.hoursEst, gp.perHour], [40, 60, 1]);
+  assert.strictEqual(v.list.find((x) => x.game.id === 'a').perHour, 2);
+  assert.strictEqual(v.list.find((x) => x.game.id === 'c').perHour, null);
+  // Without the helper, nothing about hours.
+  const plain = compute(games, { markOf: () => 'completed', myServices: (g) => [g.svc], price: () => null, viaSub: () => true, today: '2026-10-18' });
+  assert.deepStrictEqual([plain.hours, plain.perHour, plain.boughtPerHour], [0, null, null]);
+});

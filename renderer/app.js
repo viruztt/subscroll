@@ -1318,6 +1318,7 @@ function renderValue() {
     myServices: (g) => serviceOffers(g).filter((o) => offerIsMine(o, keys)).map((o) => o.service),
     price: priceOf,
     viaSub: (g) => viaSub(g, keys),
+    hours: beatHours,
     costs: state.costs || {},
     today: todayIso(),
     includePlayed,
@@ -1331,7 +1332,9 @@ function renderValue() {
     tile(money(v.worth), `to buy the ${v.games} game${v.games === 1 ? '' : 's'} you beat`, v.priced < v.games ? `${v.games - v.priced} without a price yet` : ''),
     tile(v.paid ? money(v.paid) : '—', 'paid in subscriptions', v.paid ? '' : 'Enter what you pay below'),
     v.paid ? tile(money(Math.abs(v.saved)), ahead ? 'saved by subscribing' : 'more than buying them', '', ahead ? 'good' : 'bad') : null,
-    v.perGame ? tile(money(v.perGame), 'per game beaten', 'What each game cost you through subscriptions') : null));
+    v.perGame ? tile(money(v.perGame), 'per game beaten', 'What each game cost you through subscriptions') : null,
+    v.perHour ? tile(money(v.perHour, 2), 'an hour played', `What you paid in subscriptions over about ${Math.round(v.hoursEst)} hours of play: How Long To Beat main story times${v.timed < v.games ? ` for ${v.timed} of the ${v.games} games, the rest counted at their average` : ''}`) : null,
+    v.boughtPerHour ? tile(money(v.boughtPerHour, 2), 'an hour if bought', 'Store prices over How Long To Beat times, for the games that have both') : null));
 
   const playedBox = el('input', { type: 'checkbox' });
   playedBox.checked = includePlayed;
@@ -1415,7 +1418,8 @@ function costsPanel(v) {
         el('div', { class: 'cost-name' }, el('span', { class: 'dot', style: `background:${s.color}` }), s.name, state.subscriptions[s.id] ? null : el('span', { class: 'tier' }, 'not in your plans now')),
         el('div', { class: 'cost-sum' },
           r?.paid ? el('div', {}, `${money(r.paid)} paid over ${r.months} month${r.months === 1 ? '' : 's'}`) : el('div', { class: 'muted' }, 'Not counted yet'),
-          r?.games ? el('div', { class: 'muted' }, `${r.games} beaten, worth ${money(r.value)}${verdict ? ` · ${verdict}` : ''}`) : null)),
+          r?.games ? el('div', { class: 'muted' }, `${r.games} beaten, worth ${money(r.value)}${verdict ? ` · ${verdict}` : ''}`) : null,
+          r?.perHour ? el('div', { class: 'muted', title: r.timed < r.games ? `How Long To Beat times for ${r.timed} of ${r.games} games; the rest counted at their average` : 'From How Long To Beat main story times' }, `${money(r.perHour, 2)} an hour over about ${Math.round(r.hoursEst)} hours`) : null)),
       list.map(row),
       el('button', { class: 'link inline add-period', onclick: () => {
         // Usually an earlier stretch: ended, with the same price to start from.
@@ -1466,9 +1470,13 @@ function beatenPanel(v) {
       ? el('span', { class: 'price' }, el('button', { class: 'link inline', title: `Full price on ${p.source}`, onclick: () => p.url && api.openExternal(p.url) }, money(p.amount, 2)), el('span', { class: 'muted' }, ` ${p.source}`),
         el('button', { class: 'link inline price-edit', title: 'Use a different price', onclick: (e) => { e.currentTarget.parentElement.replaceWith(input); input.focus(); } }, 'edit'))
       : input;
+    const h = beatHours(g);
+    const time = h ? el('span', { class: 'beaten-hours muted', title: p?.amount > 0 ? 'How Long To Beat main story, and the price over those hours' : 'How Long To Beat main story' },
+      `${h < 1 ? '<1' : Math.round(h)} h${p?.amount > 0 ? ` · ${money(p.amount / Math.max(h, 0.5), 2)}/h` : ''}`) : el('span', { class: 'beaten-hours' });
     return el('div', { class: `beaten-row ${on ? '' : 'off'}` },
       el('label', { class: 'beaten-check' }, box, el('span', { class: 'beaten-title', title: g.title }, g.title)),
       el('div', { class: 'meta' }, serviceOffers(g).slice(0, 3).map((o) => serviceTag(o)), markOf(g.id) === 'played' ? el('span', { class: 'tier' }, 'played') : null),
+      time,
       shown);
   });
   return el('div', { class: 'panel' },
