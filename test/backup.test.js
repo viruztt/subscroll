@@ -9,7 +9,7 @@ const state = {
   customServices: [{ id: 'custom:x', name: 'My service' }],
   customGames: [{ id: 'custom:g', title: 'My game' }],
   settings: { country: 'GB', hideDeparted: true },
-  costs: { gamepass: { monthly: 14.99, since: '2024-01' } },
+  costs: { gamepass: { monthly: 14.99, since: '2024-01' }, psplus: { periods: [{ from: '2025-01', to: '2025-03', monthly: 10.99, plan: 'extra' }] } },
   freebies: { 'epic:ns:o1': 'claimed', 'gp:2': 'skip' },
   steam: { profile: '7656', key: 'KEY', owned: [{ appid: 1 }] },
   xbox: { key: 'XBL', importedAt: '2026-10-18T10:00:00Z', marked: ['halo:completed'] },

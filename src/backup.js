@@ -68,7 +68,8 @@ function parseBackup(text) {
     leaveDates: stringMap(s.leaveDates),
     customServices: Array.isArray(s.customServices) ? s.customServices.filter(isObject) : [],
     customGames: Array.isArray(s.customGames) ? s.customGames.filter(isObject) : [],
-    costs: mapOf(s.costs, (c) => isObject(c) && Number(c.monthly) >= 0),
+    costs: Object.fromEntries(Object.entries(mapOf(s.costs, (c) => isObject(c) && (Number(c.monthly) >= 0 || Array.isArray(c.periods))))
+      .map(([k, c]) => [k, Array.isArray(c.periods) ? { periods: c.periods.filter((p) => isObject(p) && Number(p.monthly) >= 0 && (typeof p.from === 'string' || p.from == null)) } : c])),
     priceOverrides: mapOf(s.priceOverrides, (x) => typeof x === 'number' && x >= 0),
     viaSub: mapOf(s.viaSub, (x) => typeof x === 'boolean'),
     ...(isObject(s.settings) ? { settings: s.settings } : {}),

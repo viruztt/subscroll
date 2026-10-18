@@ -482,3 +482,21 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .stars-input .star:hover ~ .star { color: #4a5060; }
 .note-text { width: 100%; box-sizing: border-box; resize: vertical; background: var(--panel-2, #161a22); color: inherit; border: 1px solid var(--border, #2a2f3a); border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13px; }
 .badge.sale { background: #5b1a1a; color: #ffb4a8; border: 1px solid #c2453a; }
+
+/* Value page: paid periods per plan */
+.cost-block { padding: 12px 0; border-top: 1px solid var(--line); }
+.cost-block:first-of-type { border-top: 0; }
+.cost-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 6px; }
+.cost-head .cost-sum { text-align: right; }
+.period { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 5px 0; }
+.period-price, .period-dates { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.period-price select { width: 245px; }
+.own-price { display: inline-flex; align-items: center; gap: 8px; }
+.own-price[hidden] { display: none; }
+.period-price input[type=number] { width: 82px; }
+.period-dates input[type=month] { width: 160px; }
+.period-now { display: inline-block; width: 160px; padding-left: 10px; color: var(--muted); }
+.period-sum { display: flex; align-items: center; gap: 10px; font-size: 13px; white-space: nowrap; margin-left: auto; }
+.check-row.inline { display: inline-flex; gap: 6px; align-items: center; }
+.add-period { font-size: 13px; }
+.add-past { margin-top: 12px; }

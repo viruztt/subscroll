@@ -5,7 +5,8 @@
 //   myServices(game) services offering it in your plans, lead service first
 //   price(game)      { amount, … } in your currency, or null
 //   viaSub(game)     whether you played it through a subscription
-//   costs            { serviceId: { monthly, since: 'YYYY-MM' } }
+//   costs            { serviceId: { periods: [{ from: 'YYYY-MM', to: 'YYYY-MM' | null, monthly, plan }] } }
+//                    (older saves: { monthly, since }, read as one open period)
 (function (root) {
   // Months paid from the start month to this month, both included.
   function monthsSince(since, today) {
@@ -13,6 +14,22 @@
     const t = /^(\d{4})-(\d{2})/.exec(today);
     if (!m || !t) return 0;
     return Math.max(0, (t[1] - m[1]) * 12 + (t[2] - m[2]) + 1);
+  }
+
+  // A plan's paid stretches, oldest first. `to` null: still paying.
+  function periodsOf(c) {
+    if (!c || typeof c !== 'object') return [];
+    const list = Array.isArray(c.periods) ? c.periods : (c.monthly != null || c.since ? [{ from: c.since || null, to: null, monthly: c.monthly }] : []);
+    return list.filter((p) => p && typeof p === 'object')
+      .map((p) => ({ from: p.from || null, to: p.to || null, monthly: p.monthly == null || p.monthly === '' ? null : Number(p.monthly), ...(p.plan ? { plan: p.plan } : {}) }))
+      .sort((a, b) => (a.from || '9999').localeCompare(b.from || '9999'));
+  }
+
+  // Months in a period, both ends included; an open one runs to this month.
+  function monthsIn(p, today) {
+    if (!p.from) return 0;
+    const end = p.to && p.to < today.slice(0, 7) ? p.to : today.slice(0, 7);
+    return end < p.from ? 0 : monthsSince(p.from, `${end}-01`);
   }
 
   function compute(games, { markOf, myServices, price, viaSub, costs = {}, today, includePlayed = false }) {
@@ -26,13 +43,15 @@
       return services.get(s);
     };
     for (const [s, c] of Object.entries(costs)) {
-      const monthly = Number(c?.monthly);
-      if (!(monthly > 0)) continue;
+      const periods = periodsOf(c).filter((p) => p.monthly > 0);
+      if (!periods.length) continue;
       const r = row(s);
-      r.monthly = monthly;
-      r.since = c.since || null;
-      r.months = monthsSince(c.since, today);
-      r.paid = monthly * r.months;
+      r.periods = periods.map((p) => ({ ...p, months: monthsIn(p, today), paid: p.monthly * monthsIn(p, today) }));
+      r.monthly = periods[periods.length - 1].monthly;
+      r.since = periods.find((p) => p.from)?.from || null;
+      r.months = r.periods.reduce((n, p) => n + p.months, 0);
+      r.paid = r.periods.reduce((n, p) => n + p.paid, 0);
+      r.active = periods.some((p) => p.from && !p.to);
     }
 
     const list = [];
@@ -65,7 +84,7 @@
     };
   }
 
-  const api = { compute, monthsSince };
+  const api = { compute, monthsSince, periodsOf, monthsIn };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Value = api;
 })(this);

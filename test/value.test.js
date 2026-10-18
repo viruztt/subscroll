@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 const http = require('../src/providers/http');
 const { Prices, microsoftPrice, playstationPrice, steamPrice } = require('../src/prices');
-const { compute, monthsSince } = require('../renderer/value');
+const { compute, monthsSince, periodsOf } = require('../renderer/value');
 
 const json = (body, status = 200) => ({ ok: status < 400, status, json: async () => body, text: async () => (typeof body === 'string' ? body : JSON.stringify(body)) });
 
@@ -87,4 +87,22 @@ test('Value: months paid, counted games and savings', () => {
   assert.deepStrictEqual(v.list.map((x) => x.game.id), ['a', 'c']);
   const withPlayed = compute(games, { ...opts, includePlayed: true });
   assert.strictEqual(withPlayed.worth, 90);
+});
+
+test('Value: paid periods with gaps and price changes', () => {
+  const costs = { gamepass: { periods: [
+    { from: '2025-01', to: '2025-03', monthly: 14.99, plan: 'ultimate' }, // 3 months, then quit
+    { from: '2026-09', to: null, monthly: 22.99 }, // back from September: Sep and Oct
+  ] }, nso: { periods: [{ from: '2026-01', to: '2026-12', monthly: 2.92 }] } };
+  const v = compute([], { markOf: () => null, myServices: () => [], price: () => null, viaSub: () => true, costs, today: '2026-10-18' });
+  const gp = v.services.find((r) => r.service === 'gamepass');
+  assert.strictEqual(gp.months, 5);
+  assert.strictEqual(Number(gp.paid.toFixed(2)), Number((3 * 14.99 + 2 * 22.99).toFixed(2)));
+  assert.strictEqual(gp.since, '2025-01');
+  assert.strictEqual(gp.active, true);
+  // A period ending in the future only counts up to now.
+  assert.strictEqual(v.services.find((r) => r.service === 'nso').months, 10);
+  // Older saves read as one open period.
+  assert.deepStrictEqual(periodsOf({ monthly: 10, since: '2026-08' }), [{ from: '2026-08', to: null, monthly: 10 }]);
+  assert.deepStrictEqual(periodsOf({}), []);
 });

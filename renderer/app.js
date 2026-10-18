@@ -1275,35 +1275,104 @@ function renderValue() {
   content.append(costsPanel(v), beatenPanel(v));
 }
 
-// What each plan costs you, to compare against.
+// What each plan costs you, to compare against: one or more stretches of
+// paying per plan (a gap when you'd stopped), each at its own price.
+const thisMonth = () => todayIso().slice(0, 7);
+// The picker's last option: an amount you typed, or a way to type one.
+const listedLabel = (p, choices) => (choices.length ? 'Your own price, a month' : 'Price a month');
+const monthBefore = (m) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo - 2, 1)).toISOString().slice(0, 7); };
+
 function costsPanel(v) {
-  const subscribed = allServices().filter((s) => state.subscriptions[s.id]);
   const byService = new Map(v.services.map((r) => [r.service, r]));
-  const save = async (id, patch) => {
-    const costs = { ...(state.costs || {}) };
-    costs[id] = { ...(costs[id] || {}), ...patch };
-    await saveState({ costs });
+  const saved = (id) => Value.periodsOf(state.costs?.[id]);
+  const shown = allServices().filter((s) => state.subscriptions[s.id] || saved(s.id).length || ui.valueAdded?.has(s.id));
+  const savePeriods = async (id, periods) => {
+    await saveState({ costs: { ...(state.costs || {}), [id]: { periods } } });
     render(true);
   };
-  const rows = subscribed.map((s) => {
-    const c = state.costs?.[s.id] || {};
+  const currency = regionCurrency();
+
+  const block = (s) => {
     const r = byService.get(s.id);
-    const monthly = el('input', { type: 'number', min: '0', step: '0.01', placeholder: 'per month', value: c.monthly ?? '' });
-    monthly.addEventListener('change', () => save(s.id, { monthly: monthly.value === '' ? null : Number(monthly.value) }));
-    const since = el('input', { type: 'month', value: c.since || '', max: todayIso().slice(0, 7) });
-    since.addEventListener('change', () => save(s.id, { since: since.value || null }));
+    const periods = saved(s.id);
+    // A plan with nothing entered yet starts with one empty stretch.
+    const list = periods.length ? periods : [{ from: null, to: state.subscriptions[s.id] ? null : monthBefore(thisMonth()), monthly: null }];
+    const update = (i, patch) => savePeriods(s.id, list.map((p, j) => (j === i ? { ...p, ...patch } : p)));
+    const tierName = (t) => s.tiers.find((x) => x.id === t)?.name || t;
+    const choices = PlanPrices.options(s, currency, { tierName });
+
+    const row = (p, i) => {
+      const picker = el('select', { class: 'price-pick', title: `List prices as of ${PlanPrices.AS_OF}` },
+        el('option', { value: '' }, choices.length ? 'Pick your plan…' : 'Enter the price'),
+        [...new Set(choices.map((c) => c.name))].map((name) => el('optgroup', { label: name },
+          choices.filter((c) => c.name === name).map((c) => el('option', { value: `${c.plan}:${c.months}` },
+            `${c.name}: ${money(c.amount, 2)} ${c.months === 1 ? 'a month' : `for ${c.length}`}${c.months > 1 ? ` (${money(c.monthly, 2)} a month)` : ''}${c.unsure ? ' (unconfirmed)' : ''}`)))),
+        el('option', { value: 'custom' }, listedLabel(p, choices)));
+      // A listed price only while the amount still matches it (prices change).
+      const listed = p.plan && choices.some((c) => `${c.plan}:${c.months}` === p.plan && c.monthly === p.monthly);
+      picker.value = listed ? p.plan : (p.monthly != null || !choices.length ? 'custom' : '');
+      // The amount box shows for a price of your own; a listed price says it all.
+      const monthly = el('input', { type: 'number', min: '0', step: '0.01', placeholder: 'a month', value: p.monthly ?? '' });
+      const own = el('span', { class: 'own-price', title: 'What you paid a month' }, monthly);
+      own.hidden = picker.value !== 'custom';
+      picker.addEventListener('change', () => {
+        const c = choices.find((x) => `${x.plan}:${x.months}` === picker.value);
+        if (c) update(i, { monthly: c.monthly, plan: picker.value });
+        else if (picker.value === 'custom') {
+          own.hidden = false;
+          monthly.focus();
+        }
+      });
+      monthly.addEventListener('change', () => update(i, { monthly: monthly.value === '' ? null : Number(monthly.value), plan: null }));
+      const from = el('input', { type: 'month', value: p.from || '', max: thisMonth() });
+      from.addEventListener('change', () => update(i, { from: from.value || null }));
+      const ongoing = el('input', { type: 'checkbox' });
+      ongoing.checked = !p.to;
+      const to = p.to ? el('input', { type: 'month', value: p.to, max: thisMonth(), min: p.from || '' }) : el('span', { class: 'period-now' }, 'now');
+      to.addEventListener('change', () => update(i, { to: to.value || null }));
+      ongoing.addEventListener('change', () => update(i, { to: ongoing.checked ? null : (p.from && p.from > monthBefore(thisMonth()) ? p.from : monthBefore(thisMonth())) }));
+      const paid = r?.periods?.find((x) => x.from === p.from && x.to === p.to && x.monthly === p.monthly);
+      return el('div', { class: 'period' },
+        el('div', { class: 'period-price' }, picker, own),
+        el('div', { class: 'period-dates' },
+          el('span', { class: 'muted' }, 'from'), from, el('span', { class: 'muted' }, 'to'), to,
+          el('label', { class: 'check-row inline' }, ongoing, el('span', {}, 'still paying'))),
+        el('div', { class: 'period-sum' },
+          el('span', { class: 'muted' }, paid?.months ? `${paid.months} mo, ${money(paid.paid)}` : p.monthly && !p.from ? 'Set a start' : ''),
+          list.length > 1 || periods.length ? el('button', { class: 'link danger inline', title: 'Remove this period', onclick: () => savePeriods(s.id, list.filter((_, j) => j !== i)) }, '✕') : null));
+    };
+
     const verdict = r && r.paid ? (r.value >= r.paid ? `saved ${money(r.value - r.paid)}` : `${money(r.paid - r.value)} more than buying`) : '';
-    return el('div', { class: 'cost-row', style: `--svc:${s.color}` },
-      el('div', { class: 'cost-name' }, el('span', { class: 'dot', style: `background:${s.color}` }), s.name),
-      el('label', { class: 'cost-field' }, monthly, el('span', { class: 'muted' }, '/ month since'), since),
-      el('div', { class: 'cost-sum' },
-        r?.paid ? el('div', {}, `${money(r.paid)} paid over ${r.months} month${r.months === 1 ? '' : 's'}`) : el('div', { class: 'muted' }, c.monthly ? 'Pick the month you started' : 'Not counted'),
-        r?.games ? el('div', { class: 'muted' }, `${r.games} beaten, worth ${money(r.value)}${verdict ? ` · ${verdict}` : ''}`) : null));
+    const last = list[list.length - 1];
+    return el('div', { class: 'cost-block', style: `--svc:${s.color}` },
+      el('div', { class: 'cost-head' },
+        el('div', { class: 'cost-name' }, el('span', { class: 'dot', style: `background:${s.color}` }), s.name, state.subscriptions[s.id] ? null : el('span', { class: 'tier' }, 'not in your plans now')),
+        el('div', { class: 'cost-sum' },
+          r?.paid ? el('div', {}, `${money(r.paid)} paid over ${r.months} month${r.months === 1 ? '' : 's'}`) : el('div', { class: 'muted' }, 'Not counted yet'),
+          r?.games ? el('div', { class: 'muted' }, `${r.games} beaten, worth ${money(r.value)}${verdict ? ` · ${verdict}` : ''}`) : null)),
+      list.map(row),
+      el('button', { class: 'link inline add-period', onclick: () => {
+        // Usually an earlier stretch: ended, with the same price to start from.
+        const end = list.filter((p) => p.from).map((p) => p.from).sort()[0];
+        savePeriods(s.id, [...(periods.length ? list : []), { from: null, to: end ? monthBefore(end) : monthBefore(thisMonth()), monthly: last?.monthly ?? null, ...(last?.plan ? { plan: last.plan } : {}) }]);
+      } }, '+ Add another period'));
+  };
+
+  const others = allServices().filter((s) => !shown.includes(s));
+  const addPast = el('select', {}, el('option', { value: '' }, 'Add a plan you paid for before…'), others.map((s) => el('option', { value: s.id }, s.name)));
+  addPast.addEventListener('change', () => {
+    if (!addPast.value) return;
+    ui.valueAdded = new Set([...(ui.valueAdded || []), addPast.value]);
+    render(true);
   });
   return el('div', { class: 'panel' },
     el('h2', {}, 'What you pay'),
-    el('p', { class: 'muted' }, 'Enter the monthly price of each plan you pay for and when you started (for a yearly plan, divide by 12). Leave out plans that come included with another, like EA Play with Game Pass Ultimate.'),
-    rows.length ? rows : el('p', { class: 'muted' }, 'Pick your plans in Settings first.'));
+    el('p', { class: 'muted' },
+      'Pick each plan and its price (the list shows today\'s prices; change the amount if you paid something else), and when you started. ',
+      'If you stopped and came back later, untick "still paying", set when it ended and add another period. ',
+      'Yearly plans count as their price spread over 12 months. Leave out plans that come included with another, like EA Play with Game Pass Ultimate.'),
+    shown.length ? shown.map(block) : el('p', { class: 'muted' }, 'Pick your plans in Settings, or add one you paid for before below.'),
+    others.length ? el('div', { class: 'form add-past' }, addPast) : null);
 }
 
 // Every beaten game, its price, and whether it counts.
