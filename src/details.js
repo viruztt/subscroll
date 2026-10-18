@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('./providers/http');
 const gamepass = require('./providers/gamepass');
+const playpass = require('./providers/playpass');
 const { samePage } = require('./wiki');
 
 // Descriptions and screenshots for the game panel, fetched when a game is
@@ -116,10 +117,17 @@ async function fetchDetails(game, settings = {}) {
       // Fall through to Wikipedia for the description.
     }
   }
-  if (game.service === 'nso') out.screenshots = retroScreenshots(game.image);
-  if (!out.description && ['nso', 'psplus', 'applearcade', 'netflix', 'crunchyroll'].includes(game.service)) {
+  if (game.service === 'playpass' && game.appId) {
     try {
-      const hint = game.service === 'nso' ? SYSTEM_WORDS[game.platforms[0]] || '' : { psplus: 'PlayStation', applearcade: 'Apple Arcade', netflix: 'Netflix', crunchyroll: 'Crunchyroll' }[game.service];
+      Object.assign(out, await playpass.fetchDetails(game.appId));
+    } catch {
+      // Fall through to Wikipedia.
+    }
+  }
+  if (game.service === 'nso') out.screenshots = retroScreenshots(game.image);
+  if (!out.description && ['nso', 'psplus', 'applearcade', 'netflix', 'crunchyroll', 'playpass', 'luna'].includes(game.service)) {
+    try {
+      const hint = game.service === 'nso' ? SYSTEM_WORDS[game.platforms[0]] || '' : { psplus: 'PlayStation', applearcade: 'Apple Arcade', netflix: 'Netflix', crunchyroll: 'Crunchyroll', playpass: 'Android', luna: '' }[game.service];
       const wiki = await wikipediaIntro(game, hint);
       if (wiki) {
         out.description = wiki.text;

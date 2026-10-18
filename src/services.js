@@ -83,6 +83,24 @@ const SERVICES = [
     color: '#cc2929',
     tiers: [{ id: 'choice', name: 'Humble Choice', includes: ['choice'] }],
   },
+  {
+    id: 'playpass',
+    name: 'Google Play Pass',
+    short: 'Play Pass',
+    color: '#01875f',
+    tiers: [{ id: 'any', name: 'Google Play Pass', includes: ['any'] }],
+  },
+  {
+    id: 'luna',
+    name: 'Amazon Luna',
+    short: 'Luna',
+    color: '#7b4dff',
+    tiers: [
+      { id: 'standard', name: 'Luna Standard (with Prime)', includes: ['standard'] },
+      { id: 'premium', name: 'Luna Premium', includes: ['premium'] },
+      { id: 'both', name: 'Prime and Luna Premium', includes: ['standard', 'premium'] },
+    ],
+  },
 ];
 
 // Tier labels shown on game badges, which can differ from the plan name
@@ -94,6 +112,8 @@ const TIER_BADGES = {
   'nso:base': 'NSO',
   'nso:expansion': 'Expansion Pack',
   'ubisoftplus:classics': 'Classics',
+  'luna:standard': 'With Prime',
+  'luna:premium': 'Luna Premium',
 };
 
 function allServices(customServices = []) {

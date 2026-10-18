@@ -254,7 +254,7 @@ class Wiki {
 // your plans from lists without developers or genres.
 function wanted(games, { isMine, markOf }) {
   const lacking = (g) => !g.developer || !(g.genres || []).length;
-  const gaps = ['nso', 'psplus', 'netflix', 'crunchyroll'];
+  const gaps = ['nso', 'psplus', 'netflix', 'crunchyroll', 'luna'];
   const done = games.filter((g) => markOf(g) === 'completed' && lacking(g));
   const mine = games.filter((g) => isMine(g) && gaps.includes(g.service) && lacking(g));
   const covers = games.filter((g) => g.service === 'applearcade' && !g.image);

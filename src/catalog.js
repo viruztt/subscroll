@@ -9,6 +9,8 @@ const netflix = require('./providers/netflix');
 const arcade = require('./providers/applearcade');
 const crunchyroll = require('./providers/crunchyroll');
 const humble = require('./providers/humble');
+const playpass = require('./providers/playpass');
+const luna = require('./providers/luna');
 
 const SNAPSHOT_DIR = path.join(__dirname, '..', 'data', 'snapshot');
 const MAX_DEPARTED = 300;
@@ -23,6 +25,8 @@ const PROVIDERS = {
   applearcade: { live: arcade.fetchLive },
   crunchyroll: { live: crunchyroll.fetchLive },
   humble: { live: humble.fetchLive },
+  playpass: { live: playpass.fetchLive },
+  luna: { live: luna.fetchLive },
 };
 const SERVICES = Object.keys(PROVIDERS);
 
@@ -77,6 +81,7 @@ function originOf(service, source, settings = {}) {
   const region = {
     gamepass: settings.market, psplus: settings.psLocale, eaplay: settings.market,
     ubisoftplus: settings.market, netflix: settings.region || settings.market, crunchyroll: settings.region || settings.market,
+    playpass: settings.region || settings.market,
   }[service];
   return region ? `live:${region}` : 'live';
 }

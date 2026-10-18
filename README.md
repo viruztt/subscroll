@@ -14,7 +14,7 @@
 
 ![Games like the ones you beat, on the For you page](docs/screenshots/because.png)
 
-A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus, Nintendo Switch Online, EA Play, Ubisoft+, Netflix Games, Apple Arcade, Crunchyroll Game Vault and Humble Choice, by tier. You pick the plans you have, mark games as played or completed, and see what's leaving soon. Everything you set is saved on your PC, in `%APPDATA%\Subscription Catalogue` (the app's earlier name).
+A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus, Nintendo Switch Online, EA Play, Ubisoft+, Netflix Games, Apple Arcade, Crunchyroll Game Vault, Humble Choice, Google Play Pass and Amazon Luna, by tier. You pick the plans you have, mark games as played or completed, and see what's leaving soon. Everything you set is saved on your PC, in `%APPDATA%\Subscription Catalogue` (the app's earlier name).
 
 ## Install
 
@@ -35,9 +35,12 @@ Your plans and marks stay on your PC and carry over when you download a newer ve
 | Netflix Games | Netflix's own developer account on the App Store (Apple's public lookup API). Games published under a partner's account and TV-only cloud games are missing | None |
 | Apple Arcade | Wikipedia's [Apple Arcade](https://en.wikipedia.org/wiki/Apple_Arcade) article. Icons, descriptions and screenshots come from Apple's App Store search, a few games a minute in the background (Apple limits it), cached in `catalog/appstore/`. A game whose title differs on the App Store is matched by its developer; one no longer on the App Store has left the service, and gets its Steam cover, or failing that the one from its Wikipedia article | None |
 | Crunchyroll Game Vault | Crunchyroll's own developer account on the App Store, like Netflix (Mega Fan and Ultimate Fan memberships) | None |
-| Humble Choice | This month's games from the JSON on Humble's membership page; they change on the first Tuesday of each month. If Humble changes the page, the app saves it as `catalog/humble-page.html` so the reader can be fixed | None |
+| Humble Choice | This month's games from the JSON on Humble's page for the month (the membership page says which month is current); they change on the first Tuesday of each month. If Humble changes the page, the app saves it as `catalog/humble-page.html` so the reader can be fixed | None |
 
-Google Play Pass and Amazon Luna don't publish a game list the app can read, so add them under **Add another service** in Settings and add their games yourself.
+| Google Play Pass | Google doesn't publish its list. The community project [playpassBrowser](https://github.com/inkvolcano/playpassBrowser) checks every game's Play Store page for the Play Pass badge each month, per country; the app reads its data and keeps the games offered in your country. Descriptions and screenshots come from the same project | None |
+| Amazon Luna (Standard with Prime, Premium) | Amazon doesn't publish its list. [GameScriptions](https://gamescriptions.com/subscription/service/luna_standard) keeps a page per Luna tier with the dates games were added, leave and arrive; the app reads those pages. If they change, it saves them as `catalog/luna-*-page.html` so the reader can be fixed | Yes, from GameScriptions |
+
+Other services can be added under **Add another service** in Settings, with their games added by hand.
 
 If a live source fails, the app falls back to community mirrors on GitHub ([catabox](https://github.com/nanhopper/catabox), [ps-plus-games-list](https://github.com/ppazour/ps-plus-games-list)), and if those fail too it keeps the last list it had. A snapshot ships with the app so it works offline from the first launch.
 
@@ -45,7 +48,7 @@ Game Pass Ultimate includes EA Play and Ubisoft+ Classics, and PC Game Pass incl
 
 A game offered by several services gets one card with a tag for each (dimmed when it's not in your plans), so A Way Out shows once with Game Pass, EA Play and PS Plus. Titles are matched ignoring platform suffixes and edition names; Switch Online games are kept apart, since each is a specific old console version, except for regional versions of the same game ("Adventures of Lolo (NA)" and "(JP)"), which share one card marked NA + JP. Marking the game marks it everywhere.
 
-The **Coming soon** page lists announced games with their date: Game Pass from Microsoft's per-plan join dates, Switch Online and Apple Arcade from dates in their Wikipedia lists. PS Plus, EA Play, Ubisoft+ and Netflix don't publish dates in a form the app can read.
+The **Coming soon** page lists announced games with their date: Game Pass from Microsoft's per-plan join dates, Switch Online and Apple Arcade from dates in their Wikipedia lists, Amazon Luna from GameScriptions. PS Plus, EA Play, Ubisoft+ and Netflix don't publish dates in a form the app can read.
 
 Catalogues refresh automatically once a day, including while the window is closed: Subscroll stays in the system tray (right-click the icon to refresh, turn options on or off, or quit) and can start with Windows, minimised to the tray. After each refresh it sends a notification when games join a service in your plans or games in your plans start leaving, leaving out games you've completed or ignored; clicking it opens the right page. These are under **Background** in Settings. Every refresh is compared with the previous one, so the "New & departed" page shows what was added in the last 30 days and what left (Wikipedia's Apple Arcade list keeps every game there has ever been, so an Arcade game that neither your country's nor the US App Store has any more counts as having left). Game Pass games show when they joined, from Microsoft's own dates.
 
@@ -97,13 +100,40 @@ The **Statistics** page shows how far through your plans you are: games complete
 
 **Export & import profile** in Settings saves everything Subscroll keeps about you to one `.json` file: plans, marks and your To play list, your own services and games, settings, Value page costs, your Steam link, free games you claimed or skipped, and when games joined or left each list. Ticking "Include looked-up data" also saves the Metacritic scores, play times, prices, descriptions and covers it has looked up, so another PC doesn't have to look them all up again. **Import profile** on another PC (or after a reinstall) asks first, then replaces your plans, marks and settings and adds the history and looked-up data to what that PC already has. The file includes your Steam, OpenXBL and PlayStation keys if you added them, so keep it private. Backups saved by older versions still import. Catalogues themselves aren't in the file; the app fetches them again.
 
+## Credits
+
+Subscroll reads its data from these services and projects. Thanks to everyone who runs them.
+
+**Official sources**
+- Microsoft: the Game Pass catalogue (`catalog.gamepass.com`), Microsoft Store product data (`displaycatalog.mp.microsoft.com`) and [Xbox Wire](https://news.xbox.com/) for Free Play Days.
+- Sony: [playstation.com](https://www.playstation.com/)'s PS Plus game lists, PlayStation Store pages and prices, the [PlayStation Blog](https://blog.playstation.com/), and the PlayStation trophy service (with your own sign-in).
+- Apple: the [App Store](https://www.apple.com/app-store/) lookup and search API, for Netflix Games, Apple Arcade and Crunchyroll Game Vault.
+- Valve: the [Steam Web API](https://steamcommunity.com/dev) and Steam store search, for your library, covers and prices.
+- [Epic Games Store](https://store.epicgames.com/)'s free games list.
+- [Humble Bundle](https://www.humblebundle.com/membership)'s Humble Choice pages.
+- [Google Play](https://play.google.com/store/pass/getstarted) store links and images.
+
+**Community projects and sites**
+- [Wikipedia](https://en.wikipedia.org/): the Nintendo Classics and Apple Arcade game lists, game descriptions, developers, genres and covers (text under [CC BY-SA](https://creativecommons.org/licenses/by-sa/4.0/)).
+- [libretro-thumbnails](https://github.com/libretro-thumbnails): Switch Online box art, title screens and screenshots.
+- [playpassBrowser](https://github.com/inkvolcano/playpassBrowser) by inkvolcano: the Google Play Pass list.
+- [GameScriptions](https://gamescriptions.com/): the Amazon Luna lists and dates.
+- [Gameglass](https://github.com/jackheuberger/gameglass) by Jack Heuberger: which Xbox games stream with Cloud Gaming.
+- [catabox](https://github.com/nanhopper/catabox) by nanhopper: the Game Pass mirror used when Microsoft's service fails.
+- [ps-plus-games-list](https://github.com/ppazour/ps-plus-games-list) by ppazour: the PS Plus mirror used when playstation.com fails.
+- [GamerPower](https://www.gamerpower.com/): Steam, GOG and Prime Gaming giveaways.
+- [OpenXBL](https://xbl.io/): Xbox achievements (with your own API key).
+- [Metacritic](https://www.metacritic.com/) and [How Long To Beat](https://howlongtobeat.com/): scores and play times.
+
+Subscroll isn't affiliated with or endorsed by any of them. Game names, artwork and trademarks belong to their owners.
+
 ## Building from source
 
 `npm install`, then `npm start` runs the app (Windows, macOS or Linux). `npm test` runs the tests, and `npm run dist:win` / `dist:mac` / `dist:linux` builds a package into `dist/`, which git ignores. Development builds are named `Subscroll-<version>-<commit>.exe`.
 
 ## Layout
 
-- `src/main.js`: window, IPC, daily refresh. `src/details.js`: descriptions and screenshots. `src/ratings.js`: Metacritic and How Long To Beat. `src/regions.js`: the country list. `src/backup.js`: profile export and import. `src/steam.js`: Steam library import. `src/achievements.js`: Xbox achievements (OpenXBL) and PlayStation trophies. `src/alerts.js`: what the tray notifications say. `src/prices.js` and `renderer/value.js`: the Value page (and sale prices). `src/sales.js`: sale alerts. `renderer/recommend.js`: For you picks and "Because you beat". `renderer/advisor.js`: Which plan to get. `src/freegames.js`: Free to keep (Epic store feed and GamerPower). `src/monthly.js`: PS Plus monthly games (playstation.com list, PlayStation Blog) and Xbox Free Play Days (Xbox Wire). `renderer/calendar.js`: the Calendar page. `renderer/play.js`: the Play buttons (Steam, Xbox app, PlayStation Store links). `src/cloud.js`: which Xbox games stream (Gameglass). `src/wiki.js`: developers, genres and covers from Wikipedia infoboxes. `src/catalog.js`: refresh, fallbacks, history, merging Xbox console/PC duplicates.
+- `src/main.js`: window, IPC, daily refresh. `src/details.js`: descriptions and screenshots. `src/ratings.js`: Metacritic and How Long To Beat. `src/regions.js`: the country list. `src/backup.js`: profile export and import. `src/providers/playpass.js` and `src/providers/luna.js`: Google Play Pass (playpassBrowser) and Amazon Luna (GameScriptions). `src/steam.js`: Steam library import. `src/achievements.js`: Xbox achievements (OpenXBL) and PlayStation trophies. `src/alerts.js`: what the tray notifications say. `src/prices.js` and `renderer/value.js`: the Value page (and sale prices). `src/sales.js`: sale alerts. `renderer/recommend.js`: For you picks and "Because you beat". `renderer/advisor.js`: Which plan to get. `src/freegames.js`: Free to keep (Epic store feed and GamerPower). `src/monthly.js`: PS Plus monthly games (playstation.com list, PlayStation Blog) and Xbox Free Play Days (Xbox Wire). `renderer/calendar.js`: the Calendar page. `renderer/play.js`: the Play buttons (Steam, Xbox app, PlayStation Store links). `src/cloud.js`: which Xbox games stream (Gameglass). `src/wiki.js`: developers, genres and covers from Wikipedia infoboxes. `src/catalog.js`: refresh, fallbacks, history, merging Xbox console/PC duplicates.
 - `src/providers/`: one file per service.
 - `renderer/`: the UI (plain HTML/CSS/JS). `renderer/unify.js` merges the same game across services; `renderer/stats.js` works out the Statistics page. The logo is `renderer/logo.svg`; `renderer/icon.png` (window) and `build/icon.png` (exe) are 256 and 512 px renders of it.
 - `data/`: bundled snapshot used until the first refresh. `npm run snapshot` rebuilds it. `scripts/match-covers.js` rebuilds the offline Switch Online cover map; titles whose box art is named differently go in `data/nintendo-cover-aliases.json`.

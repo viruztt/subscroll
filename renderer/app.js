@@ -106,7 +106,8 @@ function tierLabel(g) {
 const isComing = (g) => !!g.comingOn && g.comingOn > todayIso();
 
 function leaveInfo(g) {
-  const date = state.leaveDates[g.id];
+  // A date the user typed in once, or one the service's list gives.
+  const date = state.leaveDates[g.id] || serviceOffers(g).map((o) => o.leavesOn).filter(Boolean).sort()[0] || g.leavesOn;
   if (date) return { date, soon: daysUntil(date) <= 31, past: daysUntil(date) < 0 };
   if (g.leavingSoon) {
     // For a game in several services, say which one it's leaving.
@@ -371,7 +372,7 @@ function cover(g) {
   const src = msStore ? `${g.image}?w=300&h=450&q=80` : g.image;
   // Retro box art comes in every shape, and phone games have square icons,
   // so show those whole instead of cropping.
-  const whole = ['nso', 'netflix', 'applearcade', 'crunchyroll'].includes(g.service);
+  const whole = ['nso', 'netflix', 'applearcade', 'crunchyroll', 'playpass'].includes(g.service);
   const img = el('img', { class: `cover ${whole ? 'contain' : ''}`, src, loading: 'lazy', alt: '' });
   // Offline or a dead link: show the same artwork-free tile Nintendo games use.
   img.addEventListener('error', function failed() {
@@ -1635,7 +1636,9 @@ function sourcesPanel() {
     el('p', { class: 'muted' },
       'Game Pass, EA Play and Ubisoft+ come from Microsoft\'s catalogue service (so EA Play and Ubisoft+ show their Xbox and Microsoft Store editions), PS Plus from playstation.com\'s game lists. If Game Pass or PS Plus are unreachable the app falls back to community mirrors on GitHub. ',
       'Nintendo publishes no list, so Switch Online comes from Wikipedia\'s "Nintendo Classics" article, with box art from the libretro-thumbnails collection. ',
-      'Netflix games are the apps Netflix publishes on the App Store. Apple Arcade comes from Wikipedia\'s "Apple Arcade" article, with icons and details from the App Store, looked up a few at a time.'));
+      'Netflix games are the apps Netflix publishes on the App Store. Apple Arcade comes from Wikipedia\'s "Apple Arcade" article, with icons and details from the App Store, looked up a few at a time. ',
+      'Crunchyroll Game Vault is Crunchyroll\'s App Store account, Humble Choice the month\'s page on humblebundle.com. Google and Amazon publish no lists, so Google Play Pass comes from the playpassBrowser project and Amazon Luna from GameScriptions. ',
+      el('button', { class: 'link inline', onclick: () => api.openExternal('https://github.com/viruztt/subscroll#credits') }, 'Every source and credit'), '.'));
 }
 
 function openDrawer(g) {
