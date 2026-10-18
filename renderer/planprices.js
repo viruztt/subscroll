@@ -59,6 +59,17 @@
     'netflix:premium': 'Premium',
     'luna:prime': 'Prime (Luna Standard)',
   };
+  // Which of the app's tiers (the games a plan unlocks) a priced plan gives.
+  // Plans not listed here are the tier of the same name.
+  const TIER_OF = {
+    'nso:base_family': 'base',
+    'nso:expansion_family': 'expansion',
+    'eaplay:pro': 'eaplay',
+    'netflix:ads': 'any',
+    'netflix:standard': 'any',
+    'netflix:premium': 'any',
+    'luna:prime': 'standard',
+  };
   const LENGTHS = { 1: 'a month', 3: '3 months', 12: 'a year' };
 
   // Picker options for one service in one currency, cheapest tier first:
@@ -73,7 +84,7 @@
         const n = Number(months);
         if (!(amount > 0) || !n) continue;
         const name = TIER_NAMES[`${service.id}:${tier}`] || tierName(tier);
-        out.push({ key: `${service.id}:${tier}:${n}`, plan: tier, months: n, amount, monthly: Math.round((amount / n) * 100) / 100, name, length: LENGTHS[n] || `${n} months`, ...(unsure ? { unsure: true } : {}) });
+        out.push({ key: `${service.id}:${tier}:${n}`, plan: tier, tier: TIER_OF[`${service.id}:${tier}`] || tier, months: n, amount, monthly: Math.round((amount / n) * 100) / 100, name, length: LENGTHS[n] || `${n} months`, ...(unsure ? { unsure: true } : {}) });
       }
     }
     // Tiers cheapest first, each from its shortest payment.

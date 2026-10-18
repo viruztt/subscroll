@@ -772,10 +772,19 @@ function renderToPlay() {
   }
   const advice = advisorPanel();
   if (advice) content.append(advice);
+  // Games you can't play yet say the cheapest way to.
+  const withCheapest = (g, gone) => {
+    const c = card(g, keys);
+    if (!gone && isMine(g, keys) && !isComing(g)) return c;
+    const [best] = waysToPlay(g, { gone });
+    if (best && best.kind !== 'included') c.querySelector('.body').insertBefore(el('div', { class: `cheapest ${best.kind}`, title: 'The cheapest way to play it. Open the game for the other ways.' }, wayText(best, true)), c.querySelector('.marks'));
+    return c;
+  };
   for (const [title, hint, items] of groups) {
     if (!items.length) continue;
+    const gone = title === groups[3][0];
     content.append(el('div', { class: 'section-head' }, el('h3', {}, title, el('span', { class: 'muted' }, ` ${items.length}`)), el('span', { class: 'muted' }, hint)),
-      el('div', { class: 'grid' }, items.map((g) => card(g, keys))));
+      el('div', { class: 'grid' }, items.map((g) => withCheapest(g, gone))));
   }
 }
 
@@ -786,6 +795,61 @@ function planName(serviceId, tierId) {
   const t = s.tiers.find((x) => x.id === tierId);
   if (!t || s.tiers.length === 1) return s.name;
   return t.name.includes(s.short) ? t.name : `${s.short} ${t.name}`;
+}
+
+// ---------- cheapest way to play ----------
+// Your plans, a plan that has it, buying it or waiting for it, cheapest first.
+// A game that has left every service can only be bought.
+function waysToPlay(g, { gone = false } = {}) {
+  const currency = regionCurrency();
+  const p = prices[g.id];
+  const manual = state.priceOverrides?.[g.id];
+  const price = p?.amount > 0 && p.currency === currency ? p : typeof manual === 'number' && manual > 0 ? { amount: manual } : null;
+  return Cheapest.ways(g, {
+    services: gone ? [] : allServices(),
+    subscriptions: state.subscriptions,
+    planOptions: (s) => (currency ? PlanPrices.options(s, currency, { tierName: (t) => s.tiers.find((x) => x.id === t)?.name || t }) : []),
+    price,
+    owned: !!g.steam,
+    comingOn: isComing(g) ? g.comingOn : null,
+    today: todayIso(),
+  });
+}
+
+// "Game Pass Premium", "Switch Online + Expansion Pack", "Netflix Standard with adverts".
+function wayPlanName(w) {
+  const s = serviceById(w.service);
+  if (!s) return w.name;
+  if (s.tiers.length === 1 && w.name === s.tiers[0].name) return s.name;
+  return w.name.includes(s.short) ? w.name : `${s.short} ${w.name}`;
+}
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+function wayText(w, short = false) {
+  switch (w.kind) {
+    case 'owned': return 'You own it on Steam';
+    case 'included': return 'In your plans';
+    case 'wait': return short ? `Wait until ${fmtDate(w.on)}, then it's in your plans` : `Wait: it joins your plans on ${fmtDate(w.on)} (in ${plural(w.days, 'day')})`;
+    case 'plan': {
+      const name = `${w.upgrade ? 'Upgrade to ' : ''}${wayPlanName(w)}`;
+      const when = w.on ? `, from ${fmtDate(w.on)}` : '';
+      return short ? `${name}, ${money(w.cost)} for ${w.length}${when}`
+        : `${name}: ${money(w.cost)} for ${w.length}${when}${w.unsure ? ' (price not confirmed)' : ''}`;
+    }
+    case 'buy': {
+      if (short) return `Buy it for ${money(w.cost)}${w.sale ? ' on sale' : ''}`;
+      const sale = w.sale ? ` (${w.off}% off${w.saleEnds ? ` until ${fmtDate(w.saleEnds.slice(0, 10))}` : ''})` : '';
+      return `Buy it: ${money(w.cost)}${sale}${w.source ? ` on ${w.source}` : ''}`;
+    }
+    default: return '';
+  }
+}
+
+// In a game's details, when it isn't in your plans now.
+function cheapestRows(g) {
+  const ways = waysToPlay(g, { gone: !!(g.departed || g.leftOn) && !isComing(g) });
+  if (!ways.length || ways[0].kind === 'included') return null;
+  return [el('dt', {}, 'Cheapest way'), el('dd', { class: 'ways' }, ways.slice(0, 3).map((w, i) => el('div', { class: i ? 'muted' : 'best' }, wayText(w))))];
 }
 
 // Which plan to pick up for your To play list, for people who rotate plans.
@@ -1812,6 +1876,7 @@ function openDrawer(g) {
         isComing(g) ? [el('dt', {}, 'Coming'), el('dd', {}, fmtDate(g.comingOn))] : null,
         g.firstSeen && !isComing(g) ? [el('dt', {}, 'Added'), el('dd', {}, fmtDate(g.firstSeen))] : null,
         ratingRows(g),
+        cheapestRows(g),
         leave ? [el('dt', {}, 'Leaving'), el('dd', {}, leave.date ? fmtDate(leave.date) : `${leave.from?.length ? `${leave.from.join(', ')}: ` : ''}soon, no date announced`)] : null),
       markButtons(g, true),
       notesSection(g),
