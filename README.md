@@ -22,7 +22,7 @@ A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus, Ni
 2. Double-click it. There's no installer; the exe is the whole app, so keep it wherever you like.
 3. The first time, Windows may say "Windows protected your PC", because the app isn't signed with a paid certificate. Click **More info**, then **Run anyway**.
 
-Your plans and marks stay on your PC and carry over when you download a newer version. To move them to another PC, use **Save backup** in Settings.
+Your plans and marks stay on your PC and carry over when you download a newer version. To move them to another PC, use **Export profile** in Settings.
 
 ## Where the game lists come from
 
@@ -81,7 +81,7 @@ The **Statistics** page shows how far through your plans you are: games complete
 
 **Cloud play**: games you can stream get a ☁ Cloud badge, highlighted when one of your plans lets you stream it, and "Cloud streaming" in the platform filter lists just those. Xbox Cloud Gaming comes from [Gameglass](https://github.com/jackheuberger/gameglass), which reads Microsoft's cloud catalogue every few hours and works out which Game Pass tiers can stream each game (US catalogue; read once a day). PlayStation's own lists say which games PS Plus Premium can stream. A game's details say which plans can stream it.
 
-**Backup** in Settings saves your plans, marks, own services and games, and settings to one `.json` file; **Restore from backup** on another PC (or after a reinstall) loads it back, asking first since it replaces what's there. Catalogues and cached lookups aren't in the file; the app fetches them again.
+**Export & import profile** in Settings saves everything Subscroll keeps about you to one `.json` file: plans, marks and your To play list, your own services and games, settings, Value page costs, your Steam link, free games you claimed or skipped, and when games joined or left each list. Ticking "Include looked-up data" also saves the Metacritic scores, play times, prices, descriptions and covers it has looked up, so another PC doesn't have to look them all up again. **Import profile** on another PC (or after a reinstall) asks first, then replaces your plans, marks and settings and adds the history and looked-up data to what that PC already has. The file includes your Steam Web API key if you added one. Backups saved by older versions still import. Catalogues themselves aren't in the file; the app fetches them again.
 
 ## Building from source
 
@@ -89,7 +89,7 @@ The **Statistics** page shows how far through your plans you are: games complete
 
 ## Layout
 
-- `src/main.js`: window, IPC, daily refresh. `src/details.js`: descriptions and screenshots. `src/ratings.js`: Metacritic and How Long To Beat. `src/regions.js`: the country list. `src/backup.js`: backup files. `src/steam.js`: Steam library import. `src/alerts.js`: what the tray notifications say. `src/prices.js` and `renderer/value.js`: the Value page. `renderer/recommend.js`: For you picks and "Because you beat". `renderer/advisor.js`: Which plan to get. `src/freegames.js`: Free to keep (Epic store feed and GamerPower). `renderer/calendar.js`: the Calendar page. `src/cloud.js`: which Xbox games stream (Gameglass). `src/wiki.js`: developers, genres and covers from Wikipedia infoboxes. `src/catalog.js`: refresh, fallbacks, history, merging Xbox console/PC duplicates.
+- `src/main.js`: window, IPC, daily refresh. `src/details.js`: descriptions and screenshots. `src/ratings.js`: Metacritic and How Long To Beat. `src/regions.js`: the country list. `src/backup.js`: profile export and import. `src/steam.js`: Steam library import. `src/alerts.js`: what the tray notifications say. `src/prices.js` and `renderer/value.js`: the Value page. `renderer/recommend.js`: For you picks and "Because you beat". `renderer/advisor.js`: Which plan to get. `src/freegames.js`: Free to keep (Epic store feed and GamerPower). `renderer/calendar.js`: the Calendar page. `src/cloud.js`: which Xbox games stream (Gameglass). `src/wiki.js`: developers, genres and covers from Wikipedia infoboxes. `src/catalog.js`: refresh, fallbacks, history, merging Xbox console/PC duplicates.
 - `src/providers/`: one file per service.
 - `renderer/`: the UI (plain HTML/CSS/JS). `renderer/unify.js` merges the same game across services; `renderer/stats.js` works out the Statistics page. The logo is `renderer/logo.svg`; `renderer/icon.png` (window) and `build/icon.png` (exe) are 256 and 512 px renders of it.
 - `data/`: bundled snapshot used until the first refresh. `npm run snapshot` rebuilds it. `scripts/match-covers.js` rebuilds the offline Switch Online cover map; titles whose box art is named differently go in `data/nintendo-cover-aliases.json`.

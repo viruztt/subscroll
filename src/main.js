@@ -1,6 +1,6 @@
 const { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, net, shell } = require('electron');
 const path = require('path');
-const { Store } = require('./store');
+const { Store, readJson, writeJson } = require('./store');
 const { Catalog, SERVICES: CATALOG_SERVICES } = require('./catalog');
 const arcade = require('./providers/applearcade');
 const { DetailsCache } = require('./details');
@@ -8,7 +8,7 @@ const { Ratings } = require('./ratings');
 const { SERVICES, TIER_BADGES, unlockedTiers } = require('./services');
 const { REGIONS, regionById } = require('./regions');
 const http = require('./providers/http');
-const { makeBackup, parseBackup, backupName } = require('./backup');
+const { makeBackup, parseBackup, mergeHistory, mergeLookups, backupName } = require('./backup');
 const steam = require('./steam');
 const alerts = require('./alerts');
 const { Prices } = require('./prices');
@@ -357,21 +357,36 @@ function registerIpc() {
     startRatings();
     return { ratings: ratings.forGames(catalogGames()), progress: ratingProgress };
   });
-  ipcMain.handle('export-backup', async () => {
+  // The looked-up data, by the name used in profile files.
+  const lookupStores = () => ({
+    ratings: { data: ratings.data, save: () => ratings.save() },
+    prices: { data: prices.cache, save: () => prices.save() },
+    wikipedia: { data: wiki.data, save: () => wiki.save() },
+    details: { data: details.data, save: () => fs.promises.writeFile(details.file, JSON.stringify(details.data)).catch(() => {}) },
+    appstore: (() => {
+      const file = path.join(catalog.appStoreDir(), 'appstore.json');
+      const data = readJson(file, {});
+      return { data, save: () => writeJson(file, data) };
+    })(),
+  });
+  ipcMain.handle('export-backup', async (_e, opts = {}) => {
     const { canceled, filePath } = await dialog.showSaveDialog(win, {
-      title: 'Save a backup of your plans and marks',
+      title: 'Export your Subscroll profile',
       defaultPath: path.join(app.getPath('documents'), backupName()),
-      filters: [{ name: 'Subscroll backup', extensions: ['json'] }],
+      filters: [{ name: 'Subscroll profile', extensions: ['json'] }],
     });
     if (canceled || !filePath) return { ok: false };
-    await fs.promises.writeFile(filePath, JSON.stringify(makeBackup(store.get()), null, 1));
-    return { ok: true, file: filePath, marks: Object.keys(store.get().marks).length };
+    const history = Object.fromEntries(catalog.loadAll().map((c) => [c.service, c.history || { firstSeen: {}, departed: [] }]));
+    const lookups = opts.lookups === false ? null : Object.fromEntries(Object.entries(lookupStores()).map(([k, v]) => [k, v.data]));
+    const text = JSON.stringify(makeBackup(store.get(), new Date(), { history, lookups }));
+    await fs.promises.writeFile(filePath, text);
+    return { ok: true, file: filePath, marks: Object.keys(store.get().marks).length, bytes: Buffer.byteLength(text) };
   });
   ipcMain.handle('import-backup', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-      title: 'Restore from a backup',
+      title: 'Import a Subscroll profile',
       properties: ['openFile'],
-      filters: [{ name: 'Subscroll backup', extensions: ['json'] }],
+      filters: [{ name: 'Subscroll profile', extensions: ['json'] }],
     });
     if (canceled || !filePaths.length) return { ok: false };
     let backup;
@@ -384,17 +399,31 @@ function registerIpc() {
     const when = backup.exportedAt ? ` from ${new Date(backup.exportedAt).toLocaleDateString()}` : '';
     const { response } = await dialog.showMessageBox(win, {
       type: 'question',
-      buttons: ['Restore', 'Cancel'],
+      buttons: ['Import', 'Cancel'],
       defaultId: 0,
       cancelId: 1,
-      message: `Restore the backup${when}?`,
-      detail: `Your plans, settings and ${count(store.get().marks)} marked games on this PC are replaced by the backup's ${count(backup.state.marks)} marked games.`,
+      message: `Import the profile${when}?`,
+      detail: `Your plans, settings and ${count(store.get().marks)} marked games on this PC are replaced by the profile's ${count(backup.state.marks)} marked games. `
+        + 'List history and looked-up scores, prices and descriptions are added to what this PC already has.',
     });
     if (response !== 0) return { ok: false };
     const { settings, ...rest } = backup.state;
     store.update({ ...rest, ...(settings ? { settings: { ...store.get().settings, ...settings } } : {}) });
+    for (const [service, h] of Object.entries(backup.history)) catalog.importHistory(service, h, mergeHistory);
+    let looked = 0;
+    const stores = lookupStores();
+    for (const [k, data] of Object.entries(backup.lookups)) {
+      const n = mergeLookups(stores[k].data, data);
+      if (n) await stores[k].save();
+      looked += n;
+    }
+    if (backup.lookups.appstore) catalog.reapplyArcade();
+    applyLoginItem();
+    updateTray();
     startRatings();
-    return { ok: true, marks: count(backup.state.marks), state: store.get() };
+    startWiki();
+    win?.webContents.send('catalog-changed');
+    return { ok: true, marks: count(backup.state.marks), looked, state: store.get() };
   });
   ipcMain.handle('import-steam', async (_e, { profile, key }) => {
     try {

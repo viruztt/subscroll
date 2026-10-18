@@ -160,6 +160,20 @@ class Catalog {
     return path.join(this.dir, 'appstore');
   }
 
+  // Adds history from an imported profile: earliest join dates, departed
+  // games from both.
+  importHistory(service, incoming, merge) {
+    if (!SERVICES.includes(service)) return false;
+    const entry = this.load(service);
+    const next = { ...entry, history: merge(entry.history, incoming, MAX_DEPARTED) };
+    // Drop departed games that are back in the list.
+    const ids = new Set(entry.games.map((g) => g.id));
+    next.history.departed = next.history.departed.filter((g) => !ids.has(g.id));
+    writeJson(this.fileFor(service), next);
+    this.cache[service] = next;
+    return true;
+  }
+
   // Re-applies App Store details found since the last refresh.
   reapplyArcade() {
     const entry = this.load('applearcade');

@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   onRatings: (fn) => ipcRenderer.on('ratings', (_e, msg) => fn(msg)),
   onCatalogChanged: (fn) => ipcRenderer.on('catalog-changed', () => fn()),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
-  exportBackup: () => ipcRenderer.invoke('export-backup'),
+  exportBackup: (opts) => ipcRenderer.invoke('export-backup', opts),
   importBackup: () => ipcRenderer.invoke('import-backup'),
   importSteam: (profile, key) => ipcRenderer.invoke('import-steam', { profile, key }),
   forgetSteam: () => ipcRenderer.invoke('forget-steam'),

@@ -1258,7 +1258,7 @@ function beatenPanel(v) {
 }
 
 function renderSubs() {
-  $('#summary').textContent = 'Your plans, region, background, Steam and backups. Everything is saved on this computer.';
+  $('#summary').textContent = 'Your plans, region, background, Steam and profile export. Everything is saved on this computer.';
   const content = $('#content');
   content.replaceChildren();
 
@@ -1345,35 +1345,41 @@ function steamPanel() {
     status);
 }
 
-// Save plans and marks to a file, or bring them back on another PC.
+// The last export or import result, kept while the page is rebuilt.
+let profileNote = '';
+// Everything Subscroll keeps about you in one file, to keep safe or move to another PC.
 function backupPanel() {
   const games = (n) => `${n} marked game${n === 1 ? '' : 's'}`;
-  const status = el('p', { class: 'muted' });
+  const size = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+  const status = el('p', { class: 'muted' }, profileNote);
+  const lookups = el('input', { type: 'checkbox', checked: '' });
   const exportIt = async () => {
-    const r = await api.exportBackup();
-    if (r.ok) status.textContent = `Saved ${games(r.marks)} and your plans to ${r.file}`;
+    const r = await api.exportBackup({ lookups: lookups.checked });
+    if (r.ok) status.textContent = profileNote = `Exported ${games(r.marks)}, your plans and settings (${size(r.bytes)}) to ${r.file}`;
   };
   const restore = async () => {
     const r = await api.importBackup();
     if (r.error) {
-      status.textContent = r.error;
+      status.textContent = profileNote = r.error;
     } else if (r.ok) {
+      profileNote = `Imported ${games(r.marks)}, your plans and settings${r.looked ? `, plus ${r.looked} looked-up detail${r.looked === 1 ? '' : 's'} such as scores and prices` : ''}.`;
       state = r.state;
       rebuildGames();
+      // Rebuilds this panel, which shows the note.
       render(true);
-      // render() rebuilt this panel; report on the new one.
-      const fresh = document.querySelector('#backup-status');
-      if (fresh) fresh.textContent = `Restored ${games(r.marks)} and your plans.`;
-      return;
     }
   };
   status.id = 'backup-status';
   return el('div', { class: 'panel' },
-    el('h2', {}, 'Backup'),
-    el('p', { class: 'muted' }, 'Save your plans, marks, settings and your own services and games to a file, to keep it safe or move to another PC. Restoring replaces what is on this PC.'),
+    el('h2', {}, 'Export & import profile'),
+    el('p', { class: 'muted' },
+      'Everything Subscroll keeps about you in one JSON file: plans, marks, To play list, your own services and games, settings, Value page costs, Steam link, free games you claimed, and when games joined or left each list. '
+      + 'Keep it safe or move it to another PC. Importing replaces your plans, marks and settings on this PC, and adds the history and looked-up data to what it already has. '
+      + 'The file includes your Steam Web API key if you added one, so keep it to yourself.'),
+    el('div', { class: 'checks' }, el('label', { class: 'check-row' }, lookups, el('span', {}, el('strong', {}, 'Include looked-up data.'), el('span', { class: 'muted' }, ' Scores, play times, prices, descriptions and covers, so the other PC needn\'t look them all up again. Makes the file bigger.')))),
     el('div', { class: 'form' },
-      el('button', { class: 'primary', onclick: exportIt }, 'Save backup…'),
-      el('button', { onclick: restore }, 'Restore from backup…')),
+      el('button', { class: 'primary', onclick: exportIt }, 'Export profile…'),
+      el('button', { onclick: restore }, 'Import profile…')),
     status);
 }
 
