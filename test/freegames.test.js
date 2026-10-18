@@ -83,6 +83,8 @@ test('FreeGames: Epic feed wins over GamerPower copy; a failed source keeps its 
     if (gpDown) return { ok: false, status: 503, json: async () => ({}) };
     return { ok: true, status: 200, json: async () => [gp(10, 'Out of Sight (Epic Games) Giveaway', 'PC, Epic Games Store'), gp(1, 'Pony Island (Steam) Giveaway', 'PC, Steam')] };
   });
+  // A list saved before PS Plus and Free Play Days were added is checked again at once.
+  fs.writeFileSync(path.join(dir, 'freegames.json'), JSON.stringify({ at: new Date().toISOString(), games: [], errors: {} }));
   const fg = new FreeGames(dir);
   assert.ok(fg.due());
   const r = await fg.refresh({ country: 'GB', locale: 'en-US' });

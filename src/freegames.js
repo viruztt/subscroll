@@ -17,6 +17,8 @@ const PS_MONTHLY_MIRROR = 'https://raw.githubusercontent.com/ppazour/ps-plus-gam
 const PS_BLOG = ['https://blog.playstation.com/tag/playstation-plus/feed/', 'https://blog.playstation.com/feed/'];
 const FREE_PLAY_DAYS = 'https://news.xbox.com/en-us/tag/free-play-days/feed/';
 const CHECK_HOURS = 6;
+// Bumped when a source is added, so the list is checked again straight away.
+const DATA_VERSION = 2;
 
 const STORES = {
   epic: { name: 'Epic Games Store', short: 'Epic' },
@@ -177,6 +179,8 @@ class FreeGames {
     } catch {
       this.data = { at: null, games: [], errors: {} };
     }
+    // Saved before the newest sources: keep the list, but check now.
+    if (this.data.v !== DATA_VERSION) this.data.at = null;
   }
 
   // Ended giveaways drop off even before the next check.
@@ -242,7 +246,7 @@ class FreeGames {
       // The blog only fills in months playstation.com's list doesn't have yet.
       const listed = new Set(ps.map((g) => g.id.split(':')[1]));
       psBlog = keep(psBlog, 'psblog:').filter((g) => !listed.has(g.month));
-      this.data = { at: now.toISOString(), games: mergeFree(epic, [...others, ...ps, ...psBlog, ...fpd]), errors };
+      this.data = { v: DATA_VERSION, at: now.toISOString(), games: mergeFree(epic, [...others, ...ps, ...psBlog, ...fpd]), errors };
       try {
         fs.writeFileSync(this.file, JSON.stringify(this.data));
       } catch {
