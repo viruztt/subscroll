@@ -1,5 +1,5 @@
 // Profile files: everything Subscroll keeps about you in one JSON file, to
-// move to another PC or keep safe. That is your plans, marks, own services
+// move to another PC or keep safe. That is your plans, marks, star ratings and notes, own services
 // and games, settings, Value page costs, Steam link, free-game claims, what
 // each list's history noticed (join dates, departed games), and optionally
 // the looked-up scores, prices, descriptions and covers, so the other PC
@@ -11,7 +11,7 @@ const MARKS = new Set(['played', 'completed', 'ignored', 'wishlist']);
 const FREE_MARKS = new Set(['claimed', 'skip']);
 const FIELDS = [
   'subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings', 'costs', 'priceOverrides', 'viaSub',
-  'freebies', 'steam', 'alertedLeaving', 'freeKnown', 'freeReminded', 'trayHintShown',
+  'freebies', 'steam', 'alertedLeaving', 'freeKnown', 'freeReminded', 'trayHintShown', 'notes',
 ];
 // Looked-up data, each a map of key -> entry.
 const LOOKUPS = ['ratings', 'prices', 'wikipedia', 'details', 'appstore'];
@@ -79,6 +79,15 @@ function parseBackup(text) {
   if ('freeKnown' in s) state.freeKnown = Array.isArray(s.freeKnown) ? strings(s.freeKnown) : null;
   if ('freeReminded' in s) state.freeReminded = strings(s.freeReminded);
   if (typeof s.trayHintShown === 'boolean') state.trayHintShown = s.trayHintShown;
+  if ('notes' in s) {
+    state.notes = {};
+    for (const [id, n] of Object.entries(isObject(s.notes) ? s.notes : {})) {
+      if (!isObject(n)) continue;
+      const stars = Number.isInteger(n.stars) && n.stars >= 1 && n.stars <= 5 ? n.stars : null;
+      const text = typeof n.text === 'string' && n.text.trim() ? n.text : null;
+      if (stars || text) state.notes[id] = { ...(stars ? { stars } : {}), ...(text ? { text } : {}), ...(typeof n.at === 'string' ? { at: n.at } : {}) };
+    }
+  }
   const lookups = {};
   for (const k of LOOKUPS) if (data.lookups && isObject(data.lookups[k])) lookups[k] = mapOf(data.lookups[k], isObject);
   return {

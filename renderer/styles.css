@@ -472,3 +472,12 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .play-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0 4px; }
 .play-bar.hidden { display: none; }
 .play-error { font-size: 12px; }
+.badge.stars { background: #3a2f0b; color: #ffd45e; border: 1px solid #8a6d1c; }
+.notes { margin: 12px 0 4px; display: grid; gap: 8px; }
+.notes-head { display: flex; align-items: center; gap: 12px; }
+.stars-input { display: flex; gap: 2px; }
+.stars-input .star { background: none; border: none; padding: 0 2px; font-size: 22px; line-height: 1; color: #4a5060; cursor: pointer; }
+.stars-input .star.on { color: #ffc83d; }
+.stars-input:hover .star { color: #ffc83d; }
+.stars-input .star:hover ~ .star { color: #4a5060; }
+.note-text { width: 100%; box-sizing: border-box; resize: vertical; background: var(--panel-2, #161a22); color: inherit; border: 1px solid var(--border, #2a2f3a); border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13px; }

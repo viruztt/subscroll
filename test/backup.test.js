@@ -16,6 +16,7 @@ const state = {
   freeKnown: ['epic:ns:o1'],
   freeReminded: [],
   trayHintShown: true,
+  notes: { 'nso:mario': { stars: 5, text: 'World 8 left', at: '2026-10-18T12:00:00Z' } },
   catalog: { huge: true },
   lastRefresh: '2026-10-18T00:00:00Z',
 };
@@ -32,7 +33,7 @@ test('Profile round trip keeps plans, marks, Steam, freebies, history and lookup
   assert.strictEqual(file.state.lastRefresh, undefined);
   const back = parseBackup(JSON.stringify(file));
   assert.strictEqual(back.exportedAt, '2026-10-16T12:00:00.000Z');
-  for (const k of ['marks', 'subscriptions', 'customGames', 'settings', 'costs', 'freebies', 'steam', 'alertedLeaving', 'freeKnown', 'freeReminded', 'trayHintShown']) {
+  for (const k of ['marks', 'subscriptions', 'customGames', 'settings', 'costs', 'freebies', 'steam', 'alertedLeaving', 'freeKnown', 'freeReminded', 'trayHintShown', 'notes']) {
     assert.deepStrictEqual(back.state[k], state[k], k);
   }
   assert.deepStrictEqual(back.history, history);
@@ -61,7 +62,7 @@ test('Unknown marks and broken fields are dropped', () => {
   const back = parseBackup(JSON.stringify({
     format: 'subscroll-backup',
     version: 2,
-    state: { marks: { a: 'completed', b: 'loved', c: 5 }, subscriptions: 'nope', customGames: [1, { id: 'g' }], freebies: { x: 'claimed', y: 'maybe' }, steam: 'oops' },
+    state: { marks: { a: 'completed', b: 'loved', c: 5 }, subscriptions: 'nope', customGames: [1, { id: 'g' }], freebies: { x: 'claimed', y: 'maybe' }, steam: 'oops', notes: { a: { stars: 9, text: 'hi' }, b: { stars: 3 }, c: 'x', d: { stars: 0, text: ' ' } } },
     history: { gamepass: { firstSeen: { a: '2026-01-01', b: 3 }, departed: [{ id: 'z', title: 'Z' }, { title: 'no id' }] }, bad: 7 },
     lookups: { ratings: { a: { mc: 1 }, b: 'x' }, unknown: { a: {} } },
   }));
@@ -70,6 +71,7 @@ test('Unknown marks and broken fields are dropped', () => {
   assert.deepStrictEqual(back.state.customGames, [{ id: 'g' }]);
   assert.deepStrictEqual(back.state.freebies, { x: 'claimed' });
   assert.strictEqual(back.state.steam, null);
+  assert.deepStrictEqual(back.state.notes, { a: { text: 'hi' }, b: { stars: 3 } });
   assert.strictEqual('settings' in back.state, false);
   assert.deepStrictEqual(back.history, { gamepass: { firstSeen: { a: '2026-01-01' }, departed: [{ id: 'z', title: 'Z' }] } });
   assert.deepStrictEqual(back.lookups, { ratings: { a: { mc: 1 } } });

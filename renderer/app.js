@@ -133,6 +133,25 @@ async function setMark(id, value) {
   await saveState({ marks });
 }
 
+// Your own star rating (1-5) and notes, shared by every entry of the game.
+function noteOf(id) {
+  const notes = state.notes || {};
+  for (const x of markIds(id)) if (notes[x]) return notes[x];
+  return null;
+}
+const starsOf = (id) => noteOf(id)?.stars || null;
+
+async function setNote(id, patch) {
+  const notes = { ...(state.notes || {}) };
+  const prev = noteOf(id) || {};
+  for (const x of markIds(id)) delete notes[x];
+  const next = { ...prev, ...patch, at: new Date().toISOString() };
+  if (!next.stars) delete next.stars;
+  if (!next.text || !next.text.trim()) delete next.text;
+  if (next.stars || next.text) notes[id] = next;
+  await saveState({ notes });
+}
+
 async function saveState(patch) {
   state = await api.updateState(patch);
 }
@@ -247,7 +266,8 @@ function filtered(list, { keepDeparted = false } = {}) {
     if (ui.status === 'steam' ? !g.steam : ui.status !== 'all' && markOf(g.id) !== ui.status) return false;
     if (!platformOk(g, keys)) return false;
     if (!fitsGenreAndLength(g)) return false;
-    if (q && !g.title.toLowerCase().includes(q)) return false;
+    // Search finds your notes too.
+    if (q && !g.title.toLowerCase().includes(q) && !(noteOf(g.id)?.text || '').toLowerCase().includes(q)) return false;
     return true;
   });
 }
@@ -285,6 +305,7 @@ function sorted(list) {
   if (ui.sort === 'score') return copy.sort(byValue(mcScore, -1));
   if (ui.sort === 'short') return copy.sort(byValue(beatHours, 1));
   if (ui.sort === 'long') return copy.sort(byValue(beatHours, -1));
+  if (ui.sort === 'stars') return copy.sort(byValue((g) => starsOf(g.id), -1));
   if (ui.sort === 'release') copy.sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || '') || byTitle(a, b));
   else if (ui.sort === 'added') copy.sort((a, b) => (b.firstSeen || '').localeCompare(a.firstSeen || '') || byTitle(a, b));
   else copy.sort(byTitle);
@@ -414,6 +435,8 @@ function card(g, keys) {
   if (g.versions?.length > 1) badges.push(el('span', { class: 'badge region', title: 'Regional versions included' }, g.versions.join(' + ')));
   if (markOf(g.id) === 'wishlist') badges.push(el('span', { class: 'badge toplay' }, 'To play'));
   if (g.steam) badges.push(el('span', { class: 'badge steam', title: steamText(g.steam) }, 'On Steam'));
+  const note = noteOf(g.id);
+  if (note) badges.push(el('span', { class: 'badge stars', title: note.text ? `Your note: ${note.text}` : 'Your rating' }, note.stars ? '★'.repeat(note.stars) : '', note.text ? (note.stars ? ' ✎' : '✎ Note') : ''));
   if (cloudKeys(g).size) {
     const yours = canStream(g, keys);
     badges.push(el('span', { class: `badge cloud ${yours ? 'yours' : ''}`, title: `Stream it with ${cloudPlans(g)}${yours ? ' (in your plans)' : ''}` }, '☁ Cloud'));
@@ -1551,11 +1574,45 @@ function openDrawer(g) {
         ratingRows(g),
         leave ? [el('dt', {}, 'Leaving'), el('dd', {}, leave.date ? fmtDate(leave.date) : `${leave.from?.length ? `${leave.from.join(', ')}: ` : ''}soon, no date announced`)] : null),
       markButtons(g, true),
+      notesSection(g),
       detailsSection(g),
       offers.filter((o) => o.storeUrl).map((o) => el('button', { class: 'link', onclick: () => api.openExternal(o.storeUrl) },
         o.service === 'nso' ? 'Open the Wikipedia list ↗' : offers.length > 1 ? `Open on ${serviceById(o.service)?.short || o.service} ↗` : 'Open store page ↗')),
       g.custom ? el('button', { class: 'link danger', onclick: deleteCustom }, 'Delete this game') : null));
   drawer.classList.remove('hidden');
+}
+
+// Your star rating and notes, saved as you type.
+function notesSection(g) {
+  const note = noteOf(g.id) || {};
+  const stars = el('div', { class: 'stars-input', role: 'radiogroup', 'aria-label': 'Your rating' });
+  const drawStars = (n) => stars.replaceChildren(...[1, 2, 3, 4, 5].map((i) => el('button', {
+    class: `star ${i <= (n || 0) ? 'on' : ''}`,
+    title: n === i ? 'Clear your rating' : `${i} star${i === 1 ? '' : 's'}`,
+    'aria-checked': String(n === i),
+    role: 'radio',
+    onclick: async () => {
+      const next = (noteOf(g.id)?.stars || 0) === i ? null : i;
+      drawStars(next);
+      await setNote(g.id, { stars: next });
+      render(true);
+    },
+  }, '★')));
+  drawStars(note.stars);
+  const text = el('textarea', { class: 'note-text', rows: 3, placeholder: 'Your notes: where you got to, what to try, who recommended it…' });
+  text.value = note.text || '';
+  let timer;
+  const saveText = async () => {
+    clearTimeout(timer);
+    if ((noteOf(g.id)?.text || '') === text.value) return;
+    await setNote(g.id, { text: text.value });
+  };
+  text.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(saveText, 600); });
+  // Re-drawing the list on blur shows the note badge without losing focus while typing.
+  text.addEventListener('blur', async () => { await saveText(); render(true); });
+  return el('section', { class: 'notes' },
+    el('div', { class: 'notes-head' }, el('span', { class: 'muted' }, 'Your rating'), stars),
+    text);
 }
 
 // Play / install buttons. Steam is asked whether the game is installed.
