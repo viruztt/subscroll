@@ -160,6 +160,8 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .badge.gone { background: #555; }
 .badge.coming { background: #bf5af2; color: #fff; }
 .badge.region { background: rgba(15, 17, 21, .78); color: var(--text); border: 1px solid var(--line); }
+.badge.cloud { background: #000c; color: var(--muted); border: 1px solid var(--line); }
+.badge.cloud.yours { color: #d6ecff; border-color: var(--accent); }
 .badge.steam { background: #1b2838; color: #c7d5e0; border: 1px solid #66c0f4; }
 #coming-count { background: #bf5af2; color: #fff; }
 .body { padding: 10px; display: flex; flex-direction: column; gap: 8px; flex: 1; }

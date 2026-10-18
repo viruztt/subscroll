@@ -82,6 +82,9 @@ test('PS Plus: catalogue and classics merge into tiers', () => {
   const hat = games.find((g) => g.title === 'A Hat in Time');
   assert.deepStrictEqual(hat.tiers, ['extra']);
   assert.deepStrictEqual(hat.platforms, ['PS4']);
+  // The list says per game whether PS Plus Premium can stream it.
+  assert.ok(!hat.stream);
+  assert.strictEqual(classic.stream, true);
 });
 
 test('Bundled Switch Online snapshot has every system and most covers', () => {

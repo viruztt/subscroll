@@ -36,6 +36,8 @@ function normalize(listsByTier) {
       }
       const game = games.get(key);
       if (!game.tiers.includes(tier)) game.tiers.push(tier);
+      // Streams with PS Plus Premium.
+      if (g.streamingSupported) game.stream = true;
     }
   }
   return [...games.values()];

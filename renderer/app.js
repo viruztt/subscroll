@@ -187,7 +187,45 @@ function platformsList() {
   return [...set].sort((a, b) => a.localeCompare(b));
 }
 
-const PLATFORM_LABEL = { console: 'Xbox console', pc: 'PC' };
+const PLATFORM_LABEL = { console: 'Xbox console', pc: 'PC', cloud: 'Cloud streaming' };
+
+// Plans that let you stream a game: "gamepass:premium", "psplus:premium".
+const CLOUD_TIER_ORDER = ['essential', 'premium', 'ultimate'];
+function cloudKeys(g) {
+  const out = new Set();
+  for (const o of offersOf(g)) {
+    if (o.service === 'psplus' && o.stream) out.add('psplus:premium');
+    if (o.cloud) for (const t of o.cloud.tiers) out.add(`gamepass:${t}`);
+  }
+  return out;
+}
+const canStream = (g, keys) => [...cloudKeys(g)].some((k) => keys.has(k));
+
+// The platform filter; "Cloud streaming" means streamable (with your plans, when only those are shown).
+function platformOk(g, keys) {
+  if (ui.platform === 'all') return true;
+  if (ui.platform === 'cloud') return cloudKeys(g).size > 0 && (!ui.mineOnly || !keys.size || canStream(g, keys));
+  return g.platforms.includes(ui.platform);
+}
+
+function cloudRow(g) {
+  if (cloudKeys(g).size) {
+    const yours = canStream(g, unlocked());
+    return [el('dt', {}, 'Cloud'), el('dd', {}, `Stream with ${cloudPlans(g)}${yours ? ', which you have' : ''}`)];
+  }
+  if (offersOf(g).some((o) => o.cloud?.own)) return [el('dt', {}, 'Cloud'), el('dd', {}, 'Streams with Xbox Cloud Gaming if you own it')];
+  return null;
+}
+
+// "Game Pass Premium and up, PS Plus Premium"
+function cloudPlans(g) {
+  const ck = cloudKeys(g);
+  const out = [];
+  const gp = CLOUD_TIER_ORDER.find((t) => ck.has(`gamepass:${t}`));
+  if (gp) out.push(`${planName('gamepass', gp)}${gp === 'ultimate' ? '' : ' and up'}`);
+  if (ck.has('psplus:premium')) out.push(planName('psplus', 'premium'));
+  return out.join(', ');
+}
 const platformName = (p) => PLATFORM_LABEL[p] || p;
 
 const hideDeparted = () => !!state.settings.hideDeparted;
@@ -207,7 +245,7 @@ function filtered(list, { keepDeparted = false } = {}) {
     if (hideCompleted() && markOf(g.id) === 'completed') return false;
     if (hideIgnored() && markOf(g.id) === 'ignored') return false;
     if (ui.status === 'steam' ? !g.steam : ui.status !== 'all' && markOf(g.id) !== ui.status) return false;
-    if (ui.platform !== 'all' && !g.platforms.includes(ui.platform)) return false;
+    if (!platformOk(g, keys)) return false;
     if (!fitsGenreAndLength(g)) return false;
     if (q && !g.title.toLowerCase().includes(q)) return false;
     return true;
@@ -376,6 +414,10 @@ function card(g, keys) {
   if (g.versions?.length > 1) badges.push(el('span', { class: 'badge region', title: 'Regional versions included' }, g.versions.join(' + ')));
   if (markOf(g.id) === 'wishlist') badges.push(el('span', { class: 'badge toplay' }, 'To play'));
   if (g.steam) badges.push(el('span', { class: 'badge steam', title: steamText(g.steam) }, 'On Steam'));
+  if (cloudKeys(g).size) {
+    const yours = canStream(g, keys);
+    badges.push(el('span', { class: `badge cloud ${yours ? 'yours' : ''}`, title: `Stream it with ${cloudPlans(g)}${yours ? ' (in your plans)' : ''}` }, '☁ Cloud'));
+  }
   const open = () => { drawerRoll = null; openDrawer(g); };
   return el('article', { class: `card ${mine ? 'mine' : ''} mark-${markOf(g.id)}`, 'data-id': g.id, onclick: open },
     el('div', { class: 'cover-wrap' }, cover(g), el('div', { class: 'badges' }, badges), toPlayButton(g, 'cover-btn cover-toplay'), ignoreButton(g, 'cover-btn cover-ignore')),
@@ -1461,6 +1503,7 @@ function openDrawer(g) {
         el('dt', {}, 'Included in'), el('dd', {}, plans.length ? plans : '—'),
         el('dt', {}, 'Platforms'), el('dd', {}, g.platforms.map(platformName).join(', ') || '—'),
         g.versions?.length ? [el('dt', {}, 'Versions'), el('dd', {}, g.versions.join(', '))] : null,
+        cloudRow(g),
         g.steam ? [el('dt', {}, 'Steam'), el('dd', {}, el('button', { class: 'link inline', onclick: () => api.openExternal(`https://store.steampowered.com/app/${g.steam.appid}/`) }, steamText(g.steam).replace('You own this on Steam, ', 'Owned, '), ' ↗'))] : null,
         g.genreTags?.length ? [el('dt', {}, 'Genre'), el('dd', {}, g.genreTags.join(', '))]
           : g.genres?.length ? [el('dt', {}, 'Genre'), el('dd', {}, g.genres.join(', '))] : null,
@@ -1581,7 +1624,7 @@ function rollPool() {
     if (hasSubs && !isMine(g, keys)) return false;
     if (['completed', 'ignored'].includes(markOf(g.id)) || isComing(g)) return false;
     if (ui.services.size && !inServices(g, ui.services)) return false;
-    if (ui.platform !== 'all' && !g.platforms.includes(ui.platform)) return false;
+    if (!platformOk(g, keys)) return false;
     if (!fitsGenreAndLength(g)) return false;
     return true;
   });
@@ -1667,7 +1710,8 @@ function renderChrome() {
 
   const pf = $('#platform-filter');
   const current = ui.platform;
-  pf.replaceChildren(el('option', { value: 'all' }, 'Any platform'), ...platformsList().map((p) => el('option', { value: p }, platformName(p))));
+  pf.replaceChildren(el('option', { value: 'all' }, 'Any platform'), ...platformsList().map((p) => el('option', { value: p }, platformName(p))),
+    el('option', { value: 'cloud' }, platformName('cloud')));
   pf.value = current;
 
   // Only genres some game actually has.

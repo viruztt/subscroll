@@ -14,6 +14,7 @@ const alerts = require('./alerts');
 const { Prices } = require('./prices');
 const { Wiki, wanted: wikiWanted } = require('./wiki');
 const { FreeGames, freeAlerts } = require('./freegames');
+const { Cloud } = require('./cloud');
 const { listTitles } = alerts;
 const fs = require('fs');
 
@@ -24,6 +25,7 @@ let ratings;
 let prices;
 let wiki;
 let freeGames;
+let cloud;
 let win;
 let tray;
 let quitting = false;
@@ -89,7 +91,7 @@ function createWindow() {
 
 // Lists as saved, with what Wikipedia adds (developers, genres, pictures).
 function catalogPayload() {
-  const fill = (g) => wiki.fill(g);
+  const fill = (g) => cloud.fill(wiki.fill(g));
   return catalog.loadAll().map(({ service, source, fetchedAt, games, history }) => ({
     service, source, fetchedAt,
     games: games.map(fill),
@@ -128,6 +130,7 @@ async function refreshAll() {
     enrichArcade();
     startWiki();
     refreshSteam();
+    refreshCloud();
     sendAlerts(results, before, waitingBefore);
     win?.webContents.send('catalog-changed');
     return results;
@@ -226,6 +229,13 @@ function scheduleRefresh() {
   };
   setTimeout(check, 60 * 1000);
   setInterval(check, 30 * 60 * 1000);
+}
+
+// ---- Cloud play ----
+// The list of streamable Xbox games is read once a day.
+function refreshCloud() {
+  if (!cloud.due()) return;
+  cloud.refresh().then(() => win?.webContents.send('catalog-changed')).catch(() => {});
 }
 
 // ---- Free games to claim ----
@@ -440,6 +450,7 @@ app.whenReady().then(() => {
   });
   prices = new Prices(dataDir, { onUpdate: (updates, progress) => win?.webContents.send('prices', { updates, progress }) });
   freeGames = new FreeGames(dataDir);
+  cloud = new Cloud(dataDir);
   wiki = new Wiki(dataDir, { onFound: (n) => { if (n) win?.webContents.send('catalog-changed'); } });
   registerIpc();
   createWindow();
@@ -448,6 +459,7 @@ app.whenReady().then(() => {
   scheduleRefresh();
   setTimeout(enrichArcade, 5000);
   setTimeout(startWiki, 8000);
+  setTimeout(refreshCloud, 10000);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
