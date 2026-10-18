@@ -137,6 +137,16 @@ Subscroll reads its data from these services and projects. Thanks to everyone wh
 
 Subscroll isn't affiliated with or endorsed by any of them. Game names, artwork and trademarks belong to their owners.
 
+## License
+
+The code is under the [MIT License](LICENSE), copyright (c) 2026 Šarūnas Rimša.
+
+The data the app reads belongs to its sources (see Credits) and keeps their terms. The same goes for the offline snapshots bundled in `data/snapshot/`:
+- `nso.json` is built from Wikipedia's Nintendo Classics article ([CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)).
+- `gamepass.json` and `psplus.json` are copies of Microsoft's and Sony's catalogue lists.
+
+Game names, artwork and trademarks belong to their owners.
+
 ## Building from source
 
 `npm install`, then `npm start` runs the app (Windows, macOS or Linux). `npm test` runs the tests, and `npm run dist:win` / `dist:mac` / `dist:linux` builds a package into `dist/`, which git ignores. Development builds are named `Subscroll-<version>-<commit>.exe`. The Linux AppImage builds on Linux (`npm run dist:linux`). `src/linux.js` holds the Linux versions of start at login and the Steam install check.

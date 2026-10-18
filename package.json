@@ -18,7 +18,8 @@
       "src/**",
       "renderer/**",
       "data/**",
-      "package.json"
+      "package.json",
+      "LICENSE"
     ],
     "win": {
       "target": "portable",
@@ -55,5 +56,6 @@
     "type": "git",
     "url": "https://github.com/viruztt/subscroll.git"
   },
-  "desktopName": "subscroll.desktop"
+  "desktopName": "subscroll.desktop",
+  "author": "Šarūnas Rimša"
 }
