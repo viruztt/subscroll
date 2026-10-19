@@ -469,7 +469,7 @@ function cover(g) {
   const src = msStore ? `${g.image}?w=300&h=450&q=80` : g.image;
   // Retro box art comes in every shape, and phone games have square icons,
   // so show those whole instead of cropping.
-  const whole = ['nso', 'netflix', 'applearcade', 'crunchyroll', 'playpass'].includes(g.service);
+  const whole = ['nso', 'netflix', 'applearcade', 'crunchyroll', 'playpass', 'antstream'].includes(g.service);
   const img = el('img', { class: `cover ${whole ? 'contain' : ''}`, src, loading: 'lazy', alt: '' });
   // Offline or a dead link: show the same artwork-free tile Nintendo games use.
   img.addEventListener('error', function failed() {
@@ -1501,7 +1501,7 @@ function goalsPanel() {
     undated ? el('p', { class: 'muted' }, tn(undated, '{n} completed game has no finish date (marked before goals existed), so it doesn\'t count. Open a game and set when you finished it.', '{n} completed games have no finish date (marked before goals existed), so they don\'t count. Open a game and set when you finished it.')) : null);
 }
 
-const STATS_PLATFORM_LABEL = { xbox: tk('Xbox'), pc: tk('PC'), playstation: tk('PlayStation'), switch: tk('Switch'), mobile: tk('Mobile'), cloud: tk('Cloud'), other: tk('Other') };
+const STATS_PLATFORM_LABEL = { xbox: tk('Xbox'), pc: tk('PC'), playstation: tk('PlayStation'), switch: tk('Switch'), mobile: tk('Mobile'), vr: tk('VR'), cloud: tk('Cloud'), other: tk('Other') };
 const statsPlatformName = (p) => t(STATS_PLATFORM_LABEL[p] || p);
 
 function renderStats() {
@@ -2262,7 +2262,7 @@ function sourcesPanel() {
       t('Game Pass, EA Play and Ubisoft+ come from Microsoft\'s catalogue service (so EA Play and Ubisoft+ show their Xbox and Microsoft Store editions), PS Plus from playstation.com\'s game lists. If Game Pass or PS Plus are unreachable the app falls back to community mirrors on GitHub. '),
       t('Nintendo publishes no list, so Switch Online comes from Wikipedia\'s "Nintendo Classics" article, with box art from the libretro-thumbnails collection. '),
       t('Netflix games are the apps Netflix publishes on the App Store. Apple Arcade comes from Wikipedia\'s "Apple Arcade" article, with icons and details from the App Store, looked up a few at a time. '),
-      tEl('Crunchyroll Game Vault is Crunchyroll\'s App Store account, Humble Choice the month\'s page on humblebundle.com. Google and Amazon publish no lists, so Google Play Pass comes from the playpassBrowser project and Amazon Luna from GameScriptions. {link}.', {
+      tEl('Crunchyroll Game Vault is Crunchyroll\'s App Store account, Humble Choice the month\'s page on humblebundle.com. Google and Amazon publish no lists, so Google Play Pass comes from the playpassBrowser project and Amazon Luna from GameScriptions. Meta Horizon+ comes from Quest+ History, which tracks its Games Catalog and monthly games, and Antstream Arcade from Wikipedia\'s "Antstream" article. {link}.', {
         link: el('button', { class: 'link inline', onclick: () => api.openExternal('https://github.com/viruztt/subscroll#credits') }, t('Every source and credit')),
       })));
 }
@@ -2296,6 +2296,7 @@ function openDrawer(g) {
         el('dt', {}, t('Included in')), el('dd', {}, plans.length ? plans : '—'),
         el('dt', {}, t('Platforms')), el('dd', {}, g.platforms.map(platformName).join(', ') || '—'),
         g.versions?.length ? [el('dt', {}, t('Versions')), el('dd', {}, g.versions.join(', '))] : null,
+        offersOf(g).find((o) => o.system) ? [el('dt', {}, t('Original system')), el('dd', {}, offersOf(g).find((o) => o.system).system)] : null,
         cloudRow(g),
         gfnRow(g),
         achievementRows(g),

@@ -20,6 +20,8 @@
       humble: {"choice": {"1": 11.49}},
       playpass: {"any": {"1": 4.99, "12": 29.99, unsure: true}},
       luna: {"premium": {"1": 8.99, unsure: true}, "prime": {"1": 8.99, "12": 95.0}},
+      horizonplus: {"any": {"1": 7.99, "12": 59.99, unsure: true}},
+      antstream: {"any": {"1": 3.99, "12": 29.99, unsure: true}},
     },
     USD: {
       gamepass: {"essential": {"1": 9.99}, "premium": {"1": 14.99}, "ultimate": {"1": 22.99}, "pc": {"1": 13.99}},
@@ -33,6 +35,8 @@
       humble: {"choice": {"1": 14.99}},
       playpass: {"any": {"1": 4.99, "12": 29.99}},
       luna: {"premium": {"1": 9.99}, "prime": {"1": 14.99, "12": 139.0}},
+      horizonplus: {"any": {"1": 7.99, "12": 59.99, unsure: true}},
+      antstream: {"any": {"1": 4.99, "12": 39.99, unsure: true}},
     },
     EUR: {
       gamepass: {"essential": {"1": 8.99}, "premium": {"1": 12.99}, "ultimate": {"1": 20.99}, "pc": {"1": 12.99}},
@@ -46,6 +50,8 @@
       humble: {"choice": {"1": 12.99}},
       playpass: {"any": {"1": 4.99, "12": 29.99, unsure: true}},
       luna: {"premium": {"1": 9.99}, "prime": {"1": 8.99, "12": 89.9}},
+      horizonplus: {"any": {"1": 7.99, "12": 59.99, unsure: true}},
+      antstream: {"any": {"1": 4.99, "12": 39.99, unsure: true}},
     },
   };
 

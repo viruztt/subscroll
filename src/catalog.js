@@ -11,6 +11,8 @@ const crunchyroll = require('./providers/crunchyroll');
 const humble = require('./providers/humble');
 const playpass = require('./providers/playpass');
 const luna = require('./providers/luna');
+const horizonplus = require('./providers/horizonplus');
+const antstream = require('./providers/antstream');
 
 const SNAPSHOT_DIR = path.join(__dirname, '..', 'data', 'snapshot');
 const MAX_DEPARTED = 300;
@@ -27,6 +29,8 @@ const PROVIDERS = {
   humble: { live: humble.fetchLive },
   playpass: { live: playpass.fetchLive },
   luna: { live: luna.fetchLive },
+  horizonplus: { live: horizonplus.fetchLive },
+  antstream: { live: antstream.fetchLive },
 };
 const SERVICES = Object.keys(PROVIDERS);
 
@@ -221,6 +225,7 @@ class Catalog {
         const left = all.filter((g) => g.gone);
         let games = all.filter((g) => !g.gone);
         if (service === 'nso') games = await covers.apply(games, path.join(this.dir, 'covers'));
+        if (service === 'antstream') games = await covers.apply(games, path.join(this.dir, 'covers'), (g) => covers.systemName(g.system));
         if (service === 'applearcade') games = arcade.applyCached(games, this.appStoreDir());
         if (games.length === 0) throw new Error('empty list');
         const prev = this.load(service);

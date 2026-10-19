@@ -101,6 +101,20 @@ const SERVICES = [
       { id: 'both', name: 'Prime and Luna Premium', includes: ['standard', 'premium'] },
     ],
   },
+  {
+    id: 'horizonplus',
+    name: 'Meta Horizon+',
+    short: 'Horizon+',
+    color: '#0866ff',
+    tiers: [{ id: 'any', name: 'Meta Horizon+', includes: ['catalog', 'monthly'] }],
+  },
+  {
+    id: 'antstream',
+    name: 'Antstream Arcade',
+    short: 'Antstream',
+    color: '#e5007d',
+    tiers: [{ id: 'any', name: 'Antstream Arcade', includes: ['any'] }],
+  },
 ];
 
 // Tier labels shown on game badges, which can differ from the plan name
@@ -114,6 +128,8 @@ const TIER_BADGES = {
   'ubisoftplus:classics': 'Classics',
   'luna:standard': 'With Prime',
   'luna:premium': 'Luna Premium',
+  'horizonplus:catalog': 'Games Catalog',
+  'horizonplus:monthly': 'Monthly games',
 };
 
 function allServices(customServices = []) {

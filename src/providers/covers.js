@@ -15,7 +15,49 @@ const REPOS = {
   'Game Boy Advance': ['Nintendo_-_Game_Boy_Advance'],
   'Virtual Boy': ['Nintendo_-_Virtual_Boy'],
   'GameCube (Switch 2)': ['Nintendo_-_GameCube'],
+  // Antstream Arcade's systems.
+  'Amstrad CPC': ['Amstrad_-_CPC'],
+  'Commodore 64': ['Commodore_-_64'],
+  Amiga: ['Commodore_-_Amiga'],
+  'ZX Spectrum': ['Sinclair_-_ZX_Spectrum'],
+  MSX: ['Microsoft_-_MSX', 'Microsoft_-_MSX2'],
+  DOS: ['DOS'],
+  'Atari Lynx': ['Atari_-_Lynx'],
+  'Atari 2600': ['Atari_-_2600'],
+  'Atari 7800': ['Atari_-_7800'],
+  'Atari ST': ['Atari_-_ST'],
+  'Master System': ['Sega_-_Master_System_-_Mark_III'],
+  'Game Gear': ['Sega_-_Game_Gear'],
+  PlayStation: ['Sony_-_PlayStation'],
+  'Neo Geo': ['SNK_-_Neo_Geo'],
+  Arcade: ['MAME'],
 };
+
+// A system heading as Antstream's Wikipedia list writes it ("Super NES / Super
+// Famicom", "MSX and MSX2") -> the system name above, or null.
+const SYSTEM_NAMES = [
+  [/super n(es|intendo)|snes|super famicom/i, 'SNES'],
+  [/\bnes\b|famicom|nintendo entertainment/i, 'NES'],
+  [/game boy advance/i, 'Game Boy Advance'],
+  [/game boy/i, 'Game Boy'],
+  [/mega drive|genesis/i, 'Sega Genesis'],
+  [/master system/i, 'Master System'],
+  [/game gear/i, 'Game Gear'],
+  [/amstrad/i, 'Amstrad CPC'],
+  [/commodore 64|\bc64\b/i, 'Commodore 64'],
+  [/amiga/i, 'Amiga'],
+  [/spectrum/i, 'ZX Spectrum'],
+  [/\bmsx/i, 'MSX'],
+  [/dos\b/i, 'DOS'],
+  [/lynx/i, 'Atari Lynx'],
+  [/2600/i, 'Atari 2600'],
+  [/7800/i, 'Atari 7800'],
+  [/atari st\b/i, 'Atari ST'],
+  [/playstation|\bps1\b/i, 'PlayStation'],
+  [/neo ?geo/i, 'Neo Geo'],
+  [/arcade/i, 'Arcade'],
+];
+const systemName = (heading) => (SYSTEM_NAMES.find(([re]) => re.test(String(heading || ''))) || [])[1] || null;
 const DATA_DIR = path.join(__dirname, '..', '..', 'data');
 const LISTING_MAX_AGE_MS = 7 * 24 * 3600 * 1000;
 const REGION_RANK = ['USA', 'World', 'Europe', 'Japan'];
@@ -79,9 +121,10 @@ const urlFor = (repo, file) =>
   `https://raw.githubusercontent.com/libretro-thumbnails/${repo}/master/Named_Boxarts/${encodeURIComponent(file)}`;
 
 // listings: { repo: [file names inside Named_Boxarts] }
-function buildIndex(listings) {
+function buildIndex(listings, systems = Object.keys(REPOS)) {
   const index = {};
-  for (const [system, repos] of Object.entries(REPOS)) {
+  for (const system of systems) {
+    const repos = REPOS[system] || [];
     const bySystem = new Map();
     for (const repo of repos) {
       for (const file of listings[repo] || []) {
@@ -99,7 +142,7 @@ function buildIndex(listings) {
 function match(index, system, title) {
   const base = baseTitle(title);
   const alias = ALIASES[`${system}|${title}`] || ALIASES[`${system}|${base}`];
-  if (alias) return urlFor(alias.repo || REPOS[system][0], alias.file);
+  if (alias) return urlFor(alias.repo || (REPOS[system] || [])[0], alias.file);
   const bySystem = index[system];
   let candidates = (bySystem && bySystem.get(key(base))) || [];
   if (!candidates.length) candidates = prefixCandidates(bySystem, key(base));
@@ -118,9 +161,9 @@ async function fetchListing(repo) {
 }
 
 // Listings cached on disk; a failed fetch falls back to an older cache.
-async function loadListings(cacheDir) {
+async function loadListings(cacheDir, systems = Object.keys(REPOS)) {
   const listings = {};
-  const repos = [...new Set(Object.values(REPOS).flat())];
+  const repos = [...new Set(systems.flatMap((s) => REPOS[s] || []))];
   for (const repo of repos) {
     const file = path.join(cacheDir, `${repo}.json`);
     const cached = readJson(file, null);
@@ -140,19 +183,21 @@ async function loadListings(cacheDir) {
   return listings;
 }
 
-// Fills in `image` for Switch Online games: live listing first, then the
-// bundled map, then whatever the game already had.
-async function apply(games, cacheDir) {
+// Fills in `image` for Switch Online (and Antstream) games: live listing
+// first, then the bundled map, then whatever the game already had.
+// systemOf(game) names its system in REPOS.
+async function apply(games, cacheDir, systemOf = (g) => g.platforms[0]) {
+  const systems = [...new Set(games.map(systemOf))].filter((x) => REPOS[x]);
   let index = {};
   try {
-    index = buildIndex(await loadListings(cacheDir));
+    index = buildIndex(await loadListings(cacheDir, systems), systems);
   } catch {
     // Offline: the bundled map still covers the known library.
   }
   return games.map((g) => ({
     ...g,
-    image: match(index, g.platforms[0], g.title) || BUNDLED[g.id] || g.image || null,
+    image: match(index, systemOf(g), g.title) || BUNDLED[g.id] || g.image || null,
   }));
 }
 
-module.exports = { REPOS, buildIndex, match, apply, key, noIntroTitle, baseTitle };
+module.exports = { REPOS, buildIndex, match, apply, key, noIntroTitle, baseTitle, systemName };

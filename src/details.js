@@ -125,9 +125,9 @@ async function fetchDetails(game, settings = {}) {
     }
   }
   if (game.service === 'nso') out.screenshots = retroScreenshots(game.image);
-  if (!out.description && ['nso', 'psplus', 'applearcade', 'netflix', 'crunchyroll', 'playpass', 'luna'].includes(game.service)) {
+  if (!out.description && ['nso', 'psplus', 'applearcade', 'netflix', 'crunchyroll', 'playpass', 'luna', 'horizonplus', 'antstream'].includes(game.service)) {
     try {
-      const hint = game.service === 'nso' ? SYSTEM_WORDS[game.platforms[0]] || '' : { psplus: 'PlayStation', applearcade: 'Apple Arcade', netflix: 'Netflix', crunchyroll: 'Crunchyroll', playpass: 'Android', luna: '' }[game.service];
+      const hint = game.service === 'nso' ? SYSTEM_WORDS[game.platforms[0]] || '' : { psplus: 'PlayStation', applearcade: 'Apple Arcade', netflix: 'Netflix', crunchyroll: 'Crunchyroll', playpass: 'Android', luna: '', horizonplus: 'VR', antstream: game.system || '' }[game.service];
       const wiki = await wikipediaIntro(game, hint);
       if (wiki) {
         out.description = wiki.text;

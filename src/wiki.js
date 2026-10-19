@@ -254,10 +254,11 @@ class Wiki {
 // your plans from lists without developers or genres.
 function wanted(games, { isMine, markOf }) {
   const lacking = (g) => !g.developer || !(g.genres || []).length;
-  const gaps = ['nso', 'psplus', 'netflix', 'crunchyroll', 'luna'];
+  const gaps = ['nso', 'psplus', 'netflix', 'crunchyroll', 'luna', 'horizonplus', 'antstream'];
   const done = games.filter((g) => markOf(g) === 'completed' && lacking(g));
   const mine = games.filter((g) => isMine(g) && gaps.includes(g.service) && lacking(g));
-  const covers = games.filter((g) => g.service === 'applearcade' && !g.image);
+  // Lists that come without pictures: Wikipedia's infobox art fills them in.
+  const covers = games.filter((g) => ['applearcade', 'horizonplus'].includes(g.service) && !g.image);
   return [...done, ...covers, ...mine];
 }
 

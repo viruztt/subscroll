@@ -10,7 +10,7 @@
   // Platforms, grouped the way people own them. Switch Online's games are
   // listed under their original systems (NES, Game Boy...) but you play
   // them on a Switch.
-  const PLATFORMS = ['xbox', 'pc', 'playstation', 'switch', 'mobile', 'cloud', 'other'];
+  const PLATFORMS = ['xbox', 'pc', 'playstation', 'switch', 'mobile', 'vr', 'cloud', 'other'];
   function platformOf(p) {
     const s = String(p || '').trim();
     if (/^console$|xbox/i.test(s)) return 'xbox';
@@ -18,6 +18,7 @@
     if (/^ps\d|playstation|psvr/i.test(s)) return 'playstation';
     if (/switch/i.test(s)) return 'switch';
     if (/mobile|apple devices|ios|android|iphone|ipad/i.test(s)) return 'mobile';
+    if (/quest|\bvr\b/i.test(s)) return 'vr';
     if (/cloud/i.test(s)) return 'cloud';
     return s ? 'other' : null;
   }
