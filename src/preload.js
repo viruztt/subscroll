@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld('api', {
   onFreeChanged: (fn) => ipcRenderer.on('free-changed', () => fn()),
   getUpdate: () => ipcRenderer.invoke('get-update'),
   checkUpdate: () => ipcRenderer.invoke('check-update'),
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
+  installUpdate: () => ipcRenderer.invoke('install-update'),
   onUpdateChanged: (fn) => ipcRenderer.on('update-changed', (_e, st) => fn(st)),
   onRefreshProgress: (fn) => ipcRenderer.on('refresh-progress', (_e, msg) => fn(msg)),
 });

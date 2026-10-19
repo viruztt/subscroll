@@ -1,7 +1,7 @@
 // Is there a newer Subscroll? The app asks GitHub for the latest release of
-// its own repository twice a day and points you at the download. Nothing is
-// downloaded or installed for you: the portable exe and the AppImage are
-// single files you replace yourself.
+// its own repository twice a day. src/selfupdate.js downloads and installs it
+// where it can (the portable exe and the AppImage); elsewhere the window
+// links to the download.
 const { getJson } = require('./providers/http');
 
 const REPO = 'viruztt/subscroll';
@@ -29,7 +29,9 @@ function pickAsset(assets, platform) {
   const ext = platform === 'win32' ? /\.exe$/i : platform === 'linux' ? /\.appimage$/i : platform === 'darwin' ? /\.(dmg|zip)$/i : null;
   if (!ext || !Array.isArray(assets)) return null;
   const a = assets.find((x) => x && ext.test(x.name || '') && /^https:\/\//.test(x.browser_download_url || ''));
-  return a ? { name: a.name, url: a.browser_download_url, size: a.size || null } : null;
+  if (!a) return null;
+  const sha = String(a.digest || '').match(/^sha256:([0-9a-f]{64})$/i);
+  return { name: a.name, url: a.browser_download_url, size: a.size || null, sha256: sha ? sha[1].toLowerCase() : null };
 }
 
 // GitHub's release -> what the app keeps.
@@ -54,15 +56,23 @@ async function fetchLatest(platform = process.platform) {
 
 const due = (checkedAt, now = Date.now()) => !checkedAt || now - new Date(checkedAt) > CHECK_HOURS * 3600000;
 
-// What the window shows: the saved check plus whether it's newer than this copy.
-function status(saved, current) {
+// What the window shows: the saved check plus whether it's newer than this
+// copy, and the app's own install state (canInstall: this copy can replace
+// itself; downloading: { version, got, total }; ready: a downloaded newer
+// version waiting for a restart).
+function status(saved, current, { canInstall = false, downloading = null } = {}) {
   const latest = saved && saved.latest;
+  const ready = saved && saved.ready;
   return {
     current,
     checkedAt: (saved && saved.checkedAt) || null,
     error: (saved && saved.error) || null,
+    downloadError: (saved && saved.downloadError) || null,
     latest: latest || null,
     newer: !!latest && compareVersions(latest.version, current) > 0,
+    canInstall: canInstall && !!latest?.download?.sha256,
+    downloading,
+    ready: ready && compareVersions(ready.version, current) > 0 ? ready : null,
     releases: RELEASES,
   };
 }

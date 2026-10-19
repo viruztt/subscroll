@@ -1684,30 +1684,55 @@ function backgroundPanel() {
 }
 
 // ---------- newer version ----------
-// { current, latest: { version, page, download }, newer, checkedAt, error }
+// { current, latest: { version, page, download }, newer, checkedAt, error,
+//   canInstall, downloading: { version, got, total }, ready: { version }, downloadError }
 let update = null;
 const openDownload = () => api.openExternal(update.latest.download?.url || update.latest.page);
+const percent = (d) => (d && d.total ? Math.min(100, Math.round((d.got / d.total) * 100)) : 0);
+const restartButton = (cls) => el('button', { class: cls, onclick: () => api.installUpdate() }, t('Restart to update'));
+async function startDownload() {
+  update = await api.downloadUpdate();
+  renderUpdateBanner();
+  $('#update-panel')?.replaceWith(updatePanel());
+}
 
 // A line in the sidebar while a newer version is out, until you close it.
 function renderUpdateBanner() {
   const box = $('#update-banner');
-  const v = update?.newer && update.latest.version;
-  if (!v || state.settings.updateDismissed === v) {
+  const ready = update?.ready;
+  const v = (ready && ready.version) || (update?.newer && update.latest.version);
+  if (!v || (!ready && state.settings.updateDismissed === v)) {
     box.replaceChildren();
     return;
   }
+  let text;
+  let actions;
+  if (ready) {
+    text = [el('strong', {}, t('Subscroll {version} is ready', { version: v })), el('span', { class: 'muted' }, t('Restart to update, or it updates the next time Subscroll starts.'))];
+    actions = [restartButton('primary')];
+  } else if (update.downloading) {
+    text = [el('strong', {}, t('Downloading Subscroll {version}…', { version: v })), el('span', { class: 'muted' }, t('{percent}% done', { percent: percent(update.downloading) }))];
+    actions = [];
+  } else {
+    text = [el('strong', {}, t('Subscroll {version} is out', { version: v })), el('span', { class: 'muted' }, t('You have {version}.', { version: update.current }))];
+    actions = [update.canInstall ? el('button', { class: 'primary', onclick: startDownload }, t('Update')) : el('button', { class: 'primary', onclick: openDownload }, t('Download'))];
+  }
   box.replaceChildren(
-    el('div', { class: 'update-text' }, el('strong', {}, t('Subscroll {version} is out', { version: v })), el('span', { class: 'muted' }, t('You have {version}.', { version: update.current }))),
-    el('div', { class: 'update-actions' },
-      el('button', { class: 'primary', onclick: openDownload }, t('Download')),
-      el('button', { class: 'link', onclick: () => api.openExternal(update.latest.page) }, t('What\'s new'))),
-    el('button', { class: 'link close', title: t('Hide until the next version'), onclick: async () => { await saveState({ settings: { ...state.settings, updateDismissed: v } }); renderUpdateBanner(); } }, '✕'));
+    el('div', { class: 'update-text' }, text),
+    el('div', { class: 'update-actions' }, actions,
+      el('button', { class: 'link', onclick: () => api.openExternal(update.latest?.page || update.releases) }, t('What\'s new'))),
+    ready ? null : el('button', { class: 'link close', title: t('Hide until the next version'), onclick: async () => { await saveState({ settings: { ...state.settings, updateDismissed: v } }); renderUpdateBanner(); } }, '✕'));
 }
 
 function updateLine() {
   if (!update) return t('Not checked yet.');
+  if (update.ready) return t('Subscroll {version} is downloaded and installs when you restart.', { version: update.ready.version });
+  if (update.downloading) return t('Downloading Subscroll {version}: {percent}% done.', { version: update.downloading.version, percent: percent(update.downloading) });
   const when = update.checkedAt ? new Date(update.checkedAt).toLocaleString(I18n.locale()) : null;
-  if (update.newer) return t('Subscroll {version} is out.', { version: update.latest.version });
+  if (update.newer) {
+    const failed = update.downloadError ? ` ${t('The download failed: {error}', { error: update.downloadError })}` : '';
+    return `${t('Subscroll {version} is out.', { version: update.latest.version })}${failed}`;
+  }
   if (update.error && !when) return t('Couldn\'t check: {error}', { error: update.error });
   if (!when) return t('Not checked yet.');
   return `${t('You have the latest version (checked {when}).', { when })}${update.error ? ` ${t('The last check failed: {error}', { error: update.error })}` : ''}`;
@@ -1717,6 +1742,11 @@ function updatePanel() {
   const box = el('input', { type: 'checkbox' });
   box.checked = state.settings.updateCheck !== false;
   box.addEventListener('change', () => saveState({ settings: { ...state.settings, updateCheck: box.checked } }));
+  const auto = el('input', { type: 'checkbox' });
+  auto.checked = state.settings.autoUpdate !== false;
+  auto.disabled = !box.checked;
+  box.addEventListener('change', () => { auto.disabled = !box.checked; });
+  auto.addEventListener('change', () => saveState({ settings: { ...state.settings, autoUpdate: auto.checked } }));
   const line = el('p', { class: 'muted' }, updateLine());
   const button = el('button', {}, t('Check now'));
   button.onclick = async () => {
@@ -1731,13 +1761,22 @@ function updatePanel() {
     renderUpdateBanner();
     $('#update-panel')?.replaceWith(updatePanel());
   };
+  const installs = !!system.selfUpdate;
+  const file = system.platform === 'linux' ? 'AppImage' : 'exe';
+  let action = null;
+  if (update?.ready) action = restartButton('primary');
+  else if (update?.newer && update.canInstall && !update.downloading) action = el('button', { class: 'primary', onclick: startDownload }, t('Download and install {version}', { version: update.latest.version }));
+  else if (update?.newer && !update.canInstall) action = el('button', { class: 'primary', onclick: openDownload }, t('Download {version}', { version: update.latest.version }));
   const panel = el('div', { class: 'panel' },
     el('h2', {}, t('Updates')),
-    el('p', { class: 'muted' }, t('You have Subscroll {version}. New versions are published on GitHub; the app checks twice a day and tells you when one is out. It never downloads or installs anything itself: you download the new {file} and use it in place of this one. Your plans, marks and settings carry over.', { version: system.version || update?.current || '', file: system.platform === 'linux' ? 'AppImage' : 'exe' })),
+    el('p', { class: 'muted' }, installs
+      ? t('You have Subscroll {version}. New versions are published on GitHub, and the app checks twice a day. It downloads a new version next to this {file}, checks it against GitHub\'s checksum, and switches to it when you restart Subscroll (or the next time it starts); the old {file} is then deleted. Your plans, marks and settings carry over.', { version: system.version || update?.current || '', file })
+      : t('You have Subscroll {version}. New versions are published on GitHub; the app checks twice a day and tells you when one is out. Your plans, marks and settings carry over.', { version: system.version || update?.current || '' })),
+    installs && system.platform === 'win32' ? el('p', { class: 'muted' }, t('Pinned Subscroll to the taskbar or made a shortcut? Rename the exe to Subscroll.exe first: updates then keep that name, so the shortcut keeps working.')) : null,
     el('label', { class: 'check-row' }, box, el('span', {}, el('strong', {}, t('Check for new versions.')))),
+    installs ? el('label', { class: 'check-row' }, auto, el('span', {}, el('strong', {}, t('Download and install new versions by itself.')), ' ', t('Turn this off to choose when.'))) : null,
     line,
-    el('div', { class: 'row-actions' }, button,
-      update?.newer ? el('button', { class: 'primary', onclick: openDownload }, t('Download {version}', { version: update.latest.version })) : null,
+    el('div', { class: 'row-actions' }, button, action,
       el('button', { class: 'link', onclick: () => api.openExternal(update?.latest?.page || update?.releases || 'https://github.com/viruztt/subscroll/releases') }, update?.newer ? t('What\'s new') : t('All releases'))));
   panel.id = 'update-panel';
   return panel;

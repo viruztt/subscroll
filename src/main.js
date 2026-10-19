@@ -23,6 +23,7 @@ const { listTitles } = alerts;
 const fs = require('fs');
 const linux = require('./linux');
 const updates = require('./updates');
+const selfupdate = require('./selfupdate');
 const Goals = require('../renderer/goals');
 const I18n = require('../renderer/i18n');
 require('../renderer/locales');
@@ -53,6 +54,12 @@ const ICO = app.isPackaged ? path.join(process.resourcesPath, 'icon.ico') : path
 const APP_ID = 'local.subscroll';
 // Started with Windows: stay in the tray until the user opens the window.
 const startHidden = process.argv.includes('--hidden');
+// Started by the copy it replaced: delete that copy's file once it's gone.
+const argAfter = (flag) => {
+  const i = process.argv.indexOf(flag);
+  return i >= 0 ? process.argv[i + 1] || null : null;
+};
+const updatedFrom = argAfter('--updated-from');
 
 function createWindow() {
   win = new BrowserWindow({
@@ -212,6 +219,7 @@ function updateTray() {
     { label: t(LOGIN_LABEL), type: 'checkbox', checked: !!settings.startWithWindows, visible: canStartAtLogin(), click: (item) => setSettings({ startWithWindows: item.checked }) },
     { label: t('Alerts'), type: 'checkbox', checked: settings.alerts !== false, click: (item) => setSettings({ alerts: item.checked }) },
     { type: 'separator' },
+    ...(updateStatus().ready ? [{ label: t('Restart to update to {version}', { version: updateStatus().ready.version }), click: () => installUpdate() }] : []),
     { label: t('Quit'), click: () => { quitting = true; app.quit(); } },
   ]));
 }
@@ -266,28 +274,110 @@ function scheduleRefresh() {
 }
 
 // ---- Newer version ----
-// GitHub's latest release, twice a day. A newer one shows in the window and,
-// once per version, as a notification.
-const updateStatus = () => updates.status(store.get().update, app.getVersion());
+// GitHub's latest release, twice a day. The portable exe and the AppImage
+// download it in the background (unless that's turned off) and switch to it
+// when you restart Subscroll or the next time it starts; other copies show a
+// download link. Either way you hear about each version once.
+const selfFile = () => selfupdate.currentFile({ packaged: app.isPackaged });
+let downloading = null;
+const updateStatus = () => updates.status(store.get().update, app.getVersion(), { canInstall: !!selfFile(), downloading });
+const sendUpdate = () => {
+  win?.webContents.send('update-changed', updateStatus());
+  updateTray();
+};
+const autoInstall = () => store.get().settings.autoUpdate !== false;
+
 async function checkUpdate(force = false) {
   const { settings, update: saved } = store.get();
   if (!force && (settings.updateCheck === false || !updates.due(saved?.checkedAt))) return updateStatus();
   try {
     const latest = await updates.fetchLatest(process.platform);
-    store.update({ update: { latest, checkedAt: new Date().toISOString(), error: null } });
+    store.update({ update: { ...(store.get().update || {}), latest, checkedAt: new Date().toISOString(), error: null } });
   } catch (e) {
     // Tried again at the next half-hourly check.
-    store.update({ update: { ...(saved || {}), error: e.message } });
+    store.update({ update: { ...(store.get().update || {}), error: e.message } });
   }
   const st = updateStatus();
-  win?.webContents.send('update-changed', st);
-  if (st.newer && store.get().updateNotified !== st.latest.version) {
+  sendUpdate();
+  if (st.newer && st.canInstall && autoInstall()) {
+    if (!st.ready || st.ready.version !== st.latest.version) downloadUpdate().catch(() => {});
+  } else if (st.newer && store.get().updateNotified !== st.latest.version) {
     store.update({ updateNotified: st.latest.version });
     if (settings.alerts !== false && !(win?.isVisible() && win.isFocused())) {
-      notify({ title: t('Subscroll {version} is out', { version: st.latest.version }), body: t('You have {current}. Open Subscroll to download the new version.', { current: st.current }) });
+      notify({ title: t('Subscroll {version} is out', { version: st.latest.version }), body: t('You have {current}. Open Subscroll to download the new version.', { current: st.current }), view: 'subs' });
     }
   }
   return st;
+}
+
+// Downloads the latest version next to this file and keeps it for a restart.
+async function downloadUpdate() {
+  const st = updateStatus();
+  const current = selfFile();
+  if (downloading || !st.newer || !st.canInstall || !current) return st;
+  const { version, download: asset } = st.latest;
+  downloading = { version, got: 0, total: asset.size || 0 };
+  sendUpdate();
+  let last = 0;
+  try {
+    const file = selfupdate.readyPath(current, asset.name);
+    const old = st.ready && st.ready.file !== file ? st.ready.file : null;
+    await selfupdate.download(asset, file, {
+      onProgress: (got, total) => {
+        downloading = { version, got, total };
+        if (Date.now() - last > 500) {
+          last = Date.now();
+          win?.webContents.send('update-changed', updateStatus());
+        }
+      },
+    });
+    // An older download that was never installed.
+    if (old) fs.rmSync(old, { force: true });
+    store.update({ update: { ...(store.get().update || {}), ready: { version, file, sha256: asset.sha256 }, downloadError: null } });
+    downloading = null;
+    sendUpdate();
+    const { settings } = store.get();
+    if (store.get().updateNotified !== version) {
+      store.update({ updateNotified: version });
+      if (settings.alerts !== false && !(win?.isVisible() && win.isFocused())) {
+        notify({ title: t('Subscroll {version} is ready', { version }), body: t('Restart Subscroll to update, or it updates the next time it starts.'), view: 'subs' });
+      }
+    }
+  } catch (e) {
+    downloading = null;
+    store.update({ update: { ...(store.get().update || {}), downloadError: e.code === 'EACCES' || e.code === 'EPERM' ? t('Subscroll can\'t save files in {folder}. Move it to a folder you can write to, such as Downloads.', { folder: path.dirname(current) }) : e.message } });
+    sendUpdate();
+  }
+  return updateStatus();
+}
+
+// Swaps in the downloaded version and restarts into it. False when there's
+// nothing to install (or its file has gone).
+function installUpdate({ hidden = false } = {}) {
+  const { ready } = updateStatus();
+  const current = selfFile();
+  if (!ready || !current || !fs.existsSync(ready.file)) {
+    if (ready) store.update({ update: { ...(store.get().update || {}), ready: null } });
+    return false;
+  }
+  const { launch, old } = selfupdate.install(ready.file, current);
+  store.update({ update: { ...(store.get().update || {}), ready: null } });
+  app.relaunch({ execPath: launch, args: ['--updated-from', old, ...(hidden ? ['--hidden'] : [])] });
+  quitting = true;
+  app.quit();
+  return true;
+}
+
+// After an update: delete the old file, and anything left from a download
+// for a version this copy already is.
+function cleanUpUpdate() {
+  if (updatedFrom) selfupdate.removeOld(updatedFrom, selfFile()).catch(() => {});
+  const saved = store.get().update;
+  if (saved?.ready && !updateStatus().ready) {
+    const self = selfFile();
+    if (saved.ready.file && (!self || path.resolve(saved.ready.file) !== path.resolve(self))) fs.rmSync(saved.ready.file, { force: true });
+    store.update({ update: { ...saved, ready: null } });
+  }
 }
 
 // ---- Sale alerts ----
@@ -463,7 +553,7 @@ function flushRatings() {
 const queueRatings = () => { if (!ratingTimer) ratingTimer = setTimeout(flushRatings, 1500); };
 
 function registerIpc() {
-  ipcMain.handle('get-services', () => ({ services: SERVICES, tierBadges: TIER_BADGES, regions: REGIONS, system: { platform: process.platform, version: app.getVersion(), startAtLogin: canStartAtLogin() ? LOGIN_LABEL : null } }));
+  ipcMain.handle('get-services', () => ({ services: SERVICES, tierBadges: TIER_BADGES, regions: REGIONS, system: { platform: process.platform, version: app.getVersion(), startAtLogin: canStartAtLogin() ? LOGIN_LABEL : null, selfUpdate: !!selfFile() } }));
   ipcMain.handle('get-state', () => store.get());
   ipcMain.handle('update-state', (_e, patch) => {
     // Only user-owned fields can be written from the window.
@@ -606,6 +696,8 @@ function registerIpc() {
   ipcMain.handle('steam-installed', (_e, appid) => steamInstalled(appid));
   ipcMain.handle('get-update', () => updateStatus());
   ipcMain.handle('check-update', () => checkUpdate(true));
+  ipcMain.handle('download-update', () => downloadUpdate());
+  ipcMain.handle('install-update', () => installUpdate());
   ipcMain.handle('watch-sales', (_e, list) => {
     store.update({ saleWatch: sales.cleanWatch(list) });
     checkSales().catch(() => {});
@@ -618,21 +710,35 @@ app.setPath('userData', path.join(app.getPath('appData'), 'Subscription Catalogu
 
 // One copy at a time: starting it again (or from Windows startup) shows
 // the window that's already running.
-const firstCopy = app.requestSingleInstanceLock();
-if (!firstCopy) {
-  app.quit();
-} else {
-  app.on('second-instance', () => showWindow());
+// Right after an update the old copy may still be quitting, so the new one
+// waits a little for it.
+let firstCopy = app.requestSingleInstanceLock();
+if (!firstCopy && !updatedFrom) app.quit();
+app.on('second-instance', () => {
+  if (firstCopy) showWindow();
+});
+async function waitForLock() {
+  for (let i = 0; !firstCopy && i < 40; i++) {
+    await new Promise((ok) => setTimeout(ok, 500));
+    firstCopy = app.requestSingleInstanceLock();
+  }
+  return firstCopy;
 }
 
 app.setAppUserModelId(APP_ID);
 app.on('before-quit', () => { quitting = true; });
 
-app.whenReady().then(() => {
-  if (!firstCopy) return;
+app.whenReady().then(async () => {
+  if (!firstCopy && !(await waitForLock())) {
+    app.quit();
+    return;
+  }
   const dataDir = app.getPath('userData');
   store = new Store(dataDir);
   applyLanguage();
+  // A version downloaded last time installs now, before anything opens.
+  if (!updatedFrom && autoInstall() && installUpdate({ hidden: startHidden })) return;
+  cleanUpUpdate();
   catalog = new Catalog(dataDir);
   details = new DetailsCache(dataDir);
   ratings = new Ratings(dataDir, {
