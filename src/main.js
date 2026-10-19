@@ -15,6 +15,7 @@ const { Prices } = require('./prices');
 const { Wiki, wanted: wikiWanted } = require('./wiki');
 const { FreeGames, freeAlerts, hasPlan } = require('./freegames');
 const { Cloud } = require('./cloud');
+const { GeForceNow } = require('./gfn');
 const Play = require('../renderer/play');
 const sales = require('./sales');
 const { execFile } = require('child_process');
@@ -39,6 +40,7 @@ let prices;
 let wiki;
 let freeGames;
 let cloud;
+let gfn;
 let win;
 let tray;
 let quitting = false;
@@ -110,7 +112,7 @@ function createWindow() {
 
 // Lists as saved, with what Wikipedia adds (developers, genres, pictures).
 function catalogPayload() {
-  const fill = (g) => cloud.fill(wiki.fill(g));
+  const fill = (g) => gfn.fill(cloud.fill(wiki.fill(g)));
   return catalog.loadAll().map(({ service, source, fetchedAt, games, history }) => ({
     service, source, fetchedAt,
     games: games.map(fill),
@@ -405,9 +407,10 @@ async function checkSales() {
 
 // ---- Cloud play ----
 // The list of streamable Xbox games is read once a day.
+// So is GeForce NOW's list of supported games.
 function refreshCloud() {
-  if (!cloud.due()) return;
-  cloud.refresh().then(() => win?.webContents.send('catalog-changed')).catch(() => {});
+  if (cloud.due()) cloud.refresh().then(() => win?.webContents.send('catalog-changed')).catch(() => {});
+  if (gfn.due()) gfn.refresh().then(() => win?.webContents.send('catalog-changed')).catch(() => {});
 }
 
 // ---- Free games to claim ----
@@ -749,6 +752,7 @@ app.whenReady().then(async () => {
   prices = new Prices(dataDir, { onUpdate: (updates, progress) => win?.webContents.send('prices', { updates, progress }) });
   freeGames = new FreeGames(dataDir);
   cloud = new Cloud(dataDir);
+  gfn = new GeForceNow(dataDir);
   wiki = new Wiki(dataDir, { onFound: (n) => { if (n) win?.webContents.send('catalog-changed'); } });
   registerIpc();
   createWindow();

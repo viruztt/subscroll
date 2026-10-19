@@ -296,6 +296,30 @@ function cloudPlans(g) {
 }
 const platformName = (p) => (PLATFORM_LABEL[p] ? t(PLATFORM_LABEL[p]) : p);
 
+// GeForce NOW streams copies you own on PC stores: the stores a game streams from.
+// An empty list means free to play, with no store needed.
+const onGfn = (g) => offersOf(g).some((o) => o.gfn);
+function gfnStores(g) {
+  return [...new Set(offersOf(g).flatMap((o) => o.gfn || []))];
+}
+// The stores you can stream it from with what you have: your Steam library,
+// or a plan that has its PC version (PC Game Pass, EA Play, Ubisoft+).
+function gfnYours(g, keys) {
+  const stores = gfnStores(g);
+  const mineOn = (service) => offersOf(g).some((o) => o.service === service && offerIsMine(o, keys) && (o.platforms || []).includes('pc'));
+  return stores.filter((s) => (s === 'Steam' && g.steam) || (s === 'Xbox' && mineOn('gamepass')) || (s === 'EA app' && mineOn('eaplay')) || (s === 'Ubisoft Connect' && mineOn('ubisoftplus')));
+}
+const gfnStoreName = (s) => (s === 'Xbox' ? t('Xbox app (PC Game Pass)') : s);
+
+function gfnRow(g) {
+  if (!onGfn(g)) return null;
+  const stores = gfnStores(g);
+  const yours = gfnYours(g, unlocked());
+  return [el('dt', {}, 'GeForce NOW'), el('dd', {},
+    stores.length ? t('Streams your copy from {stores}', { stores: stores.map(gfnStoreName).join(', ') }) : t('Free to play, no store copy needed'),
+    yours.length ? el('div', { class: 'muted' }, t('You have it on {store}', { store: yours.map(gfnStoreName).join(', ') })) : null)];
+}
+
 const hideDeparted = () => !!state.settings.hideDeparted;
 // "My games" is where completed games are collected, so they stay there.
 const hideCompleted = () => !!state.settings.hideCompleted && ui.view !== 'mine';
@@ -549,6 +573,12 @@ function card(g, keys) {
   if (cloudKeys(g).size) {
     const yours = canStream(g, keys);
     badges.push(el('span', { class: `badge cloud ${yours ? 'yours' : ''}`, title: yours ? t('Stream it with {plans} (in your plans)', { plans: cloudPlans(g) }) : t('Stream it with {plans}', { plans: cloudPlans(g) }) }, `☁ ${t('Cloud')}`));
+  }
+  if (onGfn(g)) {
+    const yours = gfnYours(g, keys);
+    const stores = gfnStores(g).map(gfnStoreName).join(', ');
+    const free = !stores;
+    badges.push(el('span', { class: `badge gfn ${yours.length || free ? 'yours' : ''}`, title: free ? t('Free to play on GeForce NOW') : yours.length ? t('Stream it on GeForce NOW: you have it on {store}', { store: yours.map(gfnStoreName).join(', ') }) : t('Streams on GeForce NOW if you own it on {stores}', { stores }) }, 'GeForce NOW'));
   }
   const open = () => { drawerRoll = null; openDrawer(g); };
   return el('article', { class: `card ${mine ? 'mine' : ''} mark-${markOf(g.id)}`, 'data-id': g.id, onclick: open },
@@ -2267,6 +2297,7 @@ function openDrawer(g) {
         el('dt', {}, t('Platforms')), el('dd', {}, g.platforms.map(platformName).join(', ') || '—'),
         g.versions?.length ? [el('dt', {}, t('Versions')), el('dd', {}, g.versions.join(', '))] : null,
         cloudRow(g),
+        gfnRow(g),
         achievementRows(g),
         g.steam ? [el('dt', {}, 'Steam'), el('dd', {}, el('button', { class: 'link inline', onclick: () => api.openExternal(`https://store.steampowered.com/app/${g.steam.appid}/`) }, g.steam.minutes ? t('Owned, {hours} played', { hours: fmtHours(g.steam.minutes / 60) }) : t('Owned, not played yet'), ' ↗'))] : null,
         g.genreTags?.length ? [el('dt', {}, t('Genre')), el('dd', {}, g.genreTags.map((x) => t(x)).join(', '))]
