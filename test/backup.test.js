@@ -64,7 +64,7 @@ test('Unknown marks and broken fields are dropped', () => {
   const back = parseBackup(JSON.stringify({
     format: 'subscroll-backup',
     version: 2,
-    state: { marks: { a: 'completed', b: 'loved', c: 5 }, subscriptions: 'nope', customGames: [1, { id: 'g' }], freebies: { x: 'claimed', y: 'maybe' }, steam: 'oops', notes: { a: { stars: 9, text: 'hi' }, b: { stars: 3 }, c: 'x', d: { stars: 0, text: ' ' } } },
+    state: { marks: { a: 'completed', b: 'loved', c: 5 }, subscriptions: 'nope', customGames: [1, { id: 'g' }], freebies: { x: 'claimed', y: 'maybe' }, steam: 'oops', notes: { a: { stars: 9, text: 'hi' }, b: { stars: 3 }, c: 'x', d: { stars: 0, text: ' ' }, e: { hours: 12.5 }, f: { hours: -3 } } },
     history: { gamepass: { firstSeen: { a: '2026-01-01', b: 3 }, departed: [{ id: 'z', title: 'Z' }, { title: 'no id' }] }, bad: 7 },
     lookups: { ratings: { a: { mc: 1 }, b: 'x' }, unknown: { a: {} } },
   }));
@@ -73,7 +73,7 @@ test('Unknown marks and broken fields are dropped', () => {
   assert.deepStrictEqual(back.state.customGames, [{ id: 'g' }]);
   assert.deepStrictEqual(back.state.freebies, { x: 'claimed' });
   assert.strictEqual(back.state.steam, null);
-  assert.deepStrictEqual(back.state.notes, { a: { text: 'hi' }, b: { stars: 3 } });
+  assert.deepStrictEqual(back.state.notes, { a: { text: 'hi' }, b: { stars: 3 }, e: { hours: 12.5 } });
   assert.strictEqual('settings' in back.state, false);
   assert.deepStrictEqual(back.history, { gamepass: { firstSeen: { a: '2026-01-01' }, departed: [{ id: 'z', title: 'Z' }] } });
   assert.deepStrictEqual(back.lookups, { ratings: { a: { mc: 1 } } });

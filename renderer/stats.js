@@ -39,6 +39,8 @@
     // The games behind each number, for listing them when a chart is clicked.
     const planGames = { completed: [], played: [], wishlist: [], ignored: [], untouched: [] };
     const completedGames = new Map();
+    const marked = { completed: [], played: [] };
+    const steamGames = [];
     const genreGames = new Map();
     const services = new Map(subscribed.map((s) => [s, { service: s, inPlans: 0, played: 0, completed: 0 }]));
     // Per platform: a game on several counts for each.
@@ -54,11 +56,15 @@
       const mark = markOf(g);
       const mine = myServices(g);
       if (mark in totals) totals[mark] += 1;
+      marked[mark]?.push(g);
       if (mine.length) {
         totals.inPlans += 1;
         plans[mark === 'none' ? 'untouched' : mark] += 1;
         planGames[mark === 'none' ? 'untouched' : mark]?.push(g);
-        if (g.steam) steamOwned += 1;
+        if (g.steam) {
+          steamOwned += 1;
+          steamGames.push(g);
+        }
       }
       for (const p of platformsOf(g)) {
         if (!platforms.has(p)) platforms.set(p, { platform: p, inPlans: 0, played: 0, completed: 0 });
@@ -114,6 +120,8 @@
       time,
       averageScore: scored ? Math.round(scoreSum / scored) : null,
       steamOwned,
+      marked,
+      steamGames,
     };
   }
 

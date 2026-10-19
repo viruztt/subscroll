@@ -89,7 +89,8 @@ function parseBackup(text) {
       if (!isObject(n)) continue;
       const stars = Number.isInteger(n.stars) && n.stars >= 1 && n.stars <= 5 ? n.stars : null;
       const text = typeof n.text === 'string' && n.text.trim() ? n.text : null;
-      if (stars || text) state.notes[id] = { ...(stars ? { stars } : {}), ...(text ? { text } : {}), ...(typeof n.at === 'string' ? { at: n.at } : {}) };
+      const hours = typeof n.hours === 'number' && n.hours > 0 && n.hours < 100000 ? n.hours : null;
+      if (stars || text || hours) state.notes[id] = { ...(stars ? { stars } : {}), ...(text ? { text } : {}), ...(hours ? { hours } : {}), ...(typeof n.at === 'string' ? { at: n.at } : {}) };
     }
   }
   if ('finishedOn' in s) state.finishedOn = Object.fromEntries(Object.entries(stringMap(s.finishedOn)).filter(([, d]) => /^\d{4}-\d{2}-\d{2}$/.test(d)));

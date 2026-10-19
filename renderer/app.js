@@ -198,7 +198,8 @@ async function setNote(id, patch) {
   const next = { ...prev, ...patch, at: new Date().toISOString() };
   if (!next.stars) delete next.stars;
   if (!next.text || !next.text.trim()) delete next.text;
-  if (next.stars || next.text) notes[id] = next;
+  if (!(next.hours > 0)) delete next.hours;
+  if (next.stars || next.text || next.hours) notes[id] = next;
   await saveState({ notes });
 }
 
@@ -353,6 +354,19 @@ function beatHours(g) {
   const h = ratings[g.id]?.hltb;
   return h ? h.main ?? h.plus ?? h.all ?? null : null;
 }
+// Hours you've played: your own entry first, then Steam's playtime (from an
+// hour up, so a game finished elsewhere and only opened on Steam doesn't count).
+const STEAM_MIN_MINUTES = 60;
+function playedHours(g) {
+  const own = noteOf(g.id)?.hours;
+  if (own > 0) return { hours: own, source: 'you' };
+  if (g.steam?.minutes >= STEAM_MIN_MINUTES) return { hours: g.steam.minutes / 60, source: 'steam' };
+  return null;
+}
+// Time a game took you: hours played when known, else How Long To Beat.
+const timeTaken = (g) => playedHours(g)?.hours ?? beatHours(g);
+const TIME_SOURCE = { you: tk('Your hours played'), steam: tk('Steam playtime'), hltb: tk('How Long To Beat main story') };
+const timeSource = (g) => t(TIME_SOURCE[playedHours(g)?.source || 'hltb']);
 
 // ---------- can I finish it in time? ----------
 // How many hours a day you play, worked out again when your marks, Steam
@@ -371,7 +385,7 @@ function finishVerdict(g) {
   const leave = leaveInfo(g);
   const mark = markOf(g.id);
   if (!leave || !leave.soon || leave.past || isComing(g) || mark === 'completed' || mark === 'ignored') return null;
-  const played = g.steam?.minutes ? g.steam.minutes / 60 : 0;
+  const played = noteOf(g.id)?.hours || (g.steam?.minutes || 0) / 60;
   return Deadline.verdict({ beat: beatHours(g), played, leave, today: todayIso(), perDay: playPace().perDay });
 }
 
@@ -570,7 +584,7 @@ function card(g, keys) {
     badges.push(el('span', { class: 'badge sale', title: saleTitle }, t('{percent}% off · {price}', { percent: sale.off, price: money(sale.sale) })));
   }
   const note = noteOf(g.id);
-  if (note) badges.push(el('span', { class: 'badge stars', title: note.text ? t('Your note: {note}', { note: note.text }) : t('Your rating') }, note.stars ? '★'.repeat(note.stars) : '', note.text ? (note.stars ? ' ✎' : `✎ ${t('Note')}`) : ''));
+  if (note && (note.stars || note.text)) badges.push(el('span', { class: 'badge stars', title: note.text ? t('Your note: {note}', { note: note.text }) : t('Your rating') }, note.stars ? '★'.repeat(note.stars) : '', note.text ? (note.stars ? ' ✎' : `✎ ${t('Note')}`) : ''));
   if (cloudKeys(g).size) {
     const yours = canStream(g, keys);
     badges.push(el('span', { class: `badge cloud ${yours ? 'yours' : ''}`, title: yours ? t('Stream it with {plans} (in your plans)', { plans: cloudPlans(g) }) : t('Stream it with {plans}', { plans: cloudPlans(g) }) }, `☁ ${t('Cloud')}`));
@@ -1453,7 +1467,7 @@ function periodLabel(start, per) {
 }
 
 function finishedList() {
-  return statsGames().filter((g) => markOf(g.id) === 'completed').map((g) => ({ id: g.id, title: g.title, date: finishedOf(g.id), hours: beatHours(g) }));
+  return statsGames().filter((g) => markOf(g.id) === 'completed').map((g) => ({ id: g.id, title: g.title, date: finishedOf(g.id), hours: timeTaken(g) }));
 }
 
 function goalsPanel() {
@@ -1502,7 +1516,7 @@ function goalsPanel() {
   return el('div', { class: 'panel goals' },
     el('h2', {}, t('Goals')),
     el('p', { class: 'muted' }, goals.length
-      ? t('Games count in the week, month or year you marked them completed. Hours are How Long To Beat main story times.')
+      ? t('Games count in the week, month or year you marked them completed. Hours are your hours played where you\'ve entered them or Steam has them, otherwise How Long To Beat main story times.')
       : t('Set a goal, like beating two games a month, and see how you\'re doing and how many months in a row you\'ve made it. Games count in the week, month or year you mark them completed.')),
     rows,
     el('div', { class: 'form goal-add' }, tEl('Beat {count} {unit} a {per}', { count, unit, per }).map((x) => (typeof x === 'string' ? (x.trim() ? el('span', {}, x.trim()) : null) : x)), add),
@@ -1520,7 +1534,7 @@ function renderStats() {
   const helpers = {
     markOf: (g) => markOf(g.id),
     myServices: (g) => serviceOffers(g).filter((o) => offerIsMine(o, keys)).map((o) => o.service),
-    hours: beatHours,
+    hours: (g) => (markOf(g.id) === 'completed' ? timeTaken(g) : beatHours(g)),
     score: mcScore,
     subscribed,
   };
@@ -1575,6 +1589,10 @@ function renderStats() {
       const row = st.completedBy.find((x) => x.service === pick.key);
       return row && { title: t('Completed: {name}', { name: nameOf(pick.key) }), list: row.games };
     }
+    if (chart === 'tiles') {
+      if (pick.key === 'steam') return st.steamGames.length ? { title: t('On Steam'), list: st.steamGames } : null;
+      return st.marked[pick.key]?.length ? { title: STATUS_LABEL[pick.key], list: st.marked[pick.key] } : null;
+    }
     if (chart === 'plans') return st.planGames[pick.key]?.length ? { title: t('Your plans: {status}', { status: STATUS_LABEL[pick.key] }), list: st.planGames[pick.key] } : null;
     const row = st.genres.find((x) => x.genre === pick.key);
     return row && { title: t('Completed: {name}', { name: t(row.genre) }), list: row.games };
@@ -1592,15 +1610,18 @@ function renderStats() {
       list.length > shown.length ? el('p', { class: 'muted' }, t('Showing {shown} of {total}', { shown: shown.length, total: list.length })) : null);
   };
 
-  const tile = (value, label, title) => el('div', { class: 'tile', title: title || '' }, el('div', { class: 'tile-num' }, value), el('div', { class: 'tile-label' }, label));
+  const tile = (value, label, title, key) => (key
+    ? el('button', { class: `tile pickable ${pickedKey('tiles') === key ? 'on' : ''}`, title: title ? `${title}\n${t('Show these games')}` : t('Show these games'), onclick: () => picker('tiles')(key) }, el('div', { class: 'tile-num' }, value), el('div', { class: 'tile-label' }, label))
+    : el('div', { class: 'tile', title: title || '' }, el('div', { class: 'tile-num' }, value), el('div', { class: 'tile-label' }, label)));
   content.append(el('div', { class: 'tiles' },
-    tile(totals.completed, t('completed')),
-    tile(totals.played, t('playing'), t('Marked as played but not completed')),
+    tile(totals.completed, t('completed'), '', totals.completed ? 'completed' : null),
+    tile(totals.played, t('playing'), t('Marked as played but not completed'), totals.played ? 'played' : null),
     st.finishRate != null ? tile(pct(st.finishRate), t('finish rate'), t('Completed out of every game you have started')) : null,
-    st.time.completedTimed ? tile(t('{n}h', { n: Math.round(st.time.completed) }), t('of games finished'), t('How Long To Beat main-story time of {n} of your completed games', { n: st.time.completedTimed })) : null,
+    st.time.completedTimed ? tile(t('{n}h', { n: Math.round(st.time.completed) }), t('of games finished'), t('Hours played, or How Long To Beat main-story time, of {n} of your completed games', { n: st.time.completedTimed })) : null,
     st.averageScore != null ? tile(st.averageScore, t('average Metacritic'), t('Average score of the games you completed')) : null,
     totals.inPlans ? tile(share(st.plans.completed / totals.inPlans), t('of your plans done'), t('{done} completed out of {total} games in your plans', { done: st.plans.completed, total: totals.inPlans })) : null,
-    state.steam?.owned ? tile(st.steamOwned, t('owned on Steam'), t('Games in your plans that you also own on Steam')) : null));
+    state.steam?.owned ? tile(st.steamOwned, t('owned on Steam'), t('Games in your plans that you also own on Steam'), st.steamOwned ? 'steam' : null) : null));
+  content.append(pickPanel('tiles') || '');
 
   content.append(el('div', { class: 'chart-row' },
     el('div', { class: 'panel' },
@@ -1701,7 +1722,7 @@ function renderValue() {
     myServices: (g) => serviceOffers(g).filter((o) => offerIsMine(o, keys)).map((o) => o.service),
     price: priceOf,
     viaSub: (g) => viaSub(g, keys),
-    hours: beatHours,
+    hours: timeTaken,
     costs: state.costs || {},
     today: todayIso(),
     includePlayed,
@@ -1717,9 +1738,9 @@ function renderValue() {
     v.paid ? tile(money(Math.abs(v.saved)), ahead ? t('saved by subscribing') : t('more than buying them'), '', ahead ? 'good' : 'bad') : null,
     v.perGame ? tile(money(v.perGame), t('per game beaten'), t('What each game cost you through subscriptions')) : null,
     v.perHour ? tile(money(v.perHour, 2), t('an hour played'), v.timed < v.games
-      ? t('What you paid in subscriptions over about {hours} hours of play: How Long To Beat main story times for {timed} of the {total} games, the rest counted at their average', { hours: Math.round(v.hoursEst), timed: v.timed, total: v.games })
-      : t('What you paid in subscriptions over about {hours} hours of play: How Long To Beat main story times', { hours: Math.round(v.hoursEst) })) : null,
-    v.boughtPerHour ? tile(money(v.boughtPerHour, 2), t('an hour if bought'), t('Store prices over How Long To Beat times, for the games that have both')) : null));
+      ? t('What you paid in subscriptions over about {hours} hours of play: your hours played, or How Long To Beat main story times, for {timed} of the {total} games, the rest counted at their average', { hours: Math.round(v.hoursEst), timed: v.timed, total: v.games })
+      : t('What you paid in subscriptions over about {hours} hours of play: your hours played, or How Long To Beat main story times', { hours: Math.round(v.hoursEst) })) : null,
+    v.boughtPerHour ? tile(money(v.boughtPerHour, 2), t('an hour if bought'), t('Store prices over hours played (or How Long To Beat times), for the games that have both')) : null));
 
   const playedBox = el('input', { type: 'checkbox' });
   playedBox.checked = includePlayed;
@@ -1812,7 +1833,7 @@ function costsPanel(v) {
         el('div', { class: 'cost-sum' },
           r?.paid ? el('div', {}, tn(r.months, '{price} paid over {n} month', '{price} paid over {n} months', { price: money(r.paid) })) : el('div', { class: 'muted' }, t('Not counted yet')),
           r?.games ? el('div', { class: 'muted' }, `${t('{n} beaten, worth {price}', { n: r.games, price: money(r.value) })}${verdict ? ` · ${verdict}` : ''}`) : null,
-          r?.perHour ? el('div', { class: 'muted', title: r.timed < r.games ? t('How Long To Beat times for {timed} of {total} games; the rest counted at their average', { timed: r.timed, total: r.games }) : t('From How Long To Beat main story times') }, t('{price} an hour over about {hours} hours', { price: money(r.perHour, 2), hours: Math.round(r.hoursEst) })) : null)),
+          r?.perHour ? el('div', { class: 'muted', title: r.timed < r.games ? t('Hours for {timed} of {total} games; the rest counted at their average', { timed: r.timed, total: r.games }) : t('From your hours played, or How Long To Beat main story times') }, t('{price} an hour over about {hours} hours', { price: money(r.perHour, 2), hours: Math.round(r.hoursEst) })) : null)),
       list.map(row),
       el('button', { class: 'link inline add-period', onclick: () => {
         // Usually an earlier stretch: ended, with the same price to start from.
@@ -1863,8 +1884,8 @@ function beatenPanel(v) {
       ? el('span', { class: 'price' }, el('button', { class: 'link inline', title: t('Full price on {store}', { store: p.source }), onclick: () => p.url && api.openExternal(p.url) }, money(p.amount, 2)), el('span', { class: 'muted' }, ` ${p.source}`),
         el('button', { class: 'link inline price-edit', title: t('Use a different price'), onclick: (e) => { e.currentTarget.parentElement.replaceWith(input); input.focus(); } }, t('edit')))
       : input;
-    const h = beatHours(g);
-    const time = h ? el('span', { class: 'beaten-hours muted', title: p?.amount > 0 ? t('How Long To Beat main story, and the price over those hours') : t('How Long To Beat main story') },
+    const h = timeTaken(g);
+    const time = h ? el('span', { class: 'beaten-hours muted', title: p?.amount > 0 ? t('{source}, and the price over those hours', { source: timeSource(g) }) : timeSource(g) },
       `${t('{n} h', { n: h < 1 ? '<1' : Math.round(h) })}${p?.amount > 0 ? ` · ${t('{price}/h', { price: money(p.amount / Math.max(h, 0.5), 2) })}` : ''}`) : el('span', { class: 'beaten-hours' });
     return el('div', { class: `beaten-row ${on ? '' : 'off'}` },
       el('label', { class: 'beaten-check' }, box, el('span', { class: 'beaten-title', title: g.title }, g.title)),
@@ -2397,8 +2418,24 @@ function notesSection(g) {
   text.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(saveText, 600); });
   // Re-drawing the list on blur shows the note badge without losing focus while typing.
   text.addEventListener('blur', async () => { await saveText(); render(true); });
+  const steamH = g.steam?.minutes ? g.steam.minutes / 60 : 0;
+  const hours = el('input', { type: 'number', min: '0', step: '0.5', class: 'hours-input', placeholder: steamH ? String(Math.round(steamH * 10) / 10) : '', 'aria-label': t('Hours played') });
+  if (note.hours > 0) hours.value = String(note.hours);
+  hours.addEventListener('change', async () => {
+    const n = Number(hours.value);
+    const next = hours.value.trim() && n > 0 && n < 100000 ? Math.round(n * 10) / 10 : null;
+    if ((noteOf(g.id)?.hours || null) === next) return;
+    if (!next) hours.value = '';
+    await setNote(g.id, { hours: next });
+    render(true);
+  });
+  const hoursHint = steamH
+    ? t('Steam says {time}. Leave empty to use that, or enter your own if you also played elsewhere.', { time: fmtHours(steamH) })
+    : t('Used for cost per hour, your goals and whether you can finish in time, instead of How Long To Beat.');
   return el('section', { class: 'notes' },
     el('div', { class: 'notes-head' }, el('span', { class: 'muted' }, t('Your rating')), stars),
+    el('label', { class: 'notes-head hours-row' }, el('span', { class: 'muted' }, t('Hours played')), hours),
+    el('p', { class: 'muted hours-hint' }, hoursHint),
     text);
 }
 

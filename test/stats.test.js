@@ -34,6 +34,10 @@ test('Statistics: each completed game in one pie slice, every service in the pro
   // The games behind each slice, for listing them.
   assert.deepStrictEqual(ids(st.planGames.played), ['c']);
   assert.deepStrictEqual(ids(st.planGames.untouched), []);
+  // The tiles: every completed or played game, in your plans or not, and the Steam ones.
+  assert.deepStrictEqual(ids(st.marked.completed), ['a', 'b', 'f']);
+  assert.deepStrictEqual(ids(st.marked.played), ['c']);
+  assert.deepStrictEqual(ids(st.steamGames), ['e']);
   const row = (s) => st.services.find((r) => r.service === s);
   assert.deepStrictEqual(row('gamepass'), { service: 'gamepass', inPlans: 2, played: 0, completed: 2 });
   assert.deepStrictEqual(row('eaplay'), { service: 'eaplay', inPlans: 1, played: 0, completed: 1 });

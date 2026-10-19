@@ -332,6 +332,8 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
 .tile-num { font-size: 26px; font-weight: 700; }
 .tile-label { color: var(--muted); font-size: 13px; }
+button.tile.pickable { font: inherit; color: inherit; text-align: left; cursor: pointer; }
+button.tile.pickable:hover, button.tile.pickable.on { border-color: var(--accent, #4f8cff); }
 .chart-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 0 16px; max-width: 980px; }
 .chart-row .panel { margin-bottom: 0; }
 .chart { display: flex; align-items: center; gap: 22px; padding-top: 6px; }
@@ -480,6 +482,8 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .notes { margin: 12px 0 4px; display: grid; gap: 8px; }
 .notes-head { display: flex; align-items: center; gap: 12px; }
 .stars-input { display: flex; gap: 2px; }
+.hours-input { width: 90px; }
+.hours-hint { margin: -4px 0 0; font-size: 12px; }
 .stars-input .star { background: none; border: none; padding: 0 2px; font-size: 22px; line-height: 1; color: #4a5060; cursor: pointer; }
 .stars-input .star.on { color: #ffc83d; }
 .stars-input:hover .star { color: #ffc83d; }
