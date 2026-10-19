@@ -32,7 +32,7 @@
     return out;
   }
 
-  function compute(games, { markOf, myServices, hours, score, subscribed = [] }) {
+  function compute(games, { markOf, myServices, myPlatforms, hours, score, subscribed = [] }) {
     const totals = { inPlans: 0, completed: 0, played: 0, ignored: 0 };
     // Games in your plans, by status.
     const plans = { completed: 0, played: 0, wishlist: 0, ignored: 0, untouched: 0 };
@@ -66,13 +66,16 @@
           steamGames.push(g);
         }
       }
+      // A merged card's platforms come from all its services; it's in your
+      // plans on a platform only if one of your services has it there.
+      const yours = mine.length ? (myPlatforms ? myPlatforms(g) : platformsOf(g)) : new Set();
       for (const p of platformsOf(g)) {
         if (!platforms.has(p)) platforms.set(p, { platform: p, inPlans: 0, played: 0, completed: 0, marked: 0 });
         const row = platforms.get(p);
         // played/completed count games in your plans, so the bar stays within
         // them; marked counts every played or completed game on the platform.
         if (mark === 'played' || mark === 'completed') row.marked += 1;
-        if (mine.length) {
+        if (yours.has(p)) {
           row.inPlans += 1;
           if (mark === 'played' || mark === 'completed') row[mark] += 1;
         }

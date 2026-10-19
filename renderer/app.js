@@ -1534,6 +1534,7 @@ function renderStats() {
   const helpers = {
     markOf: (g) => markOf(g.id),
     myServices: (g) => serviceOffers(g).filter((o) => offerIsMine(o, keys)).map((o) => o.service),
+    myPlatforms: (g) => new Set(offersOf(g).filter((o) => offerIsMine(o, keys)).flatMap((o) => [...Stats.platformsOf(o)])),
     hours: (g) => (markOf(g.id) === 'completed' ? timeTaken(g) : beatHours(g)),
     score: mcScore,
     subscribed,
@@ -1548,7 +1549,8 @@ function renderStats() {
   const onChosen = (o) => Stats.platformsOf(o).has(chosen);
   const st = chosen === 'all' ? all : Stats.compute(everything.filter((g) => Stats.platformsOf(g).has(chosen)), {
     ...helpers,
-    myServices: (g) => serviceOffers(g).filter((o) => offerIsMine(o, keys) && onChosen(o)).map((o) => o.service),
+    myServices: (g) => [...new Set(offersOf(g).filter((o) => offerIsMine(o, keys) && onChosen(o)).map((o) => o.service))],
+    myPlatforms: () => new Set([chosen]),
   });
   const { totals } = st;
   const nameOf = (id) => (id === Stats.OTHER ? t('Not in your plans') : serviceById(id)?.name || id);
