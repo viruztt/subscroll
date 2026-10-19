@@ -86,6 +86,8 @@ function originOf(service, source, settings = {}) {
     gamepass: settings.market, psplus: settings.psLocale, eaplay: settings.market,
     ubisoftplus: settings.market, netflix: settings.region || settings.market, crunchyroll: settings.region || settings.market,
     playpass: settings.region || settings.market,
+    // Antstream's list moved from its help centre to its games page.
+    antstream: 'site',
   }[service];
   return region ? `live:${region}` : 'live';
 }

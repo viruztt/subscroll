@@ -24,7 +24,9 @@ const REPOS = {
   DOS: ['DOS'],
   'Atari Lynx': ['Atari_-_Lynx'],
   'Atari 2600': ['Atari_-_2600'],
+  'Atari 5200': ['Atari_-_5200'],
   'Atari 7800': ['Atari_-_7800'],
+  Intellivision: ['Mattel_-_Intellivision'],
   'Atari ST': ['Atari_-_ST'],
   'Master System': ['Sega_-_Master_System_-_Mark_III'],
   'Game Gear': ['Sega_-_Game_Gear'],
@@ -33,14 +35,14 @@ const REPOS = {
   Arcade: ['MAME'],
 };
 
-// A system heading as Antstream's Wikipedia list writes it ("Super NES / Super
-// Famicom", "MSX and MSX2") -> the system name above, or null.
+// A system as a list writes it ("Super NES / Super Famicom", "MSX and MSX2",
+// Antstream's "Megadrive") -> the system name above, or null.
 const SYSTEM_NAMES = [
   [/super n(es|intendo)|snes|super famicom/i, 'SNES'],
   [/\bnes\b|famicom|nintendo entertainment/i, 'NES'],
   [/game boy advance/i, 'Game Boy Advance'],
   [/game boy/i, 'Game Boy'],
-  [/mega drive|genesis/i, 'Sega Genesis'],
+  [/mega ?drive|genesis/i, 'Sega Genesis'],
   [/master system/i, 'Master System'],
   [/game gear/i, 'Game Gear'],
   [/amstrad/i, 'Amstrad CPC'],
@@ -51,7 +53,9 @@ const SYSTEM_NAMES = [
   [/dos\b/i, 'DOS'],
   [/lynx/i, 'Atari Lynx'],
   [/2600/i, 'Atari 2600'],
+  [/5200/i, 'Atari 5200'],
   [/7800/i, 'Atari 7800'],
+  [/intellivision/i, 'Intellivision'],
   [/atari st\b/i, 'Atari ST'],
   [/playstation|\bps1\b/i, 'PlayStation'],
   [/neo ?geo/i, 'Neo Geo'],
