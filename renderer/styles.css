@@ -546,3 +546,14 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .stats-platforms { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 16px; --svc: var(--accent); }
 button.svc-progress-name { text-align: left; padding: 0; color: var(--text); }
 button.svc-progress-name:hover { color: var(--accent); }
+
+/* Can I finish it in time? */
+.deadline { font-size: 12px; font-weight: 600; margin: 2px 0 6px; }
+.deadline.ok { color: var(--ok); }
+.deadline.tight { color: var(--warn); }
+.deadline.unlikely { color: #ff7a7a; }
+dd .deadline { margin: 2px 0; }
+.pace-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin: 0 0 16px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; --svc: var(--accent); }
+.pace-text { flex: 1 1 320px; line-height: 1.5; }
+.pace-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.pace-hours { display: flex; align-items: center; gap: 8px; }

@@ -100,8 +100,10 @@
     "Buy it: {price} ({sale})": "Kaufen: {price} ({sale})",
     "Buy it: {price} ({sale}) on {store}": "Kaufen: {price} ({sale}) bei {store}",
     "Buy it: {price} on {store}": "Kaufen: {price} bei {store}",
+    "By leave date": "Nach Datum",
     "By {studio}": "Von {studio}",
     "Calendar": "Kalender",
+    "Can you finish them in time?": "Schaffst du sie rechtzeitig?",
     "Cancel": "Abbrechen",
     "Card & board": "Karten & Brett",
     "Changes found by comparing each refresh with the last one.": "Änderungen, die beim Vergleich jeder Aktualisierung mit der vorherigen gefunden wurden.",
@@ -181,7 +183,9 @@
     "Family & party": "Familie & Party",
     "Fetching scores and times: {done} of {total}": "Wertungen und Spielzeiten werden geladen: {done} von {total}",
     "Fighting": "Kampfspiel",
+    "Finish in time?": "Rechtzeitig fertig?",
     "Finished": "Beendet",
+    "Fits your pace": "Passt zu deinem Tempo",
     "For services without a public game list, add the service here and its games below.": "Für Dienste ohne öffentliche Spieleliste füge den Dienst hier und seine Spiele unten hinzu.",
     "For the To play games you can't play with the plans you have ({n} you can).": "Für die Spiele auf deiner Merkliste, die du mit deinen Abos nicht spielen kannst ({n} kannst du).",
     "For the To play games you can't play with the plans you have.": "Für die Spiele auf deiner Merkliste, die du mit deinen Abos nicht spielen kannst.",
@@ -251,6 +255,7 @@
     "Hide these": "Diese ausblenden",
     "Hide until the next version": "Bis zur nächsten Version ausblenden",
     "Horror": "Horror",
+    "Hours you play a week": "Spielstunden pro Woche",
     "How Long To Beat main story": "How Long To Beat, Hauptstory",
     "How Long To Beat main story, and the price over those hours": "How Long To Beat, Hauptstory, und der Preis auf diese Stunden gerechnet",
     "How Long To Beat main-story time of {n} of your completed games": "Hauptstory-Zeit laut How Long To Beat für {n} deiner durchgespielten Spiele",
@@ -338,6 +343,7 @@
     "Metacritic {score}": "Metacritic {score}",
     "Mobile": "Mobil",
     "Month by month: ": "Monat für Monat: ",
+    "More than you usually play": "Mehr, als du sonst spielst",
     "Music": "Musik",
     "My games": "Meine Spiele",
     "My subscriptions": "Meine Abos",
@@ -371,6 +377,7 @@
     "Not in your plans": "Nicht in deinen Abos",
     "Not interested": "Kein Interesse",
     "Not played": "Nicht gespielt",
+    "Not right? Pick how much you play.": "Stimmt nicht? Wähle, wie viel du spielst.",
     "Not scored yet ↗": "Noch keine Wertung ↗",
     "Not started": "Nicht angefangen",
     "Not subscribed": "Nicht abonniert",
@@ -566,6 +573,7 @@
       "other": "Die letzten {n} Jahre"
     },
     "The {n} games you're playing that have a How Long To Beat time add up to about {hours} hours of main story.": "Die {n} Spiele, die du gerade spielst und die eine Zeit bei How Long To Beat haben, ergeben zusammen etwa {hours} Stunden Hauptstory.",
+    "Tight at your pace": "Knapp bei deinem Tempo",
     "Time to beat": "Spieldauer",
     "Timed trial": "Zeitlich begrenzte Testversion",
     "To play": "Merkliste",
@@ -594,6 +602,7 @@
     "Welcome to Subscroll": "Willkommen bei Subscroll",
     "What do you like to play?": "Was spielst du gern?",
     "What each game cost you through subscriptions": "Was dich jedes Spiel über Abos gekostet hat",
+    "What to start first": "Was zuerst anfangen",
     "What you finish": "Was du durchspielst",
     "What you like": "Was du magst",
     "What you paid a month": "Was du pro Monat gezahlt hast",
@@ -607,6 +616,7 @@
     "Which plan to get": "Welches Abo sich lohnt",
     "Which services do you have?": "Welche Dienste hast du?",
     "With your {plan}": "Mit deinem {plan}",
+    "Work it out": "Automatisch ermitteln",
     "Xbox": "Xbox",
     "Xbox Free Play Days: the full game for a few days.": "Xbox Free Play Days: das komplette Spiel für ein paar Tage.",
     "Xbox Wire (Free Play Days)": "Xbox Wire (Free Play Days)",
@@ -614,6 +624,7 @@
     "Xbox and PlayStation don't sell games in {country}. For Game Pass, PS Plus and store prices, use the store of:": "Xbox und PlayStation verkaufen in {country} keine Spiele. Für Game Pass, PS Plus und Store-Preise den Store dieses Landes verwenden:",
     "Xbox console": "Xbox-Konsole",
     "Xbox doesn't sell games in {country}. For Game Pass and Xbox prices, use the store of:": "Xbox verkauft in {country} keine Spiele. Für Game Pass und Xbox-Preise den Store dieses Landes verwenden:",
+    "Xbox gives no date, so this assumes the next 15th or end of the month, when Game Pass games usually leave.": "Xbox nennt kein Datum. Angenommen wird deshalb der nächste 15. oder das Monatsende, wenn Game-Pass-Spiele meist gehen.",
     "Yearly plans count as their price spread over 12 months. Leave out plans that come included with another, like EA Play with Game Pass Ultimate.": "Jahresabos zählen mit ihrem Preis verteilt auf 12 Monate. Lass Abos weg, die in einem anderen enthalten sind, etwa EA Play in Game Pass Ultimate.",
     "You have Subscroll {version}. New versions are published on GitHub, and the app checks twice a day. It downloads a new version next to this {file}, checks it against GitHub's checksum, and switches to it when you restart Subscroll (or the next time it starts); the old {file} is then deleted. Your plans, marks and settings carry over.": "Du hast Subscroll {version}. Neue Versionen erscheinen auf GitHub, und die App prüft zweimal täglich. Sie lädt eine neue Version neben diese {file}, prüft sie mit der Prüfsumme von GitHub und wechselt zu ihr, wenn du Subscroll neu startest (oder beim nächsten Start); die alte {file} wird dann gelöscht. Deine Abos, Markierungen und Einstellungen bleiben erhalten.",
     "You have Subscroll {version}. New versions are published on GitHub; the app checks twice a day and tells you when one is out. Your plans, marks and settings carry over.": "Du hast Subscroll {version}. Neue Versionen erscheinen auf GitHub; die App prüft zweimal täglich und sagt dir Bescheid, wenn eine da ist. Deine Abos, Markierungen und Einstellungen bleiben erhalten.",
@@ -627,19 +638,24 @@
     "You own it on Steam": "Du besitzt es auf Steam",
     "You own this on Steam, not played yet": "Du besitzt es auf Steam, noch nicht gespielt",
     "You own this on Steam, {time} played": "Du besitzt es auf Steam, {time} gespielt",
+    "You play": "Du spielst",
+    "You play about {pace} a day, {source}.": "Du spielst etwa {pace} am Tag, {source}.",
     "You rate {genre} highly": "Du bewertest {genre} hoch",
     "Your note: {note}": "Deine Notiz: {note}",
     "Your notes: where you got to, what to try, who recommended it…": "Deine Notizen: wie weit du bist, was du probieren willst, wer es empfohlen hat…",
     "Your own price, a month": "Dein eigener Preis pro Monat",
+    "Your pace: about {pace} a day, {source}.": "Dein Tempo: etwa {pace} am Tag, {source}.",
     "Your plans by status": "Deine Abos nach Status",
     "Your plans, region, background, updates, Steam, Xbox and PlayStation accounts, and profile export. Everything is saved on this computer.": "Deine Abos, Region, Hintergrund, Updates, Steam-, Xbox- und PlayStation-Konten sowie Profilexport. Alles wird auf diesem Computer gespeichert.",
     "Your plans, settings and {mine} marked games on this PC are replaced by the profile's {theirs} marked games. ": "Deine Abos, Einstellungen und {mine} markierten Spiele auf diesem PC werden durch die {theirs} markierten Spiele des Profils ersetzt. ",
     "Your rating": "Deine Bewertung",
     "Yours to keep once claimed": "Nach dem Einlösen gehört es dir",
+    "a guess until you complete some games or import your Steam library": "geschätzt, bis du Spiele durchspielst oder deine Steam-Bibliothek importierst",
     "a month": "1 Monat",
     "a year": "1 Jahr",
     "an hour if bought": "pro Stunde beim Kauf",
     "an hour played": "pro gespielter Stunde",
+    "as you set it": "wie von dir eingestellt",
     "average Metacritic": "Metacritic-Schnitt",
     "bundled": "mitgeliefert",
     "bundled list": "mitgelieferte Liste",
@@ -651,6 +667,11 @@
     "enter price": "Preis eingeben",
     "finish rate": "Abschlussquote",
     "from": "von",
+    "from the {n} game you completed in the last three months|from the {n} games you completed in the last three months": {
+      "one": "nach {n} Spiel, das du in den letzten drei Monaten durchgespielt hast",
+      "other": "nach den {n} Spielen, die du in den letzten drei Monaten durchgespielt hast"
+    },
+    "from your Steam playtime over the last two weeks": "nach deiner Steam-Spielzeit der letzten zwei Wochen",
     "games": "Spiele",
     "hours of games": "Spielstunden",
     "in plans": "in Abos",
@@ -662,6 +683,7 @@
       "one": "in {n} Stunde",
       "other": "in {n} Stunden"
     },
+    "last day": "letzter Tag",
     "looking up…": "wird abgefragt…",
     "mirror": "Spiegel",
     "month": "Monat",
@@ -724,6 +746,9 @@
       "one": "{earned} von {n} Trophäe",
       "other": "{earned} von {n} Trophäen"
     },
+    "{hours} left to beat": "noch {hours} zum Durchspielen",
+    "{hours} to beat": "{hours} zum Durchspielen",
+    "{hours}, {days}: about {perDay} a day": "{hours}, {days}: etwa {perDay} am Tag",
     "{hours}h to beat": "{hours} Std. Spieldauer",
     "{kind} ({n})": "{kind} ({n})",
     "{kind}: {title}": "{kind}: {title}",
@@ -756,6 +781,14 @@
       "one": "{n} durchgespieltes Spiel hat kein Abschlussdatum (markiert, bevor es Ziele gab) und zählt daher nicht. Öffne ein Spiel und gib an, wann du es beendet hast.",
       "other": "{n} durchgespielte Spiele haben kein Abschlussdatum (markiert, bevor es Ziele gab) und zählen daher nicht. Öffne ein Spiel und gib an, wann du es beendet hast."
     },
+    "{n} day left (estimated)|{n} days left (estimated)": {
+      "one": "noch {n} Tag (geschätzt)",
+      "other": "noch {n} Tage (geschätzt)"
+    },
+    "{n} day left|{n} days left": {
+      "one": "noch {n} Tag",
+      "other": "noch {n} Tage"
+    },
     "{n} free to keep right now|{n} free to keep right now": {
       "one": "{n} gerade gratis zum Behalten",
       "other": "{n} gerade gratis zum Behalten"
@@ -763,6 +796,10 @@
     "{n} free to play this weekend|{n} free to play this weekend": {
       "one": "{n} dieses Wochenende gratis spielbar",
       "other": "{n} dieses Wochenende gratis spielbar"
+    },
+    "{n} game fits it.|{n} games fit it.": {
+      "one": "{n} Spiel passt dazu.",
+      "other": "{n} Spiele passen dazu."
     },
     "{n} game is leaving soon without a date, so they aren't on the calendar. |{n} games are leaving soon without a date, so they aren't on the calendar. ": {
       "one": "{n} Spiel ist bald weg, aber ohne Datum, daher steht es nicht im Kalender. ",
@@ -785,6 +822,10 @@
       "other": "{n} Spiele"
     },
     "{n} h": "{n} Std.",
+    "{n} hour a week|{n} hours a week": {
+      "one": "{n} Stunde pro Woche",
+      "other": "{n} Stunden pro Woche"
+    },
     "{n} included in your subscriptions|{n} included in your subscriptions": {
       "one": "{n} in deinen Abos enthalten",
       "other": "{n} in deinen Abos enthalten"
@@ -842,6 +883,7 @@
     "{n}m": "{n} Min.",
     "{off}% off": "{off} % Rabatt",
     "{off}% off until {date}": "{off} % Rabatt bis {date}",
+    "{perDay} a day to finish": "{perDay} täglich nötig",
     "{percent}% done": "{percent} % fertig",
     "{percent}% off · {price}": "{percent} % Rabatt · {price}",
     "{plan} alone covers {n}": "{plan} allein deckt {n} ab",

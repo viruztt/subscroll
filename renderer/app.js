@@ -17,6 +17,7 @@ const ui = {
   genre: 'all',
   length: 'all',
   sort: 'title',
+  leavingOrder: 'date', // the Leaving soon page: 'date' or 'start' (what to start first)
   mineOnly: false,
   shown: PAGE_SIZE,
 };
@@ -328,6 +329,56 @@ function beatHours(g) {
   return h ? h.main ?? h.plus ?? h.all ?? null : null;
 }
 
+// ---------- can I finish it in time? ----------
+// How many hours a day you play, worked out again when your marks, Steam
+// import or settings change (state is replaced on every save).
+let paceMemo = { state: null, day: null, value: null };
+function playPace() {
+  const today = todayIso();
+  if (paceMemo.state !== state || paceMemo.day !== today) {
+    paceMemo = { state, day: today, value: Deadline.pace({ hoursWeek: state.settings.playHoursWeek, steam: state.steam, finished: finishedList(), today }) };
+  }
+  return paceMemo.value;
+}
+
+// The verdict for a game leaving soon that you haven't completed or ignored.
+function finishVerdict(g) {
+  const leave = leaveInfo(g);
+  const mark = markOf(g.id);
+  if (!leave || !leave.soon || leave.past || isComing(g) || mark === 'completed' || mark === 'ignored') return null;
+  const played = g.steam?.minutes ? g.steam.minutes / 60 : 0;
+  return Deadline.verdict({ beat: beatHours(g), played, leave, today: todayIso(), perDay: playPace().perDay });
+}
+
+// Hours a day with one decimal ("1.3h"), or minutes under an hour ("40m").
+function fmtPerDay(h) {
+  if (h < 1) return t('{n}m', { n: Math.max(5, Math.round((h * 60) / 5) * 5) });
+  return t('{n}h', { n: new Intl.NumberFormat(I18n.locale(), { maximumFractionDigits: 1 }).format(Math.round(h * 10) / 10) });
+}
+
+const VERDICT_LABEL = { ok: tk('Fits your pace'), tight: tk('Tight at your pace'), unlikely: tk('More than you usually play') };
+
+// "12h to beat, 9 days left: about 1.3h a day".
+function verdictText(v) {
+  const hours = v.played > 0 ? t('{hours} left to beat', { hours: fmtHours(v.hours) }) : t('{hours} to beat', { hours: fmtHours(v.hours) });
+  const days = v.days === 0 ? t('last day') : v.estimated ? tn(v.days, '{n} day left (estimated)', '{n} days left (estimated)') : tn(v.days, '{n} day left', '{n} days left');
+  return t('{hours}, {days}: about {perDay} a day', { hours, days, perDay: fmtPerDay(v.perDay) });
+}
+
+function paceSource(p) {
+  if (p.source === 'setting') return t('as you set it');
+  if (p.source === 'steam') return t('from your Steam playtime over the last two weeks');
+  if (p.source === 'finished') return tn(p.games, 'from the {n} game you completed in the last three months', 'from the {n} games you completed in the last three months');
+  return t('a guess until you complete some games or import your Steam library');
+}
+
+function verdictLine(g) {
+  const v = finishVerdict(g);
+  if (!v) return null;
+  return el('div', { class: `deadline ${v.status}`, title: `${verdictText(v)}\n${t(VERDICT_LABEL[v.status])}` },
+    t('{perDay} a day to finish', { perDay: fmtPerDay(v.perDay) }));
+}
+
 // Departed games keep their original fields, so work out genres here too.
 function fitsGenreAndLength(g) {
   if (ui.genre !== 'all' && !(g.genreTags || Genres.genresOf(g)).includes(ui.genre)) return false;
@@ -504,6 +555,7 @@ function card(g, keys) {
       el('div', { class: 'title', title: g.title }, g.title),
       serviceMeta(g, keys),
       el('div', { class: 'stats' }, stats(g)),
+      verdictLine(g),
       markButtons(g)));
 }
 
@@ -787,9 +839,43 @@ function renderOnboarding() {
 
 function renderLeaving() {
   const list = filtered(games.filter((g) => leaveInfo(g)));
-  list.sort((a, b) => (leaveInfo(a).date || '9999').localeCompare(leaveInfo(b).date || '9999') || a.title.localeCompare(b.title, I18n.locale()));
+  const byDate = (a, b) => (leaveInfo(a).date || '9999').localeCompare(leaveInfo(b).date || '9999') || a.title.localeCompare(b.title, I18n.locale());
+  const pace = playPace();
+  const verdicts = new Map(list.map((g) => [g.id, finishVerdict(g)]));
+  if (ui.leavingOrder === 'start') {
+    // Least time to spare first; games you can't finish at your pace, then games without a time, last.
+    const rank = (v) => (!v ? 2 : v.status === 'unlikely' ? 1 : 0);
+    const spare = (v) => (v ? Deadline.startWithin(v, pace.perDay) : 0);
+    list.sort((a, b) => { const va = verdicts.get(a.id); const vb = verdicts.get(b.id); return rank(va) - rank(vb) || spare(va) - spare(vb) || byDate(a, b); });
+  } else list.sort(byDate);
   $('#summary').textContent = tn(list.length, '{n} game leaving. Xbox flags these itself but gives no exact date.', '{n} games leaving. Xbox flags these itself but gives no exact date.');
   renderGrid(list, t('Nothing is flagged as leaving right now.'));
+  if (list.length) $('#content').prepend(paceBar([...verdicts.values()].filter(Boolean), pace));
+}
+
+// Your playing pace, the hours-a-week setting and the order of the Leaving soon page.
+function paceBar(verdicts, pace) {
+  const hours = el('select', { title: t('Hours you play a week') },
+    el('option', { value: '' }, t('Work it out')),
+    [2, 3, 5, 7, 10, 14, 21, 28, 35, 42].map((n) => el('option', { value: String(n) }, tn(n, '{n} hour a week', '{n} hours a week'))));
+  hours.value = state.settings.playHoursWeek ? String(state.settings.playHoursWeek) : '';
+  hours.addEventListener('change', async () => {
+    await saveState({ settings: { ...state.settings, playHoursWeek: Number(hours.value) || null } });
+    render(true);
+  });
+  const fits = verdicts.filter((v) => v.status === 'ok').length;
+  const order = (value) => () => { ui.leavingOrder = value; render(true); };
+  return el('div', { class: 'pace-bar' },
+    el('div', { class: 'pace-text' },
+      el('strong', {}, t('Can you finish them in time?')), ' ',
+      t('Your pace: about {pace} a day, {source}.', { pace: fmtPerDay(pace.perDay), source: paceSource(pace) }), ' ',
+      verdicts.length ? tn(fits, '{n} game fits it.', '{n} games fit it.') : '',
+      pace.source === 'default' || pace.source === 'setting' ? null : el('span', { class: 'muted' }, ` ${t('Not right? Pick how much you play.')}`)),
+    el('div', { class: 'pace-controls' },
+      el('label', { class: 'pace-hours' }, el('span', { class: 'muted' }, t('You play')), hours),
+      el('div', { class: 'seg' },
+        el('button', { class: ui.leavingOrder === 'start' ? '' : 'on', onclick: order('date') }, t('By leave date')),
+        el('button', { class: ui.leavingOrder === 'start' ? 'on' : '', onclick: order('start') }, t('What to start first')))));
 }
 
 function renderChanges() {
@@ -2190,7 +2276,8 @@ function openDrawer(g) {
         ratingRows(g),
         finishedRows(g),
         cheapestRows(g),
-        leave ? [el('dt', {}, t('Leaving')), el('dd', {}, leave.date ? fmtDate(leave.date) : leave.from?.length ? t('{services}: soon, no date announced', { services: leave.from.join(', ') }) : t('soon, no date announced'))] : null),
+        leave ? [el('dt', {}, t('Leaving')), el('dd', {}, leave.date ? fmtDate(leave.date) : leave.from?.length ? t('{services}: soon, no date announced', { services: leave.from.join(', ') }) : t('soon, no date announced'))] : null,
+        finishRows(g)),
       markButtons(g, true),
       notesSection(g),
       detailsSection(g),
@@ -2198,6 +2285,18 @@ function openDrawer(g) {
         o.service === 'nso' ? t('Open the Wikipedia list ↗') : offers.length > 1 ? t('Open on {service} ↗', { service: serviceById(o.service)?.short || o.service }) : t('Open store page ↗'))),
       g.custom ? el('button', { class: 'link danger', onclick: deleteCustom }, t('Delete this game')) : null));
   drawer.classList.remove('hidden');
+}
+
+// "Can you finish it in time?" in the details.
+function finishRows(g) {
+  const v = finishVerdict(g);
+  if (!v) return null;
+  const pace = playPace();
+  return [el('dt', {}, t('Finish in time?')), el('dd', {},
+    el('div', {}, verdictText(v)),
+    el('div', { class: `deadline ${v.status}` }, t(VERDICT_LABEL[v.status])),
+    el('div', { class: 'muted' }, t('You play about {pace} a day, {source}.', { pace: fmtPerDay(pace.perDay), source: paceSource(pace) }),
+      v.estimated ? ` ${t('Xbox gives no date, so this assumes the next 15th or end of the month, when Game Pass games usually leave.')}` : ''))];
 }
 
 // Your star rating and notes, saved as you type.

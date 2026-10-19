@@ -48,7 +48,7 @@ async function fetchOwned(steamId, key) {
     // A private profile answers with an empty response.
     throw new Error(t("Steam didn't share this profile's games. In Steam, open your profile's Privacy Settings, set Game details to Public, then import again."));
   }
-  return list.filter((g) => g.name).map((g) => ({ appid: g.appid, name: g.name, minutes: g.playtime_forever || 0 }));
+  return list.filter((g) => g.name).map((g) => ({ appid: g.appid, name: g.name, minutes: g.playtime_forever || 0, recent: g.playtime_2weeks || 0 }));
 }
 
 // Owned games by the same title key the app merges games with, so
@@ -101,6 +101,8 @@ async function importLibrary({ profile, key }, games, current = {}, marks = {}) 
       profile, key, steamId,
       importedAt: new Date().toISOString(),
       count: owned.length,
+      // Minutes played on Steam in the last two weeks, for "Can I finish it in time?".
+      recentMinutes: owned.reduce((t, g) => t + (g.recent || 0), 0),
       owned: index,
       marked: [...new Set([...(current.marked || []), ...keys])],
     },

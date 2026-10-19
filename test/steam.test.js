@@ -41,10 +41,10 @@ function fakeSteam(games, { vanity = {} } = {}) {
 const library = {
   game_count: 4,
   games: [
-    { appid: 782330, name: 'DOOM Eternal', playtime_forever: 600 },
+    { appid: 782330, name: 'DOOM Eternal', playtime_forever: 600, playtime_2weeks: 240 },
     { appid: 1145360, name: 'Hades', playtime_forever: 10 },
     { appid: 504230, name: 'Celeste', playtime_forever: 0 },
-    { appid: 1003590, name: 'Tetris®', playtime_forever: 900 },
+    { appid: 1003590, name: 'Tetris®', playtime_forever: 900, playtime_2weeks: 60 },
   ],
 };
 
@@ -57,6 +57,8 @@ test('Steam import: owned games found across services, played ones marked once',
   // Celeste already had a mark; Steam's Tetris isn't the Switch Online one.
   assert.deepStrictEqual(r.marks, { 'gamepass:1': 'played' });
   assert.strictEqual(r.steam.owned.doometernal.appid, 782330);
+  // Every game's last two weeks, for the playing pace.
+  assert.strictEqual(r.steam.recentMinutes, 300);
 
   // Unmarked by the user afterwards: the next import leaves it alone.
   const again = await steam.importLibrary({ profile: 'me', key: 'KEY' }, catalogue, r.steam, { 'gamepass:4': 'completed' });
