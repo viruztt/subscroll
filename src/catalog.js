@@ -126,6 +126,19 @@ function applyHistory(prev, games, origin, left = []) {
   return { history, added, removed };
 }
 
+// Stores fill unknown release dates with placeholders, such as Microsoft's
+// 9998-12-30 for games without a date yet. Those count as no date.
+function realDate(d) {
+  if (!d || !/^\d{4}-\d{2}-\d{2}/.test(d)) return d || null;
+  const year = Number(d.slice(0, 4));
+  return year < 1950 || year > new Date().getFullYear() + 15 ? null : d;
+}
+const cleanDates = (games = []) => games.map((g) => (g.releaseDate && realDate(g.releaseDate) !== g.releaseDate ? { ...g, releaseDate: null } : g));
+function withRealDates(entry) {
+  const history = entry.history && { ...entry.history, departed: cleanDates(entry.history.departed) };
+  return { ...entry, games: cleanDates(entry.games), ...(history ? { history } : {}) };
+}
+
 // Departed lists merged by id, keeping the first one's entries.
 function mergeDeparted(a = [], b = []) {
   const ids = new Set(a.map((g) => g.id));
@@ -146,14 +159,14 @@ class Catalog {
     if (!this.cache[service]) {
       const cached = readJson(this.fileFor(service), null);
       if (cached) {
-        this.cache[service] = cached;
+        this.cache[service] = withRealDates(cached);
       } else {
         const snap = readJson(path.join(SNAPSHOT_DIR, `${service}.json`), { games: [], builtAt: null });
         this.cache[service] = {
           service,
           source: 'bundled',
           fetchedAt: snap.builtAt,
-          games: mergeDuplicates(snap.games),
+          games: cleanDates(mergeDuplicates(snap.games)),
           history: { firstSeen: {}, departed: [] },
         };
       }
@@ -204,7 +217,7 @@ class Catalog {
     const errors = [];
     for (const source of ['live', 'mirror'].filter((s) => provider[s])) {
       try {
-        const all = mergeDuplicates(await provider[source](settings, service === 'applearcade' ? this.appStoreDir() : this.dir));
+        const all = cleanDates(mergeDuplicates(await provider[source](settings, service === 'applearcade' ? this.appStoreDir() : this.dir)));
         const left = all.filter((g) => g.gone);
         let games = all.filter((g) => !g.gone);
         if (service === 'nso') games = await covers.apply(games, path.join(this.dir, 'covers'));
@@ -225,4 +238,4 @@ class Catalog {
   }
 }
 
-module.exports = { Catalog, SERVICES, mergeDuplicates, applyHistory, titleKey };
+module.exports = { Catalog, SERVICES, mergeDuplicates, applyHistory, titleKey, realDate };

@@ -6,7 +6,6 @@ const arcade = require('./providers/applearcade');
 const { DetailsCache } = require('./details');
 const { Ratings } = require('./ratings');
 const { SERVICES, TIER_BADGES, unlockedTiers } = require('./services');
-const { REGIONS, regionById } = require('./regions');
 const http = require('./providers/http');
 const { makeBackup, parseBackup, mergeHistory, mergeLookups, backupName } = require('./backup');
 const steam = require('./steam');
@@ -386,8 +385,7 @@ function cleanUpUpdate() {
 async function checkSales() {
   const { saleWatch = [], settings } = store.get();
   if (!saleWatch.length) return;
-  const region = regionById(settings.region);
-  const currency = region?.currency;
+  const { currency } = settings;
   await prices.lookup(saleWatch, { market: settings.market, language: settings.language, psLocale: settings.psLocale, currency }, { maxHours: sales.CHECK_HOURS });
   const r = sales.saleAlerts(saleWatch, prices.all(), store.get().saleAlerted || {}, { currency });
   store.update({ saleAlerted: r.alerted });
@@ -527,7 +525,7 @@ async function enrichArcade() {
 
 // ---- Metacritic / How Long To Beat, looked up in the background ----
 function catalogGames() {
-  const nintendo = regionById(store.get().settings.region)?.nintendo || 'west';
+  const nintendo = store.get().settings.nintendo || 'west';
   return catalog.loadAll()
     .flatMap((c) => c.games)
     .filter((g) => g.service !== 'nso' || (g.regions || ['west']).includes(nintendo));
@@ -553,7 +551,7 @@ function flushRatings() {
 const queueRatings = () => { if (!ratingTimer) ratingTimer = setTimeout(flushRatings, 1500); };
 
 function registerIpc() {
-  ipcMain.handle('get-services', () => ({ services: SERVICES, tierBadges: TIER_BADGES, regions: REGIONS, system: { platform: process.platform, version: app.getVersion(), startAtLogin: canStartAtLogin() ? LOGIN_LABEL : null, selfUpdate: !!selfFile() } }));
+  ipcMain.handle('get-services', () => ({ services: SERVICES, tierBadges: TIER_BADGES, system: { platform: process.platform, version: app.getVersion(), startAtLogin: canStartAtLogin() ? LOGIN_LABEL : null, selfUpdate: !!selfFile() } }));
   ipcMain.handle('get-state', () => store.get());
   ipcMain.handle('update-state', (_e, patch) => {
     // Only user-owned fields can be written from the window.
@@ -677,8 +675,7 @@ function registerIpc() {
   // Looked up in the background; results arrive as 'prices' messages.
   ipcMain.handle('lookup-prices', (_e, games) => {
     const { settings } = store.get();
-    const region = regionById(settings.region);
-    prices.lookup(Array.isArray(games) ? games : [], { market: settings.market, language: settings.language, psLocale: settings.psLocale, currency: region?.currency }).catch(() => {});
+    prices.lookup(Array.isArray(games) ? games : [], { market: settings.market, language: settings.language, psLocale: settings.psLocale, currency: settings.currency }).catch(() => {});
   });
   ipcMain.handle('open-external', (_e, url) => {
     if (typeof url === 'string' && /^https:\/\//.test(url)) shell.openExternal(url);

@@ -29,6 +29,8 @@ test('Play Pass: games only, offered in your country, regional editions and join
   assert.strictEqual(gb[1].storeUrl, 'https://play.google.com/store/apps/details?id=com.layton.eu');
   assert.strictEqual(gb[1].id, 'playpass:com.layton.us');
   assert.strictEqual(gb[1].addedOn, '2026-11-01');
+  // Not offered in your country: the fallback country's list.
+  assert.deepStrictEqual(parsePlayPass(html, { region: 'MN', fallback: 'GB' }).map((g) => g.id), gb.map((g) => g.id));
   assert.strictEqual(parsePlayPass(html, { region: 'US' }).length, 3);
 });
 

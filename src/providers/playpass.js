@@ -15,13 +15,15 @@ const APPS = 'Apps'; // Play Pass apps that aren't games
 
 const img = (s) => (!s ? null : /^https?:/.test(s) ? s : IMG + s);
 
-function parsePlayPass(html, { region = 'US' } = {}) {
+// region: your country; fallback: the country to use when Play Pass isn't in yours.
+function parsePlayPass(html, { region = 'US', fallback = 'US' } = {}) {
   const m = String(html || '').match(/<script id="data" type="application\/json">([\s\S]*?)<\/script>/);
   if (!m) throw new Error('Play Pass list format changed');
   const data = JSON.parse(m[1]);
   const genres = data.genres || [];
   const regions = (data.regions || []).map((r) => r.code);
-  const mine = regions.indexOf(String(region || 'US').toUpperCase());
+  const want = String(region || 'US').toUpperCase();
+  const mine = regions.indexOf(regions.includes(want) ? want : String(fallback || 'US').toUpperCase());
   // Every game seen on the first check carries that day; only later ones are real join dates.
   const since = data.meta && data.meta.trackingSince;
   const out = [];
@@ -51,8 +53,8 @@ function parsePlayPass(html, { region = 'US' } = {}) {
   return out;
 }
 
-async function fetchLive({ region = 'US', market = 'US' } = {}) {
-  const games = parsePlayPass(await getText(SOURCE, { timeoutMs: 60000 }), { region: region || market });
+async function fetchLive({ region = 'US', market = 'US', fallbackRegion = 'US' } = {}) {
+  const games = parsePlayPass(await getText(SOURCE, { timeoutMs: 60000 }), { region: region || market, fallback: fallbackRegion });
   if (games.length < 100) throw new Error(`Play Pass list looks incomplete (${games.length} games)`);
   return games;
 }

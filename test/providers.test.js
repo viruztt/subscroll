@@ -215,10 +215,31 @@ test('Switching source or region starts a new baseline instead of fake departure
 });
 
 test('UK region codes become the GB codes Microsoft and Sony use', () => {
-  assert.deepStrictEqual(normalizeSettings({ market: 'uk', language: 'en-UK', psLocale: 'en_uk' }), { region: 'GB', market: 'GB', language: 'en-gb', psLocale: 'en-gb' });
+  const gb = normalizeSettings({ market: 'uk', language: 'en-UK', psLocale: 'en_uk' });
+  assert.deepStrictEqual([gb.region, gb.market, gb.language, gb.psLocale, gb.currency], ['GB', 'GB', 'en-gb', 'en-gb', 'GBP']);
   assert.strictEqual(normalizeSettings({ market: 'us' }).market, 'US');
   // Picking a country sets every store code.
-  assert.deepStrictEqual(normalizeSettings({ region: 'DE', market: 'US', language: 'en-us', psLocale: 'en-us' }), { region: 'DE', market: 'DE', language: 'en-gb', psLocale: 'de-de' });
+  const de = normalizeSettings({ region: 'DE', market: 'US', language: 'en-us', psLocale: 'en-us' });
+  assert.deepStrictEqual([de.region, de.market, de.language, de.psLocale, de.currency, de.nintendo], ['DE', 'DE', 'en-gb', 'de-de', 'EUR', 'west']);
+});
+
+test('Any country: stores it lacks come from the fallback country', () => {
+  const Regions = require('../renderer/regions');
+  // Lithuania has PC Game Pass but no PlayStation Store.
+  const lt = Regions.resolve('LT', 'DE');
+  assert.deepStrictEqual([lt.market, lt.psLocale, lt.currency, lt.missing], ['LT', 'de-de', 'EUR', ['playstation']]);
+  // Its usual fallback is the UK; a fallback without both stores isn't allowed.
+  assert.strictEqual(Regions.resolve('LT').fallbackRegion, 'GB');
+  assert.strictEqual(Regions.resolve('LT', 'LV').fallbackRegion, 'GB');
+  // No Xbox or PlayStation store: both from the fallback, prices in its currency when the country's is unknown.
+  const mn = Regions.resolve('MN', 'JP');
+  assert.deepStrictEqual([mn.market, mn.psLocale, mn.currency, mn.language, mn.missing], ['JP', 'ja-jp', 'JPY', 'en-us', ['xbox', 'playstation']]);
+  assert.strictEqual(Regions.resolve('XX').region, 'US');
+  assert.strictEqual(Regions.resolve('JP').nintendo, 'jp');
+  // Names follow the app's language and its alphabet.
+  const de = Regions.names(['US', 'DE', 'AT'], 'de').map((c) => c.name);
+  assert.deepStrictEqual(de, ['Deutschland', 'Österreich', 'Vereinigte Staaten']);
+  assert.ok(Regions.COUNTRIES.includes('LT') && Regions.COUNTRIES.length > 240);
 });
 
 test('Refresh keeps the previous list when every source fails', async () => {
@@ -237,4 +258,12 @@ test('Higher tiers unlock the games of lower ones', () => {
   for (const k of ['gamepass:essential', 'gamepass:pc', 'psplus:extra', 'psplus:essential', 'nso:base']) assert.ok(keys.has(k), k);
   assert.ok(!keys.has('psplus:premium'));
   assert.ok(!keys.has('nso:expansion'));
+});
+
+test('Catalog: placeholder release dates count as no date', () => {
+  const { realDate } = require('../src/catalog');
+  assert.strictEqual(realDate('9998-12-30'), null);
+  assert.strictEqual(realDate('1753-01-01'), null);
+  assert.strictEqual(realDate('2024-05-02'), '2024-05-02');
+  assert.strictEqual(realDate(null), null);
 });

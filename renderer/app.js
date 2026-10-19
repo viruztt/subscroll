@@ -22,7 +22,6 @@ const ui = {
 
 let services = [];
 let tierBadges = {};
-let regions = [];
 let state = null;
 let catalogs = [];
 let games = []; // flattened catalogue + custom games
@@ -209,7 +208,7 @@ async function saveState(patch) {
 // only outside it. Lists saved before regions were tracked are western.
 function inMyRegion(g) {
   if (g.service !== 'nso') return true;
-  const mine = regions.find((r) => r.id === state.settings.region)?.nintendo || 'west';
+  const mine = state.settings.nintendo || 'west';
   return (g.regions || ['west']).includes(mine);
 }
 
@@ -641,10 +640,56 @@ function renderForYou() {
 let onboarding = null; // { step }
 const ONBOARD_STEPS = 4;
 
+// The country from the system's language settings: "en-GB" says GB, and a
+// bare "lt" most likely means Lithuania.
 function guessRegion() {
-  const tag = String(navigator.languages?.[0] || navigator.language || '').split('-')[1]?.toUpperCase();
-  const id = tag === 'UK' ? 'GB' : tag;
-  return regions.some((r) => r.id === id) ? id : 'US';
+  for (const tag of [...(navigator.languages || []), navigator.language].filter(Boolean)) {
+    let id = null;
+    try {
+      id = new Intl.Locale(tag).maximize().region;
+    } catch { /* not a language tag */ }
+    if (id === 'UK') id = 'GB';
+    if (Regions.isCountry(id)) return id;
+  }
+  return 'US';
+}
+
+// The country picker, and below it, when your country lacks the Xbox or
+// PlayStation store, the country whose store to use for those instead.
+function countryPicker(onChange) {
+  const { region, fallbackRegion } = state.settings;
+  const country = el('select', {}, Regions.names(Regions.COUNTRIES, I18n.locale()).map((c) => el('option', { value: c.id }, c.name)));
+  country.value = region || 'US';
+  const fallback = el('select', {}, Regions.names(Regions.FALLBACKS, I18n.locale()).map((c) => el('option', { value: c.id }, c.name)));
+  const note = el('div', { class: 'fallback-row' });
+  const shown = () => {
+    const r = Regions.resolve(country.value, fallback.value);
+    fallback.value = r.fallbackRegion;
+    if (!r.missing.length) {
+      note.replaceChildren();
+      return;
+    }
+    const name = Regions.names([country.value], I18n.locale())[0].name;
+    const text = r.missing.length === 2
+      ? t('Xbox and PlayStation don\'t sell games in {country}. For Game Pass, PS Plus and store prices, use the store of:', { country: name })
+      : r.missing[0] === 'xbox'
+        ? t('Xbox doesn\'t sell games in {country}. For Game Pass and Xbox prices, use the store of:', { country: name })
+        : t('PlayStation doesn\'t sell games in {country}. For PS Plus and PlayStation prices, use the store of:', { country: name });
+    note.replaceChildren(el('span', { class: 'muted' }, text), fallback);
+  };
+  fallback.value = Regions.resolve(country.value, fallbackRegion).fallbackRegion;
+  shown();
+  const changed = () => {
+    shown();
+    onChange({ region: country.value, fallbackRegion: fallback.value });
+  };
+  country.addEventListener('change', () => {
+    // A new country gets that country's usual fallback.
+    fallback.value = Regions.defaultFallback(country.value);
+    changed();
+  });
+  fallback.addEventListener('change', changed);
+  return { country, note };
 }
 
 function startOnboarding() {
@@ -683,16 +728,19 @@ function renderOnboarding() {
   let next = el('button', { class: 'primary', onclick: onboardNext }, t('Next'));
 
   if (step === 0) {
-    const select = el('select', {}, regions.map((r) => el('option', { value: r.id }, r.name)));
-    select.value = state.settings.onboardRegionPicked ? state.settings.region : guessRegion();
-    const pick = () => saveState({ settings: { ...state.settings, region: select.value, onboardRegionPicked: true } });
-    select.addEventListener('change', pick);
+    if (!state.settings.onboardRegionPicked && state.settings.region !== guessRegion()) {
+      state.settings = { ...state.settings, region: guessRegion(), fallbackRegion: null };
+    }
+    let picked = { region: state.settings.region, fallbackRegion: state.settings.fallbackRegion };
+    const picker = countryPicker((p) => { picked = p; });
+    const pick = () => saveState({ settings: { ...state.settings, ...picked, onboardRegionPicked: true } });
     next = el('button', { class: 'primary', onclick: async () => { await pick(); rebuildGames(); onboardNext(); } }, t('Get started'));
     body = [
       el('img', { class: 'onboard-logo', src: 'logo.svg', alt: '' }),
       el('h1', {}, t('Welcome to Subscroll')),
       el('p', { class: 'lead' }, t('Every game you already pay for, in one place. Tell it which subscriptions you have and it shows what\'s in them, what\'s leaving, and what to play next.')),
-      el('label', { class: 'onboard-field' }, el('span', {}, t('Where do you play?')), select),
+      el('label', { class: 'onboard-field' }, el('span', {}, t('Where do you play?')), picker.country),
+      picker.note,
       el('p', { class: 'muted' }, t('Game Pass and PS Plus catalogues differ a little by country.')),
     ];
   } else if (step === 1) {
@@ -1417,7 +1465,7 @@ function renderStats() {
 }
 
 // ---------- value ----------
-const regionCurrency = () => regions.find((r) => r.id === state.settings.region)?.currency || null;
+const regionCurrency = () => state.settings.currency || null;
 function money(amount, digits) {
   const currency = regionCurrency();
   if (!currency) return amount.toLocaleString(I18n.locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false });
@@ -2006,14 +2054,9 @@ function customGamePanel() {
 }
 
 function regionPanel() {
-  const current = state.settings.region || '';
-  const select = el('select', {},
-    current ? null : el('option', { value: '' }, t('Custom ({market})', { market: state.settings.market })),
-    regions.map((r) => el('option', { value: r.id }, r.name)));
-  select.value = current;
   const note = el('span', { class: 'muted' });
-  select.addEventListener('change', async () => {
-    await saveState({ settings: { ...state.settings, region: select.value } });
+  const picker = countryPicker(async (picked) => {
+    await saveState({ settings: { ...state.settings, ...picked } });
     rebuildGames();
     note.textContent = t('Refreshing the lists for this country…');
     await refresh();
@@ -2033,7 +2076,8 @@ function regionPanel() {
   return el('div', { class: 'panel' },
     el('h2', {}, t('Region and language')),
     el('p', { class: 'muted' }, t('Game Pass and PS Plus catalogues differ a little by country. Switch Online only differs in Japan, which has some games the rest of the world doesn\'t (and the other way round).')),
-    el('div', { class: 'form' }, el('label', {}, t('Country '), select), note),
+    el('div', { class: 'form' }, el('label', {}, t('Country '), picker.country), note),
+    picker.note,
     el('div', { class: 'form language-row' }, el('label', {}, t('Language '), language)));
 }
 
@@ -2544,7 +2588,7 @@ function wire() {
 
 async function init() {
   let sys;
-  ({ services, tierBadges, regions, system: sys } = await api.getServices());
+  ({ services, tierBadges, system: sys } = await api.getServices());
   if (sys) system = sys;
   state = await api.getState();
   applyLanguage();

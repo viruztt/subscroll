@@ -48,7 +48,8 @@ function parseProduct(p) {
     genres,
     developer: loc.DeveloperName || null,
     publisher: loc.PublisherName || null,
-    releaseDate: market.OriginalReleaseDate ? market.OriginalReleaseDate.slice(0, 10) : null,
+    // 9998-12-30 means no date yet.
+    releaseDate: market.OriginalReleaseDate && !/^9\d{3}/.test(market.OriginalReleaseDate) ? market.OriginalReleaseDate.slice(0, 10) : null,
   };
 }
 

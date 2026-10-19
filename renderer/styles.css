@@ -540,3 +540,6 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .goal-add { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .goal-add input.goal-count { width: 70px; flex: none; }
 .finished-date { width: 150px; }
+.fallback-row:empty { display: none; }
+.fallback-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 10px 0; max-width: 640px; }
+.fallback-row .muted { flex: 1 1 320px; font-size: 13px; }
