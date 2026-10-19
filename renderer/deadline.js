@@ -36,7 +36,8 @@
     const set = Number(hoursWeek);
     if (set > 0) return { perDay: set / 7, source: 'setting' };
     const found = [];
-    if (steam && steam.recentMinutes > 0 && steam.importedAt && daysBetween(steam.importedAt, today) <= STEAM_STALE_DAYS) {
+    const steamFresh = !!(steam && steam.importedAt && daysBetween(steam.importedAt, today) <= STEAM_STALE_DAYS);
+    if (steamFresh && steam.recentMinutes > 0) {
       found.push({ perDay: steam.recentMinutes / 60 / 14, source: 'steam' });
     }
     const from = iso(utc(today) - FINISH_WINDOW * DAY);
@@ -49,7 +50,9 @@
     // Each only sees part of your playing (Steam misses consoles, finishes
     // miss games you play without finishing), so the larger one is closer.
     if (found.length) return found.sort((a, b) => b.perDay - a.perDay)[0];
-    return { perDay: DEFAULT_PER_DAY, source: 'default' };
+    // Say why there's no figure when Steam is set up: not read yet, or no play lately.
+    const why = !steamFresh ? null : steam.recentMinutes === undefined ? 'steam-pending' : 'steam-idle';
+    return why ? { perDay: DEFAULT_PER_DAY, source: 'default', why } : { perDay: DEFAULT_PER_DAY, source: 'default' };
   }
 
   // beat: How Long To Beat hours. played: hours you've already put in, if known.

@@ -20,6 +20,9 @@ test('pace: your own setting wins, then the larger of Steam and recent finishes'
   assert.strictEqual(Deadline.pace({ finished: [{ date: '2026-10-18', hours: 15 }], today }).perDay, 0.5);
   // An old Steam import doesn't count; nothing at all means an hour a day.
   assert.deepStrictEqual(Deadline.pace({ steam: { recentMinutes: 600, importedAt: '2026-08-01T00:00:00Z' }, today }), { perDay: 1, source: 'default' });
+  // Steam set up but no figure: read before this feature, or nothing played lately.
+  assert.strictEqual(Deadline.pace({ steam: { importedAt: '2026-10-18T09:00:00Z' }, today }).why, 'steam-pending');
+  assert.strictEqual(Deadline.pace({ steam: { recentMinutes: 0, importedAt: '2026-10-18T09:00:00Z' }, today }).why, 'steam-idle');
 });
 
 test('verdict: hours to beat against the days left', () => {

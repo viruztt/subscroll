@@ -369,6 +369,8 @@ function paceSource(p) {
   if (p.source === 'setting') return t('as you set it');
   if (p.source === 'steam') return t('from your Steam playtime over the last two weeks');
   if (p.source === 'finished') return tn(p.games, 'from the {n} game you completed in the last three months', 'from the {n} games you completed in the last three months');
+  if (p.why === 'steam-pending') return t('a guess until Subscroll reads your recent Steam playtime, which it does when it next starts or refreshes');
+  if (p.why === 'steam-idle') return t('a guess, as Steam shows no play in the last two weeks and you haven\'t completed games lately');
   return t('a guess until you complete some games or import your Steam library');
 }
 

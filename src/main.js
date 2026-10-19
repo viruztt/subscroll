@@ -758,6 +758,10 @@ app.whenReady().then(async () => {
   setTimeout(enrichArcade, 5000);
   setTimeout(startWiki, 8000);
   setTimeout(refreshCloud, 10000);
+  // Imports made before this feature lack the last two weeks of Steam playtime (for
+  // "Can I finish it in time?"), so read the library again now.
+  const steamSaved = store.get().steam;
+  if (steamSaved?.key && steamSaved.recentMinutes === undefined) setTimeout(refreshSteam, 3000);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
