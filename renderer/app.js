@@ -2319,7 +2319,7 @@ function sourcesPanel() {
       t('Game Pass, EA Play and Ubisoft+ come from Microsoft\'s catalogue service (so EA Play and Ubisoft+ show their Xbox and Microsoft Store editions), PS Plus from playstation.com\'s game lists. If Game Pass or PS Plus are unreachable the app falls back to community mirrors on GitHub. '),
       t('Nintendo publishes no list, so Switch Online comes from Wikipedia\'s "Nintendo Classics" article, with box art from the libretro-thumbnails collection. '),
       t('Netflix games are the apps Netflix publishes on the App Store. Apple Arcade comes from Wikipedia\'s "Apple Arcade" article, with icons and details from the App Store, looked up a few at a time. '),
-      tEl('Crunchyroll Game Vault is Crunchyroll\'s App Store account, Humble Choice the month\'s page on humblebundle.com. Google and Amazon publish no lists, so Google Play Pass comes from the playpassBrowser project and Amazon Luna from GameScriptions. Meta Horizon+ comes from Quest+ History, which tracks its Games Catalog and monthly games, and Antstream Arcade from Wikipedia\'s "Antstream" article. {link}.', {
+      tEl('Crunchyroll Game Vault is Crunchyroll\'s App Store account, Humble Choice the month\'s page on humblebundle.com. Google and Amazon publish no lists, so Google Play Pass comes from the playpassBrowser project and Amazon Luna from GameScriptions. Meta Horizon+ comes from Quest+ History, which tracks its Games Catalog and monthly games, and Antstream Arcade from Antstream\'s own help centre games list, or the games page on antstream.com. {link}.', {
         link: el('button', { class: 'link inline', onclick: () => api.openExternal('https://github.com/viruztt/subscroll#credits') }, t('Every source and credit')),
       })));
 }

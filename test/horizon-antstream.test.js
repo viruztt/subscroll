@@ -35,36 +35,71 @@ test('Horizon+ monthly games: this month only, until the month ends', () => {
   assert.deepStrictEqual(horizon.parseMonthly(monthly, '2026-11-02'), []);
 });
 
-// The shape of Wikipedia's parse output for the Antstream article.
-const WIKI = `
-<div class="mw-heading mw-heading2"><h2 id="Games">Games</h2></div>
-<div class="mw-heading mw-heading3"><h3 id="Super_NES">Super NES / Super Famicom</h3></div>
-<table class="wikitable sortable"><tbody>
-<tr><th>Title</th><th>Publisher</th><th>Original release</th><th>Release date</th></tr>
-<tr><td><i><a href="/wiki/Air_Cavalry">Air Cavalry</a></i></td><td>Synergistic Software</td><td>1995</td><td>April 13, 2023</td></tr>
-<tr><td><i>B.O.B.</i><sup>[1]</sup></td><td>Gray Matter</td><td>1993</td><td>August 2024</td></tr>
-</tbody></table>
-<div class="mw-heading mw-heading3"><h3 id="ZX">ZX Spectrum</h3></div>
-<table class="wikitable"><tbody>
-<tr><th>Title</th><th>Publisher</th><th>Original release</th><th>Release date</th></tr>
-<tr><td>Manic Miner</td><td>Bug-Byte</td><td>1983</td><td>December 3, 2026</td></tr>
-</tbody></table>
-<div class="mw-heading mw-heading2"><h2 id="Reception">Reception</h2></div>
-<table class="wikitable"><tbody><tr><th>Publication</th><th>Score</th></tr><tr><td>IGN</td><td>8/10</td></tr></tbody></table>`;
+// Shapes the help-centre article might take: a heading per system with a
+// list, bold paragraph headings with <br> lines, or a table.
+const HELP_LISTS = `
+<p>Here is every game on Antstream Arcade.</p>
+<h2>Commodore 64</h2>
+<ul><li>Boulder Dash</li><li>Uridium</li></ul>
+<p><strong>ZX Spectrum</strong></p>
+<p>Manic Miner<br>Jet Set Willy<br>Visit https://antstream.com for more.</p>
+<p>Pac-Man (Arcade)</p>`;
+const HELP_TABLE = `
+<table><tbody>
+<tr><th>Game</th><th>Platform</th><th>Publisher</th><th>Year</th><th>Date added</th></tr>
+<tr><td>Air Cavalry</td><td>Super Nintendo</td><td>Synergistic</td><td>1995</td><td>April 13, 2023</td></tr>
+<tr><td>Mr. Do!</td><td>Arcade</td><td>Universal</td><td>1982</td><td>December 3, 2026</td></tr>
+</tbody></table>`;
 
-test('Antstream: a game per table row, with its system and dates', () => {
-  const games = antstream.parseWikipedia(WIKI, '2026-10-19');
-  assert.deepStrictEqual(games.map((g) => g.title), ['Air Cavalry', 'B.O.B.', 'Manic Miner']);
-  const air = games[0];
-  assert.strictEqual(air.id, 'antstream:super-nes-super-famicom:air-cavalry');
-  assert.strictEqual(air.system, 'Super NES / Super Famicom');
-  assert.strictEqual(air.addedOn, '2023-04-13');
-  assert.strictEqual(air.releaseYear, 1995);
-  assert.strictEqual(air.publisher, 'Synergistic Software');
-  assert.strictEqual(games[1].addedOn, '2024-08-01');
-  // Announced for later: coming, not added.
-  assert.strictEqual(games[2].comingOn, '2026-12-03');
-  assert.strictEqual(games[2].addedOn, null);
+test('Antstream help centre: lists under system headings', () => {
+  const games = antstream.parseList(HELP_LISTS, '2026-10-19');
+  assert.deepStrictEqual(games.map((g) => [g.title, g.system]), [
+    ['Boulder Dash', 'Commodore 64'], ['Uridium', 'Commodore 64'],
+    ['Manic Miner', 'ZX Spectrum'], ['Jet Set Willy', 'ZX Spectrum'],
+    ['Pac-Man', 'Arcade'],
+  ]);
+  assert.strictEqual(games[0].id, 'antstream:commodore-64:boulder-dash');
+  assert.deepStrictEqual(games[0].platforms, ['PC', 'console', 'Mobile']);
+});
+
+test('Antstream help centre: a table with system, publisher and dates', () => {
+  const games = antstream.parseList(HELP_TABLE, '2026-10-19');
+  assert.deepStrictEqual(games.map((g) => [g.title, g.system, g.publisher, g.releaseYear, g.addedOn, g.comingOn]), [
+    ['Air Cavalry', 'Super Nintendo', 'Synergistic', 1995, '2023-04-13', undefined],
+    ['Mr. Do!', 'Arcade', 'Universal', 1982, null, '2026-12-03'],
+  ]);
+});
+
+test('Antstream site: the biggest group of game-like objects in the page JSON', () => {
+  const games = [
+    { name: 'Commodore 64', games: [{ id: 1, title: 'Boulder Dash', image: '/img/bd.png' }, { id: 2, title: 'Uridium', image: '/img/u.png' }] },
+    { name: 'Arcade', games: [{ id: 3, title: 'Pac-Man', image: 'https://cdn.example/pm.jpg' }] },
+  ];
+  const menu = [{ title: 'Home', href: '/' }, { title: 'Games', href: '/games' }];
+  const out = antstream.parseCaptured([
+    { url: 'https://api.example/menu', body: JSON.stringify(menu) },
+    { url: 'https://api.example/v1/games', body: JSON.stringify({ systems: games }) },
+    { url: 'https://api.example/broken', body: 'not json' },
+  ], '2026-10-19');
+  assert.deepStrictEqual(out.map((g) => [g.title, g.system, g.image]), [
+    ['Boulder Dash', 'Commodore 64', 'https://api.example/img/bd.png'],
+    ['Uridium', 'Commodore 64', 'https://api.example/img/u.png'],
+    ['Pac-Man', 'Arcade', 'https://cdn.example/pm.jpg'],
+  ]);
+});
+
+test('Antstream: tries the site when the help centre falls short, and says what it tried', async () => {
+  const http = require('../src/providers/http');
+  const many = Array.from({ length: 320 }, (_, i) => ({ title: `Game ${i}`, platform: { name: 'Amiga' } }));
+  http.setFetch(async () => ({ ok: true, json: async () => ({ article: { body: '<p>See antstream.com</p>' } }) }));
+  try {
+    const games = await antstream.fetchLive({}, null, { capture: async () => ({ responses: [{ url: 'https://x/api', body: JSON.stringify(many) }], text: '' }) });
+    assert.strictEqual(games.length, 320);
+    assert.strictEqual(games[0].system, 'Amiga');
+    await assert.rejects(antstream.fetchLive({}, null, { capture: async () => ({ responses: [], text: '' }) }), /help centre: 1 games; antstream\.com: 0 games/);
+  } finally {
+    http.setFetch((...a) => globalThis.fetch(...a));
+  }
 });
 
 test('Antstream systems map to libretro box art collections', () => {
