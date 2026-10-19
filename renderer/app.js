@@ -1541,7 +1541,7 @@ function renderStats() {
   const everything = statsGames();
   const all = Stats.compute(everything, helpers);
   // Platforms you have games on, in your plans or marked.
-  const platforms = all.platforms.filter((r) => r.inPlans || r.played || r.completed);
+  const platforms = all.platforms.filter((r) => r.inPlans || r.marked);
   if (ui.statsPlatform !== 'all' && !platforms.some((r) => r.platform === ui.statsPlatform)) ui.statsPlatform = 'all';
   const chosen = ui.statsPlatform;
   // One platform: only its games, and only the services offering them there.
@@ -1659,7 +1659,8 @@ function renderStats() {
         el('div', { class: 'bar', title: t('{completed} completed, {played} playing, of {total}', { completed: r.completed, played: r.played, total: r.inPlans }) },
           el('span', { class: 'bar-done', style: `width:${(r.completed / r.inPlans) * 100}%` }),
           el('span', { class: 'bar-playing', style: `width:${(r.played / r.inPlans) * 100}%` })),
-        el('div', { class: 'svc-progress-num' }, t('{completed} of {total} completed · {played} playing', { completed: r.completed, total: r.inPlans, played: r.played }))))));
+        el('div', { class: 'svc-progress-num' }, t('{completed} of {total} completed · {played} playing', { completed: r.completed, total: r.inPlans, played: r.played }),
+          r.marked > r.completed + r.played ? el('span', { class: 'muted', title: t('Played or completed, but not in a plan you have: bought, from another tier, or marked by an import') }, ` · ${tn(r.marked - r.completed - r.played, '{n} more outside your plans', '{n} more outside your plans')}`) : null)))));
   }
 
   if (st.genres.length) {

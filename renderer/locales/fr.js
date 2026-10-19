@@ -449,6 +449,7 @@
     "PlayStation trophies": "Trophées PlayStation",
     "PlayStation's monthly games list": "Liste des jeux mensuels de PlayStation",
     "Played": "Joué",
+    "Played or completed, but not in a plan you have: bought, from another tier, or marked by an import": "Joué ou terminé, mais dans aucun de vos abonnements : acheté, d’une autre formule, ou marqué par une importation",
     "Played status": "Statut de jeu",
     "Played through a subscription": "Joué via un abonnement",
     "Playing": "En cours",
@@ -868,6 +869,10 @@
     "{n} more needs {plans}, which you don't have. |{n} more need {plans}, which you don't have. ": {
       "one": "{n} autre nécessite {plans}, que vous n’avez pas. ",
       "other": "{n} autres nécessitent {plans}, que vous n’avez pas. "
+    },
+    "{n} more outside your plans|{n} more outside your plans": {
+      "one": "{n} de plus hors de vos abonnements",
+      "other": "{n} de plus hors de vos abonnements"
     },
     "{n} newly marked as played|{n} newly marked as played": {
       "one": "{n} nouvellement marqué comme joué",

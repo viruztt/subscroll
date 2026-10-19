@@ -67,10 +67,15 @@
         }
       }
       for (const p of platformsOf(g)) {
-        if (!platforms.has(p)) platforms.set(p, { platform: p, inPlans: 0, played: 0, completed: 0 });
+        if (!platforms.has(p)) platforms.set(p, { platform: p, inPlans: 0, played: 0, completed: 0, marked: 0 });
         const row = platforms.get(p);
-        if (mine.length) row.inPlans += 1;
-        if (mark === 'played' || mark === 'completed') row[mark] += 1;
+        // played/completed count games in your plans, so the bar stays within
+        // them; marked counts every played or completed game on the platform.
+        if (mark === 'played' || mark === 'completed') row.marked += 1;
+        if (mine.length) {
+          row.inPlans += 1;
+          if (mark === 'played' || mark === 'completed') row[mark] += 1;
+        }
       }
       // Per service, a game in two of your services counts for both.
       for (const s of mine) {

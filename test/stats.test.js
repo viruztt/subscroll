@@ -65,7 +65,8 @@ test('Stats: platforms group stores\' names, and Switch Online counts as Switch'
     { id: 'b', service: 'nso', platforms: ['SNES'] },
     { id: 'c', service: 'psplus', platforms: ['PS5'] },
   ];
-  const marks = { a: 'completed', b: 'played' };
+  const marks = { a: 'completed', b: 'played', c: 'completed' };
   const st = Stats.compute(games, { markOf: (g) => marks[g.id] || 'none', myServices: (g) => (g.service === 'psplus' ? [] : [g.service]), hours: () => null, score: () => null });
-  assert.deepStrictEqual(st.platforms.map((r) => [r.platform, r.inPlans, r.completed, r.played]), [['xbox', 1, 1, 0], ['pc', 1, 1, 0], ['playstation', 0, 0, 0], ['switch', 1, 0, 1]]);
+  // A game outside your plans doesn't fill the plan bar (it would run past 100%), but still shows the platform.
+  assert.deepStrictEqual(st.platforms.map((r) => [r.platform, r.inPlans, r.completed, r.played, r.marked]), [['xbox', 1, 1, 0, 1], ['pc', 1, 1, 0, 1], ['playstation', 0, 0, 0, 1], ['switch', 1, 0, 1, 1]]);
 });
