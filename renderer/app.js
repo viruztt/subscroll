@@ -139,7 +139,17 @@ async function setMark(id, value) {
   if (value) marks[id] = value;
   const finishedOn = Goals.stampFinished(state.finishedOn || {}, before, marks, todayIso());
   if (kept) finishedOn[id] = kept;
-  await saveState({ marks, finishedOn });
+  // A game you mark yourself starts out not counted on the Value page (tick
+  // it there if a subscription paid for it). Imports keep the old guess.
+  const patch = { marks, finishedOn };
+  if ((value === 'completed' || value === 'played') && viaSubSet(id) === undefined) patch.viaSub = { ...(state.viaSub || {}), [id]: false };
+  await saveState(patch);
+}
+
+// Your own "played through a subscription" answer for a game, if you gave one.
+function viaSubSet(id) {
+  for (const x of markIds(id)) if (typeof state.viaSub?.[x] === 'boolean') return state.viaSub[x];
+  return undefined;
 }
 
 // The day a completed game was marked completed (or the day you gave it).
@@ -1703,7 +1713,7 @@ function priceOf(g) {
 // Played through a subscription, unless you said otherwise. Games you own
 // on Steam, or that aren't in your plans, you probably bought.
 function viaSub(g, keys) {
-  const set = state.viaSub?.[g.id];
+  const set = viaSubSet(g.id);
   if (typeof set === 'boolean') return set;
   return isMine(g, keys) && !g.steam;
 }
@@ -1872,7 +1882,13 @@ function beatenPanel(v) {
     const on = counted.has(g.id);
     const box = el('input', { type: 'checkbox', title: t('Played through a subscription') });
     box.checked = on;
-    box.addEventListener('change', async () => { await saveState({ viaSub: { ...(state.viaSub || {}), [g.id]: box.checked } }); render(true); });
+    box.addEventListener('change', async () => {
+      const next = { ...(state.viaSub || {}) };
+      for (const x of markIds(g.id)) delete next[x];
+      next[g.id] = box.checked;
+      await saveState({ viaSub: next });
+      render(true);
+    });
     const p = priceOf(g);
     const looked = prices[g.id];
     const input = el('input', { type: 'number', min: '0', step: '0.01', class: 'price-input', placeholder: looked ? t('enter price') : t('looking up…'), value: p?.manual ? p.amount : '' });
@@ -1890,16 +1906,37 @@ function beatenPanel(v) {
     const h = timeTaken(g);
     const time = h ? el('span', { class: 'beaten-hours muted', title: p?.amount > 0 ? t('{source}, and the price over those hours', { source: timeSource(g) }) : timeSource(g) },
       `${t('{n} h', { n: h < 1 ? '<1' : Math.round(h) })}${p?.amount > 0 ? ` · ${t('{price}/h', { price: money(p.amount / Math.max(h, 0.5), 2) })}` : ''}`) : el('span', { class: 'beaten-hours' });
-    return el('div', { class: `beaten-row ${on ? '' : 'off'}` },
+    const node = el('div', { class: `beaten-row ${on ? '' : 'off'}` },
       el('label', { class: 'beaten-check' }, box, el('span', { class: 'beaten-title', title: g.title }, g.title)),
       el('div', { class: 'meta' }, serviceOffers(g).slice(0, 3).map((o) => serviceTag(o)), markOf(g.id) === 'played' ? el('span', { class: 'tier' }, t('played')) : null),
       time,
       shown);
+    return { g, on, node };
   });
+  // Search and the ticked/unticked filter hide rows in place, so typing keeps its focus.
+  const search = el('input', { type: 'search', class: 'beaten-search', placeholder: t('Search your games…'), value: ui.valueQuery || '' });
+  const which = el('select', { class: 'beaten-which' },
+    [['all', t('All games')], ['on', t('Ticked: played through a subscription')], ['off', t('Unticked: bought or played elsewhere')]].map(([v, label]) => el('option', { value: v }, label)));
+  which.value = ui.valueWhich || 'all';
+  const count = el('p', { class: 'muted beaten-count' });
+  const filter = () => {
+    const q = search.value.trim().toLowerCase();
+    let shownRows = 0;
+    for (const r of rows) {
+      const show = (!q || r.g.title.toLowerCase().includes(q)) && (which.value === 'all' || (which.value === 'on') === r.on);
+      r.node.hidden = !show;
+      if (show) shownRows += 1;
+    }
+    count.textContent = q || which.value !== 'all' ? t('Showing {shown} of {total}', { shown: shownRows, total: rows.length }) : '';
+    count.hidden = !count.textContent;
+  };
+  search.addEventListener('input', () => { ui.valueQuery = search.value; filter(); });
+  which.addEventListener('change', () => { ui.valueWhich = which.value; filter(); });
+  filter();
   return el('div', { class: 'panel' },
     el('h2', {}, t('Games you beat')),
-    el('p', { class: 'muted' }, t('Untick games you bought or played some other way; they don\'t count. Prices come from the service\'s own store, else Steam; Switch Online classics aren\'t sold anywhere, so enter what they\'re worth to you.')),
-    rows.length ? rows : el('p', { class: 'muted' }, t('Mark games as completed and they show up here.')));
+    el('p', { class: 'muted' }, t('Untick games you bought or played some other way; they don\'t count. Games you mark as completed start unticked, so tick the ones a subscription paid for. Prices come from the service\'s own store, else Steam; Switch Online classics aren\'t sold anywhere, so enter what they\'re worth to you.')),
+    rows.length ? [el('div', { class: 'form beaten-tools' }, search, which), count, ...rows.map((r) => r.node)] : el('p', { class: 'muted' }, t('Mark games as completed and they show up here.')));
 }
 
 function renderSubs() {
@@ -2652,7 +2689,13 @@ function renderChrome() {
   $('#toolbar').classList.toggle('hidden', ['subs', 'stats', 'value', 'foryou', 'free'].includes(ui.view));
 
   const chips = $('#service-chips');
-  chips.replaceChildren(...allServices().map((s) => el('button', {
+  // With "Only my subscriptions" ticked, only your services get a chip; a
+  // hidden one is dropped from the filter so it can't narrow the list unseen.
+  const keys = unlocked();
+  const yours = (s) => [...keys].some((k) => k.startsWith(`${s.id}:`));
+  const chipServices = ui.mineOnly && keys.size ? allServices().filter(yours) : allServices();
+  for (const id of [...ui.services]) if (!chipServices.some((s) => s.id === id)) ui.services.delete(id);
+  chips.replaceChildren(...chipServices.map((s) => el('button', {
     class: `chip ${ui.services.has(s.id) ? 'on' : ''}`,
     style: `--svc:${s.color}`,
     onclick: () => {
@@ -2679,7 +2722,6 @@ function renderChrome() {
   if (!lf.options.length) lf.replaceChildren(el('option', { value: 'all' }, t('Any length')), ...Genres.LENGTHS.map((l) => el('option', { value: l.id }, t(l.label))));
   lf.value = ui.length;
 
-  const keys = unlocked();
   const leaving = games.filter((g) => leaveInfo(g) && (!ui.mineOnly || isMine(g, keys))).length;
   $('#leaving-count').textContent = leaving || '';
   $('#coming-count').textContent = games.filter((g) => isComing(g) && (!ui.mineOnly || isMine(g, keys))).length || '';

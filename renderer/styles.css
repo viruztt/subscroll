@@ -373,6 +373,10 @@ button.tile.pickable:hover, button.tile.pickable.on { border-color: var(--accent
 .cost-sum { font-size: 13px; }
 .beaten-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 120px 210px; align-items: center; gap: 14px; padding: 7px 0; border-top: 1px solid var(--line); }
 .beaten-row.off { opacity: .5; }
+.beaten-row[hidden] { display: none; }
+.beaten-tools { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 8px; }
+.beaten-search { flex: 1 1 220px; min-width: 0; }
+.beaten-count { margin: 0 0 6px; }
 .beaten-hours { font-size: 12px; text-align: right; white-space: nowrap; }
 .beaten-check { display: flex; align-items: center; gap: 10px; min-width: 0; cursor: pointer; }
 .beaten-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
