@@ -11,9 +11,9 @@ const { systemName } = require('./covers');
 // 2. failing that, the games page on antstream.com. That page builds its list
 //    in the browser, so the app opens it in a hidden window and keeps the
 //    JSON the page downloads.
-// When neither gives a full list, what was read is saved in the catalog
-// folder (antstream-help.json, antstream-capture.json, antstream-page.txt)
-// so the reader can be fixed.
+// What was read last is kept in the catalog folder (antstream-help.json,
+// antstream-capture.json, antstream-page.txt, antstream-log.txt) so the
+// reader can be checked against it.
 const HELP_URL = 'https://antstream.zendesk.com/api/v2/help_center/en-gb/articles/360004006837.json';
 const HELP_PAGE = 'https://antstream.zendesk.com/hc/en-gb/articles/360004006837-Antstream-Arcade-Games-List';
 const SITE_LIST = 'https://www.antstream.com/gameslist';
@@ -176,7 +176,13 @@ function parseCaptured(responses, today = new Date().toISOString().slice(0, 10))
     }
     visit(data, r.url, null, 0);
   }
-  const best = [...groups.values()].sort((a, b) => b.length - a.length)[0] || [];
+  // Games carry art and a system; other lists (challenges, menus) usually
+  // don't, so among the big enough groups those with both win.
+  const has = (g, keys) => g.some(({ o }) => firstOf(o, keys));
+  const score = (g) => g.length * (has(g, IMAGE_KEYS) ? 3 : 1) * (has(g, SYSTEM_KEYS) ? 2 : 1);
+  const all = [...groups.values()];
+  const big = all.filter((g) => g.length >= MIN_GAMES);
+  const best = (big.length ? big.sort((a, b) => score(b) - score(a)) : all.sort((a, b) => b.length - a.length))[0] || [];
   const abs = (u, base) => {
     try {
       return u ? new URL(u, base).href : null;
@@ -274,7 +280,7 @@ async function fetchLive(_settings, dir, { capture = captureSite } = {}) {
   try {
     const data = await getJson(HELP_URL, { timeoutMs: 30000 });
     games = parseList(data?.article?.body || '');
-    if (games.length < MIN_GAMES) save(dir, 'antstream-help.json', data);
+    save(dir, 'antstream-help.json', data);
     tried.push(`help centre: ${games.length} games`);
   } catch (err) {
     tried.push(`help centre: ${err.message}`);
@@ -284,24 +290,24 @@ async function fetchLive(_settings, dir, { capture = captureSite } = {}) {
       const cap = await capture();
       if (cap) {
         const found = parseCaptured(cap.responses);
-        tried.push(`antstream.com: ${found.length} games`);
+        tried.push(`antstream.com: ${found.length} games from ${cap.responses.length} responses`);
         if (found.length > games.length) games = found;
-        if (found.length < MIN_GAMES) {
-          // The largest responses in full, the rest as a sample.
-          const bySize = [...cap.responses].sort((a, b) => b.body.length - a.body.length);
-          let room = 15e6;
-          save(dir, 'antstream-capture.json', bySize.map((r) => {
-            const full = r.body.length <= room;
-            if (full) room -= r.body.length;
-            return { url: r.url, size: r.body.length, body: full ? r.body : r.body.slice(0, 4000) };
-          }));
-          save(dir, 'antstream-page.txt', cap.text);
-        }
+        // Kept after every read (once a day), so the reader can be checked
+        // against what the page really sends: the largest responses in full.
+        const bySize = [...cap.responses].sort((a, b) => b.body.length - a.body.length);
+        let room = 8e6;
+        save(dir, 'antstream-capture.json', bySize.map((r) => {
+          const full = r.body.length <= room;
+          if (full) room -= r.body.length;
+          return { url: r.url, size: r.body.length, body: full ? r.body : r.body.slice(0, 4000) };
+        }));
+        save(dir, 'antstream-page.txt', cap.text);
       }
     } catch (err) {
       tried.push(`antstream.com: ${err.message}`);
     }
   }
+  save(dir, 'antstream-log.txt', `${new Date().toISOString()}\n${tried.join('\n')}\n`);
   if (games.length < MIN_GAMES) throw new Error(`Antstream's game list couldn't be read (${tried.join('; ')})`);
   return games;
 }
