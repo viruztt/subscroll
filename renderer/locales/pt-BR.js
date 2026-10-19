@@ -128,6 +128,7 @@
     "Completed": "Concluído",
     "Completed by service": "Concluídos por serviço",
     "Completed out of every game you have started": "Concluídos entre todos os jogos que você começou",
+    "Completed: {name}": "Concluídos: {name}",
     "Couldn't check: {error}": "Não foi possível verificar: {error}",
     "Couldn't open Steam. Is it installed?": "Não foi possível abrir a Steam. Ela está instalada?",
     "Couldn't open that link.": "Não foi possível abrir esse link.",
@@ -374,6 +375,7 @@
     "No longer available": "Indisponíveis",
     "No plans picked yet.": "Nenhum plano escolhido ainda.",
     "No streak yet": "Nenhuma sequência ainda",
+    "None of your plans has {platform} games.": "Nenhum dos seus planos tem jogos de {platform}.",
     "Not checked yet.": "Ainda não verificado.",
     "Not counted yet": "Ainda não calculado",
     "Not in your plans": "Fora dos seus planos",
@@ -512,6 +514,7 @@
     "Show all of {month}": "Mostrar tudo de {month}",
     "Show them": "Mostrá-los",
     "Show these": "Mostrar estes",
+    "Show these games": "Mostrar estes jogos",
     "Showing {n} that needs {plans}, which you don't have. |Showing {n} that need {plans}, which you don't have. ": {
       "one": "Mostrando {n} que requer {plans}, que você não tem. ",
       "other": "Mostrando {n} que requerem {plans}, que você não tem. "
@@ -657,6 +660,7 @@
     "Your plans by status": "Seus planos por status",
     "Your plans, region, background, updates, Steam, Xbox and PlayStation accounts, and profile export. Everything is saved on this computer.": "Seus planos, região, segundo plano, atualizações, contas Steam, Xbox e PlayStation e exportação do perfil. Tudo fica salvo neste computador.",
     "Your plans, settings and {mine} marked games on this PC are replaced by the profile's {theirs} marked games. ": "Seus planos, configurações e {mine} jogos marcados neste PC serão substituídos pelos {theirs} jogos marcados do perfil. ",
+    "Your plans: {status}": "Seus planos: {status}",
     "Your rating": "Sua avaliação",
     "Yours to keep once claimed": "Seu para sempre depois de resgatado",
     "a guess until Subscroll reads your recent Steam playtime, which it does when it next starts or refreshes": "uma estimativa até o Subscroll ler seu tempo de jogo recente na Steam, o que acontece na próxima vez que ele abrir ou atualizar",

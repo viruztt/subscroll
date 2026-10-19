@@ -128,6 +128,7 @@
     "Completed": "Durchgespielt",
     "Completed by service": "Durchgespielt nach Dienst",
     "Completed out of every game you have started": "Durchgespielt von allen Spielen, die du angefangen hast",
+    "Completed: {name}": "Durchgespielt: {name}",
     "Couldn't check: {error}": "Prüfung fehlgeschlagen: {error}",
     "Couldn't open Steam. Is it installed?": "Steam ließ sich nicht öffnen. Ist es installiert?",
     "Couldn't open that link.": "Der Link ließ sich nicht öffnen.",
@@ -374,6 +375,7 @@
     "No longer available": "Nicht mehr verfügbar",
     "No plans picked yet.": "Noch keine Abos ausgewählt.",
     "No streak yet": "Noch keine Serie",
+    "None of your plans has {platform} games.": "Keiner deiner Pläne hat {platform}-Spiele.",
     "Not checked yet.": "Noch nicht geprüft.",
     "Not counted yet": "Noch nicht gezählt",
     "Not in your plans": "Nicht in deinen Abos",
@@ -512,6 +514,7 @@
     "Show all of {month}": "Alles im {month} anzeigen",
     "Show them": "Anzeigen",
     "Show these": "Diese anzeigen",
+    "Show these games": "Diese Spiele anzeigen",
     "Showing {n} that needs {plans}, which you don't have. |Showing {n} that need {plans}, which you don't have. ": {
       "one": "{n} Spiel angezeigt, das {plans} braucht, was du nicht hast. ",
       "other": "{n} Spiele angezeigt, die {plans} brauchen, was du nicht hast. "
@@ -657,6 +660,7 @@
     "Your plans by status": "Deine Abos nach Status",
     "Your plans, region, background, updates, Steam, Xbox and PlayStation accounts, and profile export. Everything is saved on this computer.": "Deine Abos, Region, Hintergrund, Updates, Steam-, Xbox- und PlayStation-Konten sowie Profilexport. Alles wird auf diesem Computer gespeichert.",
     "Your plans, settings and {mine} marked games on this PC are replaced by the profile's {theirs} marked games. ": "Deine Abos, Einstellungen und {mine} markierten Spiele auf diesem PC werden durch die {theirs} markierten Spiele des Profils ersetzt. ",
+    "Your plans: {status}": "Deine Pläne: {status}",
     "Your rating": "Deine Bewertung",
     "Yours to keep once claimed": "Nach dem Einlösen gehört es dir",
     "a guess until Subscroll reads your recent Steam playtime, which it does when it next starts or refreshes": "geschätzt, bis Subscroll deine aktuelle Steam-Spielzeit liest, was beim nächsten Start oder Aktualisieren passiert",

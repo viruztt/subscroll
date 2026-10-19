@@ -1,4 +1,7 @@
-const { getJson } = require('./http');
+const fs = require('fs');
+const path = require('path');
+const { getJson, mapLimit } = require('./http');
+const { matchKey } = require('../../renderer/unify');
 
 // Meta Horizon+ (Meta Quest). Meta's store pages build their lists in the
 // browser, so there's nothing an app can read there. Quest+ History
@@ -49,6 +52,80 @@ function makeGame(e, tier) {
   };
 }
 
+// Covers. Quest+ History has none, so they come from MetaMetadata
+// (github.com/threethan/MetaMetadata, by threethan), which saves the Quest
+// Store's details for every app daily: known_oculus_apps.json maps store ids
+// to package names, and common/<package>.json has the cover art. Meta's image
+// links expire after a while, so a game also gets its Steam cover (when it's
+// on Steam) to fall back on; Steam lookups are kept in horizon-steam.json.
+const MM = 'https://raw.githubusercontent.com/threethan/MetaMetadata/main/data';
+const STEAM_DAYS = 30;
+
+async function metaCovers(games) {
+  const known = await getJson(`${MM}/known_oculus_apps.json`, { timeoutMs: 60000 });
+  const pkg = new Map((Array.isArray(known) ? known : []).map((a) => [String(a.id), a.packageName]));
+  const out = {};
+  await mapLimit(games, 6, async (g) => {
+    const name = pkg.get(g.id.split(':')[1]);
+    if (!name || !/^[\w.-]+$/.test(name)) return;
+    try {
+      const d = await getJson(`${MM}/common/${encodeURIComponent(name)}.json`);
+      const image = d.portrait || d.square || d.landscape;
+      if (/^https:\/\//.test(image || '')) out[g.id] = { image, genres: String(d.genres || '').split(',').map((x) => x.trim()).filter(Boolean) };
+    } catch {
+      // No cover for this one.
+    }
+  });
+  return out;
+}
+
+// Steam's portrait art for a game with the same title (with or without "VR").
+async function steamCover(title) {
+  const data = await getJson(`https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(title)}&l=english&cc=us`);
+  const want = new Set([matchKey(title), matchKey(title.replace(/\s+VR$/i, '')), matchKey(`${title} VR`)]);
+  const hit = (data.items || []).find((i) => (!i.type || i.type === 'app') && want.has(matchKey(i.name)));
+  return hit ? hit.id : null;
+}
+
+async function steamCovers(games, dir) {
+  const file = dir ? path.join(dir, 'horizon-steam.json') : null;
+  let cache = {};
+  try { cache = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* first time */ }
+  const fresh = (c) => c && Date.now() - c.at < STEAM_DAYS * 86400000;
+  let failed = false;
+  await mapLimit(games.filter((g) => !fresh(cache[matchKey(g.title)])), 2, async (g) => {
+    if (failed) return;
+    try {
+      cache[matchKey(g.title)] = { at: Date.now(), appid: await steamCover(g.title) };
+    } catch {
+      failed = true; // Steam is refusing for now; try again next refresh.
+    }
+  });
+  if (file) {
+    try { fs.writeFileSync(file, JSON.stringify(cache)); } catch { /* cache only */ }
+  }
+  const out = {};
+  for (const g of games) {
+    const appid = cache[matchKey(g.title)]?.appid;
+    if (appid) out[g.id] = `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appid}/library_600x900.jpg`;
+  }
+  return out;
+}
+
+// Meta's cover first, Steam's when Meta's link has expired (or there's none).
+function withCovers(games, meta = {}, steam = {}) {
+  return games.map((g) => {
+    const m = meta[g.id];
+    const image = m?.image || steam[g.id] || g.image;
+    return {
+      ...g,
+      image,
+      imageFallback: m?.image && steam[g.id] ? steam[g.id] : null,
+      genres: g.genres.length ? g.genres : m?.genres || [],
+    };
+  });
+}
+
 const lastDay = (month) => {
   const [y, m] = month.split('-').map(Number);
   return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
@@ -72,7 +149,7 @@ function parseMonthly(data, today = new Date().toISOString().slice(0, 10)) {
     .map((e) => ({ ...makeGame(e, 'monthly'), addedOn: `${month}-01`, leavesOn: lastDay(month), monthly: true }));
 }
 
-async function fetchLive() {
+async function fetchLive(_settings, dir) {
   const [catalog, monthly] = await Promise.all([getJson(CATALOG_URL, { timeoutMs: 30000 }), getJson(MONTHLY_URL, { timeoutMs: 30000 }).catch(() => null)]);
   const games = parseCatalog(catalog);
   // A change to the file's layout shouldn't empty the list.
@@ -82,7 +159,10 @@ async function fetchLive() {
     const prev = byId.get(g.id);
     byId.set(g.id, prev ? { ...prev, tiers: [...new Set([...prev.tiers, 'monthly'])] } : g);
   }
-  return [...byId.values()];
+  const list = [...byId.values()];
+  // Covers are a bonus: the list stands without them.
+  const [meta, steam] = await Promise.all([metaCovers(list).catch(() => ({})), steamCovers(list, dir).catch(() => ({}))]);
+  return withCovers(list, meta, steam);
 }
 
-module.exports = { fetchLive, parseCatalog, parseMonthly, entries, appId, CATALOG_URL, MONTHLY_URL };
+module.exports = { fetchLive, parseCatalog, parseMonthly, entries, appId, withCovers, CATALOG_URL, MONTHLY_URL };

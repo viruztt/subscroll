@@ -128,6 +128,7 @@
     "Completed": "Terminé",
     "Completed by service": "Terminés par service",
     "Completed out of every game you have started": "Jeux terminés parmi tous ceux que vous avez commencés",
+    "Completed: {name}": "Terminés : {name}",
     "Couldn't check: {error}": "Vérification impossible : {error}",
     "Couldn't open Steam. Is it installed?": "Impossible d’ouvrir Steam. Est-il installé ?",
     "Couldn't open that link.": "Impossible d’ouvrir ce lien.",
@@ -374,6 +375,7 @@
     "No longer available": "Plus disponible",
     "No plans picked yet.": "Aucune formule choisie pour l’instant.",
     "No streak yet": "Pas encore de série",
+    "None of your plans has {platform} games.": "Aucun de vos projets n’a de jeux {platform}.",
     "Not checked yet.": "Pas encore vérifié.",
     "Not counted yet": "Pas encore calculé",
     "Not in your plans": "Pas dans vos formules",
@@ -512,6 +514,7 @@
     "Show all of {month}": "Tout afficher pour {month}",
     "Show them": "Les afficher",
     "Show these": "Afficher",
+    "Show these games": "Afficher ces jeux",
     "Showing {n} that needs {plans}, which you don't have. |Showing {n} that need {plans}, which you don't have. ": {
       "one": "Affichage de {n} jeu qui nécessite {plans}, que vous n’avez pas. ",
       "other": "Affichage de {n} jeux qui nécessitent {plans}, que vous n’avez pas. "
@@ -657,6 +660,7 @@
     "Your plans by status": "Vos formules par statut",
     "Your plans, region, background, updates, Steam, Xbox and PlayStation accounts, and profile export. Everything is saved on this computer.": "Vos formules, région, arrière-plan, mises à jour, comptes Steam, Xbox et PlayStation, et export du profil. Tout est enregistré sur cet ordinateur.",
     "Your plans, settings and {mine} marked games on this PC are replaced by the profile's {theirs} marked games. ": "Vos formules, vos paramètres et vos {mine} jeux marqués sur ce PC sont remplacés par les {theirs} jeux marqués du profil. ",
+    "Your plans: {status}": "Vos projets : {status}",
     "Your rating": "Votre évaluation",
     "Yours to keep once claimed": "À vous pour toujours une fois récupéré",
     "a guess until Subscroll reads your recent Steam playtime, which it does when it next starts or refreshes": "estimation en attendant que Subscroll lise votre temps de jeu Steam récent, ce qu’il fait au prochain démarrage ou à la prochaine actualisation",

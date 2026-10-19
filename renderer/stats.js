@@ -36,6 +36,10 @@
     const totals = { inPlans: 0, completed: 0, played: 0, ignored: 0 };
     // Games in your plans, by status.
     const plans = { completed: 0, played: 0, wishlist: 0, ignored: 0, untouched: 0 };
+    // The games behind each number, for listing them when a chart is clicked.
+    const planGames = { completed: [], played: [], wishlist: [], ignored: [], untouched: [] };
+    const completedGames = new Map();
+    const genreGames = new Map();
     const services = new Map(subscribed.map((s) => [s, { service: s, inPlans: 0, played: 0, completed: 0 }]));
     // Per platform: a game on several counts for each.
     const platforms = new Map();
@@ -53,6 +57,7 @@
       if (mine.length) {
         totals.inPlans += 1;
         plans[mark === 'none' ? 'untouched' : mark] += 1;
+        planGames[mark === 'none' ? 'untouched' : mark]?.push(g);
         if (g.steam) steamOwned += 1;
       }
       for (const p of platformsOf(g)) {
@@ -73,7 +78,13 @@
         // In the pie, each game belongs to one service, so the slices add up.
         const s = mine[0] || OTHER;
         completedBy.set(s, (completedBy.get(s) || 0) + 1);
-        for (const genre of g.genreTags || []) genres.set(genre, (genres.get(genre) || 0) + 1);
+        if (!completedGames.has(s)) completedGames.set(s, []);
+        completedGames.get(s).push(g);
+        for (const genre of g.genreTags || []) {
+          genres.set(genre, (genres.get(genre) || 0) + 1);
+          if (!genreGames.has(genre)) genreGames.set(genre, []);
+          genreGames.get(genre).push(g);
+        }
         if (h != null) {
           time.completed += h;
           time.completedTimed += 1;
@@ -93,12 +104,13 @@
     return {
       totals,
       plans,
+      planGames,
       // Completed out of everything you've started.
       finishRate: totals.completed + totals.played ? totals.completed / (totals.completed + totals.played) : null,
       services: [...services.values()].sort((a, b) => b.inPlans - a.inPlans),
       platforms: [...platforms.values()].sort((a, b) => PLATFORMS.indexOf(a.platform) - PLATFORMS.indexOf(b.platform)),
-      completedBy: [...completedBy].sort(byCount).map(([service, count]) => ({ service, count })),
-      genres: [...genres].sort(byCount).map(([genre, count]) => ({ genre, count })),
+      completedBy: [...completedBy].sort(byCount).map(([service, count]) => ({ service, count, games: completedGames.get(service) })),
+      genres: [...genres].sort(byCount).map(([genre, count]) => ({ genre, count, games: genreGames.get(genre) })),
       time,
       averageScore: scored ? Math.round(scoreSum / scored) : null,
       steamOwned,

@@ -14,6 +14,7 @@ const ui = {
   status: 'all',
   platform: 'all',
   statsPlatform: 'all', // the Statistics page's own platform pick
+  statsPick: null, // a chart slice or genre whose games are listed: { chart, key }
   genre: 'all',
   length: 'all',
   sort: 'title',
@@ -1369,7 +1370,8 @@ function svgEl(tag, attrs = {}, text) {
 
 // A ring chart: each slice is a circle stroke dashed to its share
 // (the circle's circumference is 100, so a share is its percentage).
-function donut(slices, centre, caption) {
+// onPick(key), when given, makes slices and legend rows clickable; picked is the chosen key.
+function donut(slices, centre, caption, { onPick, picked } = {}) {
   const total = slices.reduce((sum, x) => sum + x.value, 0);
   const svg = svgEl('svg', { viewBox: '0 0 42 42', class: 'donut', role: 'img' });
   svg.append(svgEl('circle', { cx: 21, cy: 21, r: 15.915, fill: 'none', stroke: '#2a2f3a', 'stroke-width': 6 }));
@@ -1377,13 +1379,19 @@ function donut(slices, centre, caption) {
   for (const x of slices) {
     if (!x.value) continue;
     const pct = (x.value / total) * 100;
-    const ring = svgEl('circle', { cx: 21, cy: 21, r: 15.915, fill: 'none', stroke: x.color, 'stroke-width': 6, 'stroke-dasharray': `${pct} ${100 - pct}`, 'stroke-dashoffset': offset });
+    const on = picked != null && picked === x.key;
+    const ring = svgEl('circle', { cx: 21, cy: 21, r: 15.915, fill: 'none', stroke: x.color, 'stroke-width': on ? 7.5 : 6, 'stroke-dasharray': `${pct} ${100 - pct}`, 'stroke-dashoffset': offset, class: onPick ? 'slice' : '' });
     ring.append(svgEl('title', {}, `${x.label}: ${x.value}`));
+    if (onPick) ring.addEventListener('click', () => onPick(x.key));
     svg.append(ring);
     offset -= pct;
   }
   svg.append(svgEl('text', { x: 21, y: 20.5, class: 'donut-num' }, centre), svgEl('text', { x: 21, y: 26, class: 'donut-cap' }, caption));
-  const legend = el('ul', { class: 'legend' }, slices.filter((x) => x.value).map((x) => el('li', {},
+  const legend = el('ul', { class: `legend ${onPick ? 'pickable' : ''}` }, slices.filter((x) => x.value).map((x) => el('li', {
+    class: picked != null && picked === x.key ? 'on' : '',
+    onclick: onPick ? () => onPick(x.key) : null,
+    title: onPick ? t('Show these games') : '',
+  },
     el('span', { class: 'dot', style: `background:${x.color}` }),
     el('span', { class: 'legend-name' }, x.label),
     el('span', { class: 'legend-num' }, `${x.value}`, el('span', { class: 'muted' }, ` · ${share(x.value / total)}`)))));
@@ -1539,12 +1547,12 @@ function renderStats() {
 
   content.append(goalsPanel());
   if (platforms.length > 1) {
-    const pick = (p) => () => { ui.statsPlatform = p; renderStats(); };
+    const pickPlatform = (p) => () => { ui.statsPlatform = p; renderStats(); };
     content.append(el('div', { class: 'stats-platforms' },
       el('span', { class: 'muted' }, t('Platform')),
       el('div', { class: 'seg' },
-        el('button', { class: chosen === 'all' ? 'on' : '', onclick: pick('all') }, t('All platforms')),
-        platforms.map((r) => el('button', { class: chosen === r.platform ? 'on' : '', onclick: pick(r.platform) }, statsPlatformName(r.platform))))));
+        el('button', { class: chosen === 'all' ? 'on' : '', onclick: pickPlatform('all') }, t('All platforms')),
+        platforms.map((r) => el('button', { class: chosen === r.platform ? 'on' : '', onclick: pickPlatform(r.platform) }, statsPlatformName(r.platform))))));
   }
   if (!totals.completed && !totals.played) {
     content.append(el('div', { class: 'empty' }, chosen === 'all'
@@ -1552,6 +1560,37 @@ function renderStats() {
       : t('You haven\'t marked any {platform} games as played or completed yet.', { platform: statsPlatformName(chosen) })));
     return;
   }
+
+  // A clicked slice or genre lists its games under its chart; clicking it again closes the list.
+  const pick = ui.statsPick;
+  const picker = (chart) => (key) => {
+    ui.statsPick = pick && pick.chart === chart && pick.key === key ? null : { chart, key };
+    renderStats();
+  };
+  const pickedKey = (chart) => (pick && pick.chart === chart ? pick.key : null);
+  const STATUS_LABEL = { completed: t('Completed'), played: t('Playing'), wishlist: t('To play'), ignored: t('Ignored'), untouched: t('Not started') };
+  const pickedGames = (chart) => {
+    if (!pick || pick.chart !== chart) return null;
+    if (chart === 'completed') {
+      const row = st.completedBy.find((x) => x.service === pick.key);
+      return row && { title: t('Completed: {name}', { name: nameOf(pick.key) }), list: row.games };
+    }
+    if (chart === 'plans') return st.planGames[pick.key]?.length ? { title: t('Your plans: {status}', { status: STATUS_LABEL[pick.key] }), list: st.planGames[pick.key] } : null;
+    const row = st.genres.find((x) => x.genre === pick.key);
+    return row && { title: t('Completed: {name}', { name: t(row.genre) }), list: row.games };
+  };
+  const pickPanel = (chart) => {
+    const found = pickedGames(chart);
+    if (!found) return null;
+    const list = [...found.list].sort((a, b) => a.title.localeCompare(b.title, I18n.locale(), { sensitivity: 'base' }));
+    const shown = list.slice(0, 60);
+    return el('div', { class: 'panel stats-pick' },
+      el('div', { class: 'panel-head' },
+        el('h2', {}, `${found.title} · ${list.length}`),
+        el('button', { class: 'link', onclick: () => { ui.statsPick = null; renderStats(); } }, t('Close'))),
+      el('div', { class: 'grid' }, shown.map((g) => card(g, keys))),
+      list.length > shown.length ? el('p', { class: 'muted' }, t('Showing {shown} of {total}', { shown: shown.length, total: list.length })) : null);
+  };
 
   const tile = (value, label, title) => el('div', { class: 'tile', title: title || '' }, el('div', { class: 'tile-num' }, value), el('div', { class: 'tile-label' }, label));
   content.append(el('div', { class: 'tiles' },
@@ -1567,19 +1606,15 @@ function renderStats() {
     el('div', { class: 'panel' },
       el('h2', {}, t('Completed by service')),
       el('p', { class: 'muted' }, t('A game in several of your services counts for the first one listed on its card.')),
-      donut(st.completedBy.map((x) => ({ label: nameOf(x.service), value: x.count, color: colorOf(x.service) })), totals.completed, t('completed'))),
+      donut(st.completedBy.map((x) => ({ key: x.service, label: nameOf(x.service), value: x.count, color: colorOf(x.service) })), totals.completed, t('completed'), { onPick: picker('completed'), picked: pickedKey('completed') })),
     el('div', { class: 'panel' },
       el('h2', {}, t('Your plans by status')),
       el('p', { class: 'muted' }, t('Every game in your plans, by how far you got with it.')),
       totals.inPlans
-        ? donut([
-          { label: t('Completed'), value: st.plans.completed, color: STATUS_COLOR.completed },
-          { label: t('Playing'), value: st.plans.played, color: STATUS_COLOR.played },
-          { label: t('To play'), value: st.plans.wishlist, color: STATUS_COLOR.wishlist },
-          { label: t('Ignored'), value: st.plans.ignored, color: STATUS_COLOR.ignored },
-          { label: t('Not started'), value: st.plans.untouched, color: STATUS_COLOR.untouched },
-        ], totals.inPlans, t('in plans'))
-        : el('p', { class: 'muted' }, t('No plans picked yet.')))));
+        ? donut(['completed', 'played', 'wishlist', 'ignored', 'untouched'].map((k) => ({ key: k, label: STATUS_LABEL[k], value: st.plans[k], color: STATUS_COLOR[k] })),
+          totals.inPlans, t('in plans'), { onPick: picker('plans'), picked: pickedKey('plans') })
+        : el('p', { class: 'muted' }, chosen !== 'all' && keys.size ? t('None of your plans has {platform} games.', { platform: statsPlatformName(chosen) }) : t('No plans picked yet.')))));
+  content.append(pickPanel('completed') || pickPanel('plans') || '');
 
   if (withGames.length) {
     content.append(el('div', { class: 'panel' },
@@ -1612,10 +1647,11 @@ function renderStats() {
     content.append(el('div', { class: 'panel' },
       el('h2', {}, t('What you finish')),
       el('p', { class: 'muted' }, t('Genres of your completed games (a game can have more than one).')),
-      top.map((x) => el('div', { class: 'svc-progress' },
-        el('div', { class: 'svc-progress-name' }, t(x.genre)),
+      top.map((x) => el('div', { class: `svc-progress ${pickedKey('genre') === x.genre ? 'on' : ''}` },
+        el('button', { class: 'link svc-progress-name', title: t('Show these games'), onclick: () => picker('genre')(x.genre) }, t(x.genre)),
         el('div', { class: 'bar' }, el('span', { class: 'bar-genre', style: `width:${(x.count / most) * 100}%` })),
         el('div', { class: 'svc-progress-num' }, `${x.count}`)))));
+    content.append(pickPanel('genre') || '');
   }
 
   if (st.time.playingTimed) {

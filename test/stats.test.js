@@ -29,7 +29,11 @@ test('Statistics: totals and your plans by status', () => {
 });
 
 test('Statistics: each completed game in one pie slice, every service in the progress rows', () => {
-  assert.deepStrictEqual(st.completedBy, [{ service: 'gamepass', count: 2 }, { service: OTHER, count: 1 }]);
+  const ids = (list) => list.map((g) => g.id);
+  assert.deepStrictEqual(st.completedBy.map((x) => [x.service, x.count, ids(x.games)]), [['gamepass', 2, ['a', 'b']], [OTHER, 1, ['f']]]);
+  // The games behind each slice, for listing them.
+  assert.deepStrictEqual(ids(st.planGames.played), ['c']);
+  assert.deepStrictEqual(ids(st.planGames.untouched), []);
   const row = (s) => st.services.find((r) => r.service === s);
   assert.deepStrictEqual(row('gamepass'), { service: 'gamepass', inPlans: 2, played: 0, completed: 2 });
   assert.deepStrictEqual(row('eaplay'), { service: 'eaplay', inPlans: 1, played: 0, completed: 1 });
@@ -37,7 +41,7 @@ test('Statistics: each completed game in one pie slice, every service in the pro
 });
 
 test('Statistics: genres, hours and scores of completed games', () => {
-  assert.deepStrictEqual(st.genres, [{ genre: 'RPG', count: 2 }, { genre: 'Puzzle', count: 1 }, { genre: 'Shooter', count: 1 }]);
+  assert.deepStrictEqual(st.genres.map((x) => [x.genre, x.count, x.games.map((g) => g.id)]), [['RPG', 2, ['a', 'b']], ['Puzzle', 1, ['f']], ['Shooter', 1, ['b']]]);
   assert.deepStrictEqual(st.time, { completed: 30, completedTimed: 2, playing: 30, playingTimed: 1 });
   assert.strictEqual(st.averageScore, 70);
 });

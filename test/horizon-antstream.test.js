@@ -84,3 +84,14 @@ test('Antstream box art: matched within its own system', () => {
   assert.match(covers.match(index, 'Commodore 64', 'Boulder Dash'), /Commodore_-_64\/master\/Named_Boxarts\/Boulder%20Dash/);
   assert.strictEqual(covers.match(index, null, 'Boulder Dash'), null);
 });
+
+test('Horizon+ covers: Meta art first, Steam art as its fallback or instead', () => {
+  const games = [
+    { id: 'horizonplus:1', title: 'Moss', genres: [], image: null },
+    { id: 'horizonplus:2', title: 'Pistol Whip', genres: [], image: null },
+    { id: 'horizonplus:3', title: 'Unknown', genres: [], image: null },
+  ];
+  const out = horizon.withCovers(games, { 'horizonplus:1': { image: 'https://meta/moss.webp', genres: ['Adventure'] } }, { 'horizonplus:1': 'https://steam/moss.jpg', 'horizonplus:2': 'https://steam/pw.jpg' });
+  assert.deepStrictEqual(out.map((g) => [g.image, g.imageFallback]), [['https://meta/moss.webp', 'https://steam/moss.jpg'], ['https://steam/pw.jpg', null], [null, null]]);
+  assert.deepStrictEqual(out[0].genres, ['Adventure']);
+});

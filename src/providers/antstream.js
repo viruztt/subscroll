@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const { getJson } = require('./http');
 const { tableGrid, cellText, toIsoDate } = require('./nintendo');
 
@@ -69,11 +71,21 @@ function parseWikipedia(html, today = new Date().toISOString().slice(0, 10)) {
   return games;
 }
 
-async function fetchLive() {
-  const data = await getJson(WIKI_URL, { headers: { 'Api-User-Agent': 'Subscroll/0.4 (desktop app)' } });
-  const games = parseWikipedia(data.parse ? data.parse.text : '');
+async function fetchLive(_settings, dir) {
+  // A long article: Wikipedia can take a while to build it.
+  const data = await getJson(WIKI_URL, { timeoutMs: 90000, headers: { 'Api-User-Agent': 'Subscroll/0.4 (desktop app)' } });
+  if (data.error) throw new Error(`Wikipedia: ${data.error.info || data.error.code}`);
+  const html = data.parse ? data.parse.text : '';
+  const games = parseWikipedia(html);
   const systems = new Set(games.map((g) => g.system));
   if (games.length < 300 || systems.size < 4) {
+    // Saved as catalog/antstream-article.html so the reader can be fixed.
+    if (dir) {
+      try {
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, 'antstream-article.html'), html);
+      } catch { /* debugging aid only */ }
+    }
     throw new Error(`Wikipedia list looks incomplete (${games.length} games, ${systems.size} systems)`);
   }
   return games;

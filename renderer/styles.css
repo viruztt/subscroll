@@ -559,3 +559,10 @@ dd .deadline { margin: 2px 0; }
 .pace-text { flex: 1 1 320px; line-height: 1.5; }
 .pace-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
 .pace-hours { display: flex; align-items: center; gap: 8px; }
+
+/* Statistics: click a slice, legend row or genre to list its games. */
+.donut circle.slice { cursor: pointer; }
+.legend.pickable li { cursor: pointer; border-radius: 6px; padding: 2px 6px; margin: 0 -6px; }
+.legend.pickable li:hover, .legend.pickable li.on { background: var(--panel-2); }
+.svc-progress.on .svc-progress-name { color: var(--accent); }
+.stats-pick .grid { margin-top: 8px; }
