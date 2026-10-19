@@ -63,7 +63,7 @@ Other services can be added under **Add another service** in Settings, with thei
 
 If a live source fails, the app falls back to community mirrors on GitHub ([catabox](https://github.com/nanhopper/catabox), [ps-plus-games-list](https://github.com/ppazour/ps-plus-games-list)), and if those fail too it keeps the last list it had. A snapshot ships with the app so it works offline from the first launch.
 
-Game Pass Ultimate includes EA Play and Ubisoft+ Classics, and PC Game Pass includes EA Play, so those games count as in your plans when you have Ultimate or PC Game Pass.
+Game Pass Ultimate includes EA Play and Ubisoft+ Classics, so those games count as in your plans when you have Ultimate. PC Game Pass includes EA Play on PC only, so EA Play's Xbox console games (such as Xbox 360 ones) don't count with it.
 
 A game offered by several services gets one card with a tag for each (dimmed when it's not in your plans), so A Way Out shows once with Game Pass, EA Play and PS Plus. Titles are matched ignoring platform suffixes and edition names; Switch Online games are kept apart, since each is a specific old console version, except for regional versions of the same game ("Adventures of Lolo (NA)" and "(JP)"), which share one card marked NA + JP. Marking the game marks it everywhere.
 

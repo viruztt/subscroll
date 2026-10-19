@@ -9,8 +9,9 @@ const SERVICES = [
     tiers: [
       { id: 'essential', name: 'Essential', includes: ['essential'] },
       { id: 'premium', name: 'Premium', includes: ['premium', 'essential'] },
-      { id: 'pc', name: 'PC Game Pass', includes: ['pc', 'eaplay:eaplay'] },
-      // Ultimate and PC Game Pass include EA Play; Ultimate also Ubisoft+ Classics.
+      // "@pc": only that tier's PC games. PC Game Pass has EA Play on PC only.
+      { id: 'pc', name: 'PC Game Pass', includes: ['pc', 'eaplay:eaplay@pc'] },
+      // Ultimate includes EA Play everywhere, and Ubisoft+ Classics.
       { id: 'ultimate', name: 'Ultimate', includes: ['ultimate', 'premium', 'essential', 'pc', 'eaplay:eaplay', 'ubisoftplus:classics'] },
     ],
   },
@@ -150,4 +151,9 @@ function unlockedTiers(subscriptions, customServices = []) {
   return keys;
 }
 
-module.exports = { SERVICES, TIER_BADGES, allServices, unlockedTiers };
+// Whether an offer (a game in one service) is in your plans. A key can name a
+// platform ("eaplay:eaplay@pc") when a plan includes only that platform's games.
+const offerOpen = (keys, o) => (o.tiers || []).some((t) => keys.has(`${o.service}:${t}`) ||
+  (o.platforms || []).some((p) => keys.has(`${o.service}:${t}@${p}`)));
+
+module.exports = { SERVICES, TIER_BADGES, allServices, unlockedTiers, offerOpen };

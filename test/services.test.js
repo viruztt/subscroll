@@ -9,7 +9,7 @@ const msextras = require('../src/providers/msextras');
 const netflix = require('../src/providers/netflix');
 const arcade = require('../src/providers/applearcade');
 const nintendo = require('../src/providers/nintendo');
-const { unlockedTiers } = require('../src/services');
+const { unlockedTiers, offerOpen } = require('../src/services');
 
 const jsonResponse = (body, status = 200) => ({ ok: status < 400, status, json: async () => body, text: async () => JSON.stringify(body) });
 
@@ -231,6 +231,10 @@ test('Game Pass Ultimate unlocks EA Play and Ubisoft+ Classics', () => {
   assert.ok(keys.has('ubisoftplus:classics'));
   assert.ok(!keys.has('ubisoftplus:premium'));
   const pc = unlockedTiers({ gamepass: 'pc' });
-  assert.ok(pc.has('eaplay:eaplay'));
   assert.ok(!pc.has('ubisoftplus:classics'));
+  // PC Game Pass has EA Play on PC only.
+  const ea = (platforms) => ({ service: 'eaplay', tiers: ['eaplay'], platforms });
+  assert.ok(offerOpen(pc, ea(['pc'])));
+  assert.ok(!offerOpen(pc, ea(['console'])));
+  assert.ok(offerOpen(keys, ea(['console'])));
 });

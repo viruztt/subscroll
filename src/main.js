@@ -5,7 +5,7 @@ const { Catalog, SERVICES: CATALOG_SERVICES } = require('./catalog');
 const arcade = require('./providers/applearcade');
 const { DetailsCache } = require('./details');
 const { Ratings } = require('./ratings');
-const { SERVICES, TIER_BADGES, unlockedTiers } = require('./services');
+const { SERVICES, TIER_BADGES, unlockedTiers, offerOpen } = require('./services');
 const http = require('./providers/http');
 const { makeBackup, parseBackup, mergeHistory, mergeLookups, backupName } = require('./backup');
 const steam = require('./steam');
@@ -127,7 +127,7 @@ function startWiki() {
   const keys = unlockedTiers(subscriptions, customServices);
   const departed = catalog.loadAll().flatMap((c) => c.history?.departed || []);
   wiki.start(wikiWanted([...catalogGames(), ...departed], {
-    isMine: (g) => (g.tiers || []).some((t) => keys.has(`${g.service}:${t}`)),
+    isMine: (g) => offerOpen(keys, g),
     markOf: (g) => marks[g.id] || 'none',
   })).catch(() => {});
 }
@@ -538,7 +538,7 @@ function startRatings() {
   const { subscriptions, customServices } = store.get();
   const keys = unlockedTiers(subscriptions, customServices);
   // Games in the user's plans are looked up first.
-  ratings.start(catalogGames(), (g) => g.tiers.some((t) => keys.has(`${g.service}:${t}`)));
+  ratings.start(catalogGames(), (g) => offerOpen(keys, g));
 }
 
 // Results reach the window in batches rather than one message per game.

@@ -15,8 +15,8 @@ test('Cheapest way: in your plans, or owned on Steam, costs nothing', () => {
 });
 
 test('Cheapest way: the cheapest plan of each service, against buying it', () => {
-  // EA Play games are also in PC Game Pass and Ultimate; EA Play itself is cheapest.
-  const g = game([{ service: 'eaplay', tiers: ['eaplay'] }]);
+  // EA Play's PC games are also in PC Game Pass and Ultimate; EA Play itself is cheapest.
+  const g = game([{ service: 'eaplay', tiers: ['eaplay'], platforms: ['pc'] }]);
   const list = ways(g, { ...base, subscriptions: {}, price: { amount: 29.99, sale: 7.49, source: 'Steam' } });
   assert.deepStrictEqual(list.map((w) => [w.kind, w.cost]), [['plan', 5.99], ['buy', 7.49], ['plan', 10.99]]);
   assert.strictEqual(list[0].service, 'eaplay');
@@ -24,6 +24,10 @@ test('Cheapest way: the cheapest plan of each service, against buying it', () =>
   assert.strictEqual(list[1].off, 75);
   assert.strictEqual(list[2].service, 'gamepass');
   assert.strictEqual(list[2].tier, 'pc');
+  // An EA Play console game isn't in PC Game Pass: Ultimate is the Game Pass way.
+  const xbox = ways(game([{ service: 'eaplay', tiers: ['eaplay'], platforms: ['console'] }]), { ...base, subscriptions: {} });
+  assert.strictEqual(xbox.find((w) => w.service === 'gamepass').tier, 'ultimate');
+  assert.deepStrictEqual(ways(game([{ service: 'eaplay', tiers: ['eaplay'], platforms: ['console'] }]), { ...base, subscriptions: { gamepass: 'pc' } })[0].kind, 'plan');
 });
 
 test('Cheapest way: upgrades, yearly-only plans, priced plans mapped to tiers', () => {

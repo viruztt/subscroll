@@ -74,7 +74,8 @@ function unlocked() {
 
 // A game can be in several services; each is one of its offers.
 const offersOf = (g) => g.offers || [g];
-const offerIsMine = (o, keys) => o.tiers.some((t) => keys.has(`${o.service}:${t}`));
+// "eaplay:eaplay@pc": a plan that includes only a tier's PC games (PC Game Pass and EA Play).
+const offerIsMine = (o, keys) => (o.tiers || []).some((t) => keys.has(`${o.service}:${t}`) || (o.platforms || []).some((p) => keys.has(`${o.service}:${t}@${p}`)));
 const isMine = (g, keys) => offersOf(g).some((o) => offerIsMine(o, keys));
 const inServices = (g, set) => offersOf(g).some((o) => set.has(o.service));
 // One per service: a service can list two editions of the same game.

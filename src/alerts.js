@@ -4,7 +4,9 @@
 const { unify, matchKey } = require('../renderer/unify');
 const { t, tn } = require('../renderer/i18n');
 
-const mineIn = (keys) => (o) => (o.tiers || []).some((t) => keys.has(`${o.service}:${t}`));
+const { offerOpen } = require('./services');
+
+const mineIn = (keys) => (o) => offerOpen(keys, o);
 const coming = (o, today) => !!o.comingOn && o.comingOn > today;
 
 // Games on the To play list, split into ones you can play now in your plans

@@ -24,7 +24,8 @@
     }
     return keys;
   }
-  const covers = (g, keys) => offersOf(g).some((o) => (o.tiers || []).some((t) => keys.has(`${o.service}:${t}`)));
+  // "eaplay:eaplay@pc": a plan that includes only a tier's PC games.
+  const covers = (g, keys) => offersOf(g).some((o) => (o.tiers || []).some((t) => keys.has(`${o.service}:${t}`) || (o.platforms || []).some((p) => keys.has(`${o.service}:${t}@${p}`))));
 
   const days = (from, to) => Math.round((new Date(`${to}T00:00:00Z`) - new Date(`${from}T00:00:00Z`)) / 86400000);
   // Free now, then free later, then the rest; buying beats a plan at the same price (you keep it).

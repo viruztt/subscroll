@@ -21,8 +21,8 @@ test('advise: ranks plans by To play games they add, leaving soon first', () => 
     game('e', 'psplus', ['extra'], { leavingSoon: true }),
     game('f', 'nso', ['expansion']),
     game('g', 'nso', ['base']),
-    game('h', 'eaplay', ['eaplay'], { comingOn: '2026-10-30' }),
-    game('later', 'eaplay', ['eaplay'], { comingOn: '2027-03-01' }),
+    game('h', 'eaplay', ['eaplay'], { comingOn: '2026-10-30', platforms: ['pc'] }),
+    game('later', 'eaplay', ['eaplay'], { comingOn: '2027-03-01', platforms: ['pc'] }),
     game('notwanted', 'gamepass', ['essential']),
   ];
   ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'later'].forEach((id) => wish.add(id));
