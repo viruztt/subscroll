@@ -543,3 +543,6 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .fallback-row:empty { display: none; }
 .fallback-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 10px 0; max-width: 640px; }
 .fallback-row .muted { flex: 1 1 320px; font-size: 13px; }
+.stats-platforms { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 16px; --svc: var(--accent); }
+button.svc-progress-name { text-align: left; padding: 0; color: var(--text); }
+button.svc-progress-name:hover { color: var(--accent); }

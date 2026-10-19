@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { compute, OTHER } = require('../renderer/stats');
+const Stats = require('../renderer/stats');
+const { compute, OTHER } = Stats;
 
 const games = [
   { id: 'a', mine: ['gamepass', 'eaplay'], mark: 'completed', h: 10, sc: 80, genreTags: ['RPG'] },
@@ -39,4 +40,24 @@ test('Statistics: genres, hours and scores of completed games', () => {
   assert.deepStrictEqual(st.genres, [{ genre: 'RPG', count: 2 }, { genre: 'Puzzle', count: 1 }, { genre: 'Shooter', count: 1 }]);
   assert.deepStrictEqual(st.time, { completed: 30, completedTimed: 2, playing: 30, playingTimed: 1 });
   assert.strictEqual(st.averageScore, 70);
+});
+
+test('Stats: platforms group stores\' names, and Switch Online counts as Switch', () => {
+  assert.strictEqual(Stats.platformOf('console'), 'xbox');
+  assert.strictEqual(Stats.platformOf('PC'), 'pc');
+  assert.strictEqual(Stats.platformOf('PS5'), 'playstation');
+  assert.strictEqual(Stats.platformOf('Apple devices'), 'mobile');
+  assert.strictEqual(Stats.platformOf('Cloud'), 'cloud');
+  assert.strictEqual(Stats.platformOf('Amiga'), 'other');
+  const merged = { offers: [{ service: 'gamepass', platforms: ['console', 'pc'] }, { service: 'psplus', platforms: ['PS4'] }] };
+  assert.deepStrictEqual([...Stats.platformsOf(merged)].sort(), ['pc', 'playstation', 'xbox']);
+  assert.deepStrictEqual([...Stats.platformsOf({ service: 'nso', platforms: ['NES'] })], ['switch']);
+  const games = [
+    { id: 'a', service: 'gamepass', platforms: ['console', 'pc'] },
+    { id: 'b', service: 'nso', platforms: ['SNES'] },
+    { id: 'c', service: 'psplus', platforms: ['PS5'] },
+  ];
+  const marks = { a: 'completed', b: 'played' };
+  const st = Stats.compute(games, { markOf: (g) => marks[g.id] || 'none', myServices: (g) => (g.service === 'psplus' ? [] : [g.service]), hours: () => null, score: () => null });
+  assert.deepStrictEqual(st.platforms.map((r) => [r.platform, r.inPlans, r.completed, r.played]), [['xbox', 1, 1, 0], ['pc', 1, 1, 0], ['playstation', 0, 0, 0], ['switch', 1, 0, 1]]);
 });

@@ -13,6 +13,7 @@ const ui = {
   services: new Set(), // empty = all
   status: 'all',
   platform: 'all',
+  statsPlatform: 'all', // the Statistics page's own platform pick
   genre: 'all',
   length: 'all',
   sort: 'title',
@@ -1382,17 +1383,32 @@ function goalsPanel() {
     undated ? el('p', { class: 'muted' }, tn(undated, '{n} completed game has no finish date (marked before goals existed), so it doesn\'t count. Open a game and set when you finished it.', '{n} completed games have no finish date (marked before goals existed), so they don\'t count. Open a game and set when you finished it.')) : null);
 }
 
+const STATS_PLATFORM_LABEL = { xbox: tk('Xbox'), pc: tk('PC'), playstation: tk('PlayStation'), switch: tk('Switch'), mobile: tk('Mobile'), cloud: tk('Cloud'), other: tk('Other') };
+const statsPlatformName = (p) => t(STATS_PLATFORM_LABEL[p] || p);
+
 function renderStats() {
   const content = $('#content');
   content.replaceChildren();
   const keys = unlocked();
   const subscribed = allServices().filter((s) => [...keys].some((k) => k.startsWith(`${s.id}:`))).map((s) => s.id);
-  const st = Stats.compute(statsGames(), {
+  const helpers = {
     markOf: (g) => markOf(g.id),
     myServices: (g) => serviceOffers(g).filter((o) => offerIsMine(o, keys)).map((o) => o.service),
     hours: beatHours,
     score: mcScore,
     subscribed,
+  };
+  const everything = statsGames();
+  const all = Stats.compute(everything, helpers);
+  // Platforms you have games on, in your plans or marked.
+  const platforms = all.platforms.filter((r) => r.inPlans || r.played || r.completed);
+  if (ui.statsPlatform !== 'all' && !platforms.some((r) => r.platform === ui.statsPlatform)) ui.statsPlatform = 'all';
+  const chosen = ui.statsPlatform;
+  // One platform: only its games, and only the services offering them there.
+  const onChosen = (o) => Stats.platformsOf(o).has(chosen);
+  const st = chosen === 'all' ? all : Stats.compute(everything.filter((g) => Stats.platformsOf(g).has(chosen)), {
+    ...helpers,
+    myServices: (g) => serviceOffers(g).filter((o) => offerIsMine(o, keys) && onChosen(o)).map((o) => o.service),
   });
   const { totals } = st;
   const nameOf = (id) => (id === Stats.OTHER ? t('Not in your plans') : serviceById(id)?.name || id);
@@ -1401,10 +1417,21 @@ function renderStats() {
   $('#summary').textContent = withGames.length
     ? tn(withGames.length, '{count} games in your plans across {n} service', '{count} games in your plans across {n} services', { count: totals.inPlans })
     : t('Pick your plans in Settings to see how far through them you are');
+  if (chosen !== 'all') $('#summary').textContent += ` · ${statsPlatformName(chosen)}`;
 
   content.append(goalsPanel());
+  if (platforms.length > 1) {
+    const pick = (p) => () => { ui.statsPlatform = p; renderStats(); };
+    content.append(el('div', { class: 'stats-platforms' },
+      el('span', { class: 'muted' }, t('Platform')),
+      el('div', { class: 'seg' },
+        el('button', { class: chosen === 'all' ? 'on' : '', onclick: pick('all') }, t('All platforms')),
+        platforms.map((r) => el('button', { class: chosen === r.platform ? 'on' : '', onclick: pick(r.platform) }, statsPlatformName(r.platform))))));
+  }
   if (!totals.completed && !totals.played) {
-    content.append(el('div', { class: 'empty' }, t('Mark games as played or completed (or import your Steam library in Settings) and your statistics will show up here.')));
+    content.append(el('div', { class: 'empty' }, chosen === 'all'
+      ? t('Mark games as played or completed (or import your Steam library in Settings) and your statistics will show up here.')
+      : t('You haven\'t marked any {platform} games as played or completed yet.', { platform: statsPlatformName(chosen) })));
     return;
   }
 
@@ -1444,6 +1471,20 @@ function renderStats() {
         el('div', { class: 'bar', title: t('{completed} completed, {played} playing, of {total}', { completed: r.completed, played: r.played, total: r.inPlans }) },
           el('span', { class: 'bar-done', style: `width:${r.inPlans ? (r.completed / r.inPlans) * 100 : 0}%` }),
           el('span', { class: 'bar-playing', style: `width:${r.inPlans ? (r.played / r.inPlans) * 100 : 0}%` })),
+        el('div', { class: 'svc-progress-num' }, t('{completed} of {total} completed · {played} playing', { completed: r.completed, total: r.inPlans, played: r.played }))))));
+  }
+
+  // Progress per platform, when looking at all of them. A game on several counts for each.
+  const onPlatforms = platforms.filter((r) => r.inPlans);
+  if (chosen === 'all' && onPlatforms.length > 1) {
+    content.append(el('div', { class: 'panel' },
+      el('h2', {}, t('Progress per platform')),
+      el('p', { class: 'muted' }, t('Games in your plans on each platform. A game on several platforms counts for each; Switch Online games count as Switch.')),
+      onPlatforms.map((r) => el('div', { class: 'svc-progress' },
+        el('button', { class: 'link svc-progress-name', onclick: () => { ui.statsPlatform = r.platform; renderStats(); } }, statsPlatformName(r.platform)),
+        el('div', { class: 'bar', title: t('{completed} completed, {played} playing, of {total}', { completed: r.completed, played: r.played, total: r.inPlans }) },
+          el('span', { class: 'bar-done', style: `width:${(r.completed / r.inPlans) * 100}%` }),
+          el('span', { class: 'bar-playing', style: `width:${(r.played / r.inPlans) * 100}%` })),
         el('div', { class: 'svc-progress-num' }, t('{completed} of {total} completed · {played} playing', { completed: r.completed, total: r.inPlans, played: r.played }))))));
   }
 
