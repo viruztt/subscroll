@@ -2871,8 +2871,16 @@ function toolbarNeeded() {
   return true;
 }
 
-// Ctrl+F (or /) jumps to the search box, from Browse when the page has none.
+// Ctrl+F (or /) jumps to the search box: the page's own one (Value's
+// "Games you beat"), else the toolbar's, from Browse when the page has none.
 function focusSearch() {
+  const own = $('#content input[type=search]');
+  if (own) {
+    own.scrollIntoView({ block: 'center' });
+    own.focus();
+    own.select();
+    return;
+  }
   if (!toolbarNeeded()) {
     ui.view = 'browse';
     $('#content').scrollTop = 0;

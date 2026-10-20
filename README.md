@@ -81,7 +81,7 @@ Clicking a game shows a short description and a few screenshots. Game Pass gets 
 
 The sidebar groups the pages into **Discover** (For you, Browse), **What's changing** (Coming soon, Leaving soon, New & departed, Calendar, Free to keep) and **Your games** (To play, My games, Statistics, Value), with Settings below and its tabs for plans, region and language, accounts, background and updates, backup, and data sources. The line above the Refresh button says when the oldest catalogue was downloaded; click it for each one's date. Long explanations at the top of a page show their first sentence, and ⓘ opens the rest.
 
-Game cards show your mark (now playing, played, completed, dropped or ignored) as a badge on the cover; hover a card for its buttons. The ▦ / ☰ buttons next to the sort menu switch between covers and a compact list with one game a line. **Ctrl+F** (or **/**) jumps to the search box.
+Game cards show your mark (now playing, played, completed, dropped or ignored) as a badge on the cover; hover a card for its buttons. The ▦ / ☰ buttons next to the sort menu switch between covers and a compact list with one game a line. **Ctrl+F** (or **/**) jumps to the search box (on the Value page, to the search in Games you beat).
 
 The toolbar filters by service (with games outside your subscriptions hidden, only your services get a chip), played status, platform, **genre** and **length** (under 5 or 10 hours, 10 to 20, 20 to 40, over 40, by How Long To Beat's main story). Each store names genres differently, so they're mapped onto one list (`renderer/genres.js`); Switch Online games count as Retro. The length filter only shows games that have a time.
 
