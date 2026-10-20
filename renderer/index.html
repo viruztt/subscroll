@@ -64,12 +64,15 @@
         <option value="long" data-i18n>Longest to beat</option>
         <option value="stars" data-i18n>Your rating</option>
       </select>
-      <div class="toggles">
-        <label class="toggle"><input type="checkbox" id="mine-only"> <span data-i18n>Only my subscriptions</span></label>
-        <label class="toggle"><input type="checkbox" id="hide-completed"> <span data-i18n>Hide completed</span></label>
-        <label class="toggle"><input type="checkbox" id="hide-dropped"> <span data-i18n>Hide dropped</span></label>
-        <label class="toggle"><input type="checkbox" id="hide-ignored"> <span data-i18n>Hide ignored</span></label>
-        <label class="toggle"><input type="checkbox" id="hide-departed"> <span data-i18n>Hide departed</span></label>
+      <div class="hide-wrap" id="hide-wrap">
+        <button class="hide-btn" id="hide-btn" aria-haspopup="true" aria-expanded="false"><span data-i18n>Hide…</span><span class="hide-count" id="hide-count"></span><span class="hide-arrow">▾</span></button>
+        <div class="hide-menu" id="hide-menu" hidden>
+          <label class="toggle"><input type="checkbox" id="mine-only"> <span data-i18n>Games outside my subscriptions</span></label>
+          <label class="toggle"><input type="checkbox" id="hide-completed"> <span data-i18n>Completed games</span></label>
+          <label class="toggle"><input type="checkbox" id="hide-dropped"> <span data-i18n>Dropped games</span></label>
+          <label class="toggle"><input type="checkbox" id="hide-ignored"> <span data-i18n>Ignored games</span></label>
+          <label class="toggle"><input type="checkbox" id="hide-departed"> <span data-i18n>Games that left their service</span></label>
+        </div>
       </div>
     </header>
     <div class="summary" id="summary"></div>

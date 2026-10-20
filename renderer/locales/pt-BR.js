@@ -129,6 +129,7 @@
     "Coming {date}": "Chega em {date}",
     "Completed": "Concluído",
     "Completed by service": "Concluídos por serviço",
+    "Completed games": "Jogos concluídos",
     "Completed out of every game you have started": "Concluídos entre todos os jogos que você começou",
     "Completed: {name}": "Concluídos: {name}",
     "Couldn't check: {error}": "Não foi possível verificar: {error}",
@@ -161,6 +162,7 @@
     "Downloading Subscroll {version}: {percent}% done.": "Baixando o Subscroll {version}: {percent}% concluído.",
     "Downloading Subscroll {version}…": "Baixando o Subscroll {version}…",
     "Dropped": "Abandonado",
+    "Dropped games": "Jogos abandonados",
     "Dropped games count for the part you played: your hours over How Long To Beat's time, or a quarter of the price when either is missing.": "Jogos abandonados contam pela parte que você jogou: suas horas em relação ao tempo do How Long To Beat, ou um quarto do preço quando falta um dos dois.",
     "Ending soonest first.": "Os que acabam primeiro aparecem antes.",
     "Enter the price": "Digite o preço",
@@ -245,6 +247,8 @@
     "Games found by comparing each refresh with the last one. Departed games are hidden.": "Jogos encontrados comparando cada atualização com a anterior. Os que saíram ficam ocultos.",
     "Games in your plans on each platform. A game on several platforms counts for each; Switch Online games count as Switch.": "Jogos dos seus planos em cada plataforma. Um jogo em várias plataformas conta para cada uma; jogos do Switch Online contam como Switch.",
     "Games in your plans that you also own on Steam": "Jogos dos seus planos que você também tem na Steam",
+    "Games outside my subscriptions": "Jogos fora das minhas assinaturas",
+    "Games that left their service": "Jogos que saíram do serviço",
     "Games you beat": "Jogos que você zerou",
     "Games you keep for good once claimed, plus your plans' monthly games and free weekends. Epic's weekly games come from Epic's own store list; Steam, GOG and Prime Gaming (claimed through Amazon Luna) giveaways from {link}. PS Plus monthly games come from PlayStation's own list and the PlayStation Blog, Humble Choice games from Humble's page, and Xbox Free Play Days from Xbox Wire. You get an alert when new ones appear and on the last day of ones you haven't marked claimed.": "Jogos que ficam com você para sempre depois de resgatados, além dos jogos mensais dos seus planos e dos fins de semana grátis. Os jogos semanais da Epic vêm da própria lista da loja da Epic; os brindes da Steam, GOG e Prime Gaming (resgatados pelo Amazon Luna) vêm do {link}. Os jogos mensais do PS Plus vêm da lista oficial da PlayStation e do PlayStation Blog, os do Humble Choice da página da Humble, e os Free Play Days do Xbox vêm do Xbox Wire. Você recebe um alerta quando aparecem novos e no último dia dos que você não marcou como resgatados.",
     "Games you own on Steam get an \"On Steam\" badge, and games you've played there for {minutes} minutes or more are marked as played (once, so you can still unmark them). It's read again with the daily refresh. ": "Jogos que você tem na Steam ganham um selo “Na Steam”, e os que você jogou lá por {minutes} minutos ou mais são marcados como jogados (uma vez só, então você ainda pode desmarcá-los). A leitura se repete na atualização diária. ",
@@ -256,14 +260,11 @@
     "Get started": "Começar",
     "Goals": "Metas",
     "Goals leave out completed games without a date": "As metas não contam jogos concluídos sem data",
-    "Hide completed": "Ocultar concluídos",
-    "Hide departed": "Ocultar os que saíram",
-    "Hide dropped": "Ocultar abandonados",
-    "Hide ignored": "Ocultar ignorados",
     "Hide it and skip its reminder": "Ocultar e pular o lembrete",
     "Hide them": "Ocultá-los",
     "Hide these": "Ocultar estes",
     "Hide until the next version": "Ocultar até a próxima versão",
+    "Hide…": "Ocultar…",
     "Horror": "Terror",
     "Hours for {timed} of {total} games; the rest counted at their average": "Horas de {timed} dos {total} jogos; os demais contados pela média",
     "Hours played": "Horas jogadas",
@@ -276,6 +277,7 @@
     "Ignore": "Ignorar",
     "Ignore: not interested, hide it": "Ignorar: sem interesse, ocultar",
     "Ignored": "Ignorado",
+    "Ignored games": "Jogos ignorados",
     "Ignored: click to stop ignoring": "Ignorado: clique para parar de ignorar",
     "Import": "Importar",
     "Import a Subscroll profile": "Importar um perfil do Subscroll",
@@ -399,6 +401,7 @@
     "Nothing added in the last 30 days. New games show up here after a refresh finds them.": "Nada adicionado nos últimos 30 dias. Jogos novos aparecem aqui depois que uma atualização os encontra.",
     "Nothing announced right now.": "Nada anunciado no momento.",
     "Nothing dated this month with these filters.": "Nada com data neste mês com esses filtros.",
+    "Nothing hidden": "Nada oculto",
     "Nothing in your plans is much like the games you've completed yet. Developers and genres fill in over the first few minutes as they're looked up.": "Nada nos seus planos se parece ainda com os jogos que você concluiu. Desenvolvedoras e gêneros são preenchidos nos primeiros minutos, conforme são buscados.",
     "Nothing is flagged as leaving right now.": "Nenhum jogo marcado como saindo no momento.",
     "Nothing matches these choices yet. Try another genre or length.": "Nada corresponde a essas escolhas ainda. Tente outro gênero ou duração.",
@@ -416,7 +419,6 @@
     "On sale on {store}: usually {price}, until {date}": "Em promoção na {store}: normalmente {price}, até {date}",
     "On sale: {title}": "Em promoção: {title}",
     "On your To play list: click to remove": "Na sua lista Para jogar: clique para remover",
-    "Only my subscriptions": "Só minhas assinaturas",
     "Open Subscroll": "Abrir o Subscroll",
     "Open in PlayStation Store": "Abrir na PlayStation Store",
     "Open in Steam": "Abrir na Steam",
@@ -502,13 +504,13 @@
     "Restart to update to {version}": "Reiniciar para atualizar para {version}",
     "Restart to update, or it updates the next time Subscroll starts.": "Reinicie para atualizar, ou a atualização acontece na próxima vez que o Subscroll abrir.",
     "Retro": "Retrô",
-    "Rolled from {n} game in your subscriptions{scope}, completed and ignored ones left out|Rolled from {n} games in your subscriptions{scope}, completed and ignored ones left out": {
-      "one": "Sorteado entre {n} jogo das suas assinaturas{scope}, sem os concluídos e ignorados",
-      "other": "Sorteado entre {n} jogos das suas assinaturas{scope}, sem os concluídos e ignorados"
+    "Rolled from {n} game in your subscriptions{scope}, completed, dropped and ignored ones left out|Rolled from {n} games in your subscriptions{scope}, completed, dropped and ignored ones left out": {
+      "one": "Sorteado entre {n} jogo das suas assinaturas{scope}, sem os concluídos, abandonados e ignorados",
+      "other": "Sorteado entre {n} jogos das suas assinaturas{scope}, sem os concluídos, abandonados e ignorados"
     },
-    "Rolled from {n} game{scope}, completed and ignored ones left out|Rolled from {n} games{scope}, completed and ignored ones left out": {
-      "one": "Sorteado entre {n} jogo{scope}, sem os concluídos e ignorados",
-      "other": "Sorteado entre {n} jogos{scope}, sem os concluídos e ignorados"
+    "Rolled from {n} game{scope}, completed, dropped and ignored ones left out|Rolled from {n} games{scope}, completed, dropped and ignored ones left out": {
+      "one": "Sorteado entre {n} jogo{scope}, sem os concluídos, abandonados e ignorados",
+      "other": "Sorteado entre {n} jogos{scope}, sem os concluídos, abandonados e ignorados"
     },
     "Run the welcome setup again": "Refazer a configuração inicial",
     "Sale alerts.": "Alertas de promoção.",
@@ -866,6 +868,10 @@
     "{n} included in your subscriptions|{n} included in your subscriptions": {
       "one": "{n} incluído nas suas assinaturas",
       "other": "{n} incluídos nas suas assinaturas"
+    },
+    "{n} kind of game hidden|{n} kinds of game hidden": {
+      "one": "{n} tipo de jogo oculto",
+      "other": "{n} tipos de jogo ocultos"
     },
     "{n} leaving soon|{n} leaving soon": {
       "one": "{n} saindo em breve",

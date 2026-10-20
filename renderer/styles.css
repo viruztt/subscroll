@@ -132,9 +132,25 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 }
 .chip.on { color: var(--text); border-color: var(--svc); background: color-mix(in srgb, var(--svc) 22%, transparent); }
 .toggle { display: flex; align-items: center; gap: 6px; color: var(--muted); }
-#mine-only { margin-left: 0; }
-/* The checkboxes move to their own line together when the toolbar is narrow. */
-.toggles { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-left: auto; }
+/* "Hide…": a button that opens the hide checkboxes. */
+.hide-wrap { position: relative; }
+.hide-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px;
+}
+.hide-btn:hover, .hide-btn[aria-expanded="true"] { border-color: var(--accent); }
+.hide-count { background: var(--accent); color: #0a1a33; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 0 6px; }
+.hide-count:empty { display: none; }
+.hide-arrow { color: var(--muted); font-size: 11px; }
+.hide-menu {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 20;
+  display: flex; flex-direction: column; gap: 2px; min-width: 240px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+}
+.hide-menu[hidden] { display: none; }
+.hide-menu .toggle { color: var(--text); padding: 6px 8px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.hide-menu .toggle:hover { background: var(--line); }
 .summary { padding: 10px 20px; color: var(--muted); font-size: 13px; }
 #content { flex: 1; overflow-y: auto; padding: 4px 20px 30px; }
 #content h2 { font-size: 16px; margin: 18px 0 10px; }

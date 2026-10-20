@@ -843,6 +843,7 @@ async function finishOnboarding() {
   const hasSubs = Object.values(state.subscriptions).some(Boolean);
   ui.mineOnly = hasSubs;
   $('#mine-only').checked = hasSubs;
+  showHideCount();
   ui.view = hasSubs ? 'foryou' : 'subs';
   render();
 }
@@ -2673,8 +2674,8 @@ function rollBar() {
   const subs = unlocked().size > 0;
   return el('div', { class: 'roll-bar' },
     el('span', { class: 'muted' }, subs
-      ? tn(drawerRoll.pool, 'Rolled from {n} game in your subscriptions{scope}, completed and ignored ones left out', 'Rolled from {n} games in your subscriptions{scope}, completed and ignored ones left out', { scope: rollScope() })
-      : tn(drawerRoll.pool, 'Rolled from {n} game{scope}, completed and ignored ones left out', 'Rolled from {n} games{scope}, completed and ignored ones left out', { scope: rollScope() })),
+      ? tn(drawerRoll.pool, 'Rolled from {n} game in your subscriptions{scope}, completed, dropped and ignored ones left out', 'Rolled from {n} games in your subscriptions{scope}, completed, dropped and ignored ones left out', { scope: rollScope() })
+      : tn(drawerRoll.pool, 'Rolled from {n} game{scope}, completed, dropped and ignored ones left out', 'Rolled from {n} games{scope}, completed, dropped and ignored ones left out', { scope: rollScope() })),
     el('button', { class: 'primary', onclick: roll }, t('🎲 Roll again')));
 }
 
@@ -2729,7 +2730,7 @@ function renderChrome() {
   $('#toolbar').classList.toggle('hidden', ['subs', 'stats', 'value', 'foryou', 'free'].includes(ui.view));
 
   const chips = $('#service-chips');
-  // With "Only my subscriptions" ticked, only your services get a chip; a
+  // With "Games outside my subscriptions" hidden, only your services get a chip; a
   // hidden one is dropped from the filter so it can't narrow the list unseen.
   const keys = unlocked();
   const yours = (s) => [...keys].some((k) => k.startsWith(`${s.id}:`));
@@ -2887,6 +2888,17 @@ async function refresh(scope = refreshScope) {
   }
 }
 
+// The "Hide…" button counts what it's hiding.
+function showHideCount() {
+  const n = [...document.querySelectorAll('#hide-menu input')].filter((x) => x.checked).length;
+  $('#hide-count').textContent = n || '';
+  $('#hide-btn').title = n ? tn(n, '{n} kind of game hidden', '{n} kinds of game hidden') : t('Nothing hidden');
+}
+function closeHideMenu() {
+  $('#hide-menu').hidden = true;
+  $('#hide-btn').setAttribute('aria-expanded', 'false');
+}
+
 function closeRefreshMenu() {
   $('#refresh-menu').hidden = true;
   $('#refresh-more').setAttribute('aria-expanded', 'false');
@@ -2915,13 +2927,21 @@ function wire() {
   $('#genre-filter').addEventListener('change', (e) => { ui.genre = e.target.value; render(); });
   $('#length-filter').addEventListener('change', (e) => { ui.length = e.target.value; render(); });
   $('#sort').addEventListener('change', (e) => { ui.sort = e.target.value; render(); });
-  $('#mine-only').addEventListener('change', (e) => { ui.mineOnly = e.target.checked; render(); });
+  $('#mine-only').addEventListener('change', (e) => { ui.mineOnly = e.target.checked; showHideCount(); render(); });
   for (const [id, setting] of [['#hide-departed', 'hideDeparted'], ['#hide-completed', 'hideCompleted'], ['#hide-dropped', 'hideDropped'], ['#hide-ignored', 'hideIgnored']]) {
     $(id).addEventListener('change', async (e) => {
       await saveState({ settings: { ...state.settings, [setting]: e.target.checked } });
+      showHideCount();
       render(true);
     });
   }
+  $('#hide-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const menu = $('#hide-menu');
+    menu.hidden = !menu.hidden;
+    $('#hide-btn').setAttribute('aria-expanded', String(!menu.hidden));
+  });
+  document.addEventListener('click', (e) => { if (!e.target.closest('#hide-wrap')) closeHideMenu(); });
   $('#refresh-btn').addEventListener('click', () => refresh());
   $('#refresh-more').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -2936,6 +2956,7 @@ function wire() {
     if (e.key !== 'Escape') return;
     const box = document.querySelector('.lightbox');
     if (box) box.remove();
+    else if (!$('#hide-menu').hidden) closeHideMenu();
     else closeDrawer();
   });
 }
@@ -2959,6 +2980,7 @@ async function init() {
   $('#hide-completed').checked = !!state.settings.hideCompleted;
   $('#hide-ignored').checked = state.settings.hideIgnored !== false;
   $('#hide-dropped').checked = !!state.settings.hideDropped;
+  showHideCount();
   if (!hasSubs) ui.view = 'subs';
   // Back where you were after switching language.
   try {
