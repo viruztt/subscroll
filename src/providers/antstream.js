@@ -217,6 +217,16 @@ const READ_CARDS = `(() => {
   });
 })()`;
 
+const COUNT_CARDS = `[...document.querySelectorAll('a, button, [role=button]')].filter((e) => /^\\s*view\\s*$/i.test(e.textContent || '')).length`;
+
+// Runs in the page: a step further down each time, back to the top at the end.
+const SCROLL_THROUGH = `(() => {
+  const h = document.body ? document.body.scrollHeight : 0;
+  const y = window.scrollY + window.innerHeight >= h - 10 ? 0 : window.scrollY + window.innerHeight;
+  window.scrollTo(0, y);
+  return y;
+})()`;
+
 const SEEN_PICTURES = `[...new Set([...document.images].map((i) => i.currentSrc || i.src).filter(Boolean))]`;
 
 // Opens the games page in a hidden window, presses "Load More" until every
@@ -272,19 +282,27 @@ async function captureSite(url = SITE_LIST, budgetMs = 180000) {
     await dbg.sendCommand('Network.enable', { maxResourceBufferSize: 30e6, maxTotalBufferSize: 100e6 });
     win.loadURL(url).catch(() => {});
     const until = Date.now() + budgetMs;
-    await sleep(8000);
-    // Press "Load More" until it's gone (four misses in a row) or time's up.
+    // The library shows up a while after the page (sometimes half a minute):
+    // scroll through the page until the first game cards appear.
+    const cardCount = () => run(COUNT_CARDS, 0);
+    let shown = 0;
+    const firstBy = Date.now() + 75000;
+    while (Date.now() < firstBy && !(shown = await cardCount())) {
+      await run(SCROLL_THROUGH, 0);
+      await sleep(2500);
+    }
+    // Press "Load More" until it's gone and no more cards arrive (six checks
+    // in a row), or time's up.
     let misses = 0;
     let presses = 0;
-    while (Date.now() < until && misses < 4) {
-      if (await run(PRESS_MORE, false)) {
-        presses += 1;
-        misses = 0;
-      } else {
-        misses += 1;
-        await run('window.scrollTo(0, document.body ? document.body.scrollHeight : 0); 0', 0);
-      }
+    while (shown && Date.now() < until && misses < 6) {
+      const pressed = await run(PRESS_MORE, false);
+      if (pressed) presses += 1;
       await sleep(1500);
+      const now = await cardCount();
+      misses = pressed || now > shown ? 0 : misses + 1;
+      if (!pressed) await run('window.scrollTo(0, document.body ? document.body.scrollHeight : 0); 0', 0);
+      shown = Math.max(shown, now);
     }
     const cards = await run(READ_CARDS, []);
     const pictures = await run(SEEN_PICTURES, []);

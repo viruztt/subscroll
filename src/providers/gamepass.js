@@ -112,7 +112,9 @@ async function fetchLive({ market = 'US', language = 'en-us' } = {}) {
       soon.tiers.forEach((t) => m.tiers.add(t));
       soon.platforms.forEach((p) => m.platforms.add(p));
     }
-    const d = details.get(id) || { title: id, image: null, genres: [], releaseDate: null, description: null, screenshots: [] };
+    // Without details (the store didn't answer) the title is the product id
+    // for now; the catalogue fills it from the last list or gives up.
+    const d = details.get(id) || { title: id, image: null, genres: [], releaseDate: null, description: null, screenshots: [], missing: true };
     return {
       id: `gamepass:${id}`,
       service: 'gamepass',
@@ -130,21 +132,27 @@ async function fetchLive({ market = 'US', language = 'en-us' } = {}) {
       description: d.description,
       screenshots: d.screenshots,
       storeUrl: storeUrl(id),
+      ...(d.missing ? { noDetails: true } : {}),
     };
   });
 }
 
 // Product details (title, art, description…) for many store ids at once.
-async function fetchProducts(ids, { market = 'US', language = 'en-us' } = {}) {
+async function fetchProducts(ids, { market = 'US', language = 'en-us', retryMs = 2000 } = {}) {
   const details = new Map();
-  await mapLimit(chunk(ids, 20), 4, async (batch) => {
+  await mapLimit(chunk(ids, 20), 2, async (batch) => {
     const url = `https://displaycatalog.mp.microsoft.com/v7.0/products?bigIds=${batch.join(',')}` +
       `&market=${market}&languages=${language}`;
-    try {
-      const data = await getJson(url);
-      for (const p of data.Products || []) details.set(p.ProductId, parseProduct(p));
-    } catch {
-      // Missing details just mean a title without artwork.
+    // Microsoft's store sometimes refuses a burst of requests: try a batch
+    // three times before going without its details.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const data = await getJson(url);
+        for (const p of data.Products || []) details.set(p.ProductId, parseProduct(p));
+        return;
+      } catch {
+        if (attempt < 2) await new Promise((r) => setTimeout(r, retryMs * (attempt + 1)));
+      }
     }
   });
   return details;

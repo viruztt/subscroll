@@ -242,6 +242,25 @@ test('Any country: stores it lacks come from the fallback country', () => {
   assert.ok(Regions.COUNTRIES.includes('LT') && Regions.COUNTRIES.length > 240);
 });
 
+test('Games the store gave no details for keep last time\'s; too many blanks refuse the list', () => {
+  const { fillMissingDetails, looksBlank, forgetBlankDay } = require('../src/catalog');
+  const prev = { games: [
+    { id: 'gamepass:AAAAAAAAAAAA', title: 'Halo', image: 'h.jpg', genres: ['Shooter'], altIds: ['gamepass:BBBBBBBBBBBB'] },
+  ] };
+  const blank = (id) => ({ id: `gamepass:${id}`, title: id, image: null, genres: [], noDetails: true });
+  const out = fillMissingDetails([blank('BBBBBBBBBBBB'), { id: 'gamepass:C', title: 'Forza', genres: [] }], prev);
+  assert.deepStrictEqual(out.map((g) => [g.title, g.image, g.noDetails]), [['Halo', 'h.jpg', undefined], ['Forza', undefined, undefined]]);
+  const many = Array.from({ length: 40 }, (_, i) => blank(`X${String(i).padStart(11, '0')}`));
+  assert.throws(() => fillMissingDetails(many, prev), /no details for 40 of 40 games/);
+  // A saved list full of product ids is no baseline, and its "new" stamps go.
+  const broken = { fetchedAt: '2026-10-20T15:51:00Z', games: many.map(({ noDetails, ...g }) => g), history: { firstSeen: { a: '2026-10-20', b: '2026-10-01' }, departed: [] } };
+  assert.ok(looksBlank(broken));
+  assert.ok(!looksBlank(prev));
+  const reset = forgetBlankDay(broken);
+  assert.deepStrictEqual(reset.history.firstSeen, { b: '2026-10-01' });
+  assert.deepStrictEqual(applyHistory(reset, [{ id: 'gamepass:AAAAAAAAAAAA', title: 'Halo' }], 'live:GB').removed, []);
+});
+
 test('Refresh keeps the previous list when every source fails', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'subcat-'));
   const catalog = new Catalog(dir);

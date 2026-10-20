@@ -50,6 +50,21 @@ test('Ubisoft+: Classics on console and PC, Premium adds its own games', async (
   assert.deepStrictEqual(byId['ubisoftplus:C'].tiers, ['premium']);
 });
 
+test('Microsoft\'s store: a refused batch is retried; no answer at all keeps the last list', async () => {
+  let refusals = 1;
+  const store = microsoftCatalogue({ nakupc: ['A', 'B'] });
+  http.setFetch(async (url) => {
+    if (url.includes('displaycatalog') && refusals-- > 0) throw new Error('HTTP 429');
+    return store(url);
+  });
+  assert.strictEqual((await msextras.fetchUbisoftPlus({ retryMs: 1 })).length, 2);
+  http.setFetch(async (url) => {
+    if (url.includes('displaycatalog')) throw new Error('HTTP 503');
+    return store(url);
+  });
+  await assert.rejects(msextras.fetchUbisoftPlus({ retryMs: 1 }), /store didn't answer for the 2 games/);
+});
+
 test('A renamed Microsoft list fails with the names that do exist', async () => {
   http.setFetch(microsoftCatalogue({ gamepass: ['A'], somethingNew: ['B'] }));
   await assert.rejects(msextras.fetchEaPlay({}), /lists: gamepass, somethingNew/);

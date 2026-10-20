@@ -132,6 +132,53 @@ function applyHistory(prev, games, origin, left = []) {
   return { history, added, removed };
 }
 
+// Games the store gave no details for (noDetails) take their name, picture
+// and the rest from the last list. If many are still blank, the store isn't
+// answering and the list is refused, so the last good one stays.
+const DETAIL_FIELDS = ['title', 'image', 'genres', 'developer', 'publisher', 'releaseDate', 'description', 'screenshots'];
+const MAX_BLANK = 0.1;
+function fillMissingDetails(games, prev) {
+  const known = new Map();
+  for (const g of (prev && prev.games) || []) {
+    if (g.noDetails || g.title === g.id.split(':').pop()) continue;
+    for (const id of [g.id, ...(g.altIds || [])]) known.set(id.split(':').pop(), g);
+  }
+  let blank = 0;
+  const out = games.map((g) => {
+    if (!g.noDetails) return g;
+    const { noDetails, ...rest } = g;
+    const old = known.get(g.id.split(':').pop());
+    if (!old) {
+      blank += 1;
+      return rest;
+    }
+    const filled = { ...rest };
+    for (const f of DETAIL_FIELDS) if (old[f] != null) filled[f] = old[f];
+    return filled;
+  });
+  if (blank > Math.max(5, games.length * MAX_BLANK)) {
+    throw new Error(`the store gave no details for ${blank} of ${games.length} games`);
+  }
+  return out;
+}
+
+// A blank list becomes no baseline at all, and the "new" stamps it handed
+// out that day (mostly false) are dropped.
+function forgetBlankDay(prev) {
+  const day = (prev.fetchedAt || '').slice(0, 10);
+  const firstSeen = Object.fromEntries(Object.entries(prev.history?.firstSeen || {}).filter(([, d]) => d !== day));
+  return { ...prev, source: 'bundled', history: { ...prev.history, firstSeen } };
+}
+
+// A saved list where many titles are bare product ids came from a refresh
+// when Microsoft's store wasn't answering; comparing with it would show
+// false arrivals and departures.
+const looksBlank = (entry) => {
+  const games = (entry && entry.games) || [];
+  const blank = games.filter((g) => /^[0-9A-Z]{12}$/.test(g.title) && g.id.endsWith(`:${g.title}`)).length;
+  return blank > Math.max(5, games.length * MAX_BLANK);
+};
+
 // Stores fill unknown release dates with placeholders, such as Microsoft's
 // 9998-12-30 for games without a date yet. Those count as no date.
 function realDate(d) {
@@ -223,16 +270,17 @@ class Catalog {
     const errors = [];
     for (const source of ['live', 'mirror'].filter((s) => provider[s])) {
       try {
-        const all = cleanDates(mergeDuplicates(await provider[source](settings, service === 'applearcade' ? this.appStoreDir() : this.dir)));
+        const prev = this.load(service);
+        const fetched = fillMissingDetails(await provider[source](settings, service === 'applearcade' ? this.appStoreDir() : this.dir), prev);
+        const all = cleanDates(mergeDuplicates(fetched));
         const left = all.filter((g) => g.gone);
         let games = all.filter((g) => !g.gone);
         if (service === 'nso') games = await covers.apply(games, path.join(this.dir, 'covers'));
         if (service === 'antstream') games = await covers.apply(games, path.join(this.dir, 'covers'), (g) => covers.systemName(g.system));
         if (service === 'applearcade') games = arcade.applyCached(games, this.appStoreDir());
         if (games.length === 0) throw new Error('empty list');
-        const prev = this.load(service);
         const origin = originOf(service, source, settings);
-        const { history, added, removed } = applyHistory(prev, games, origin, left);
+        const { history, added, removed } = applyHistory(looksBlank(prev) ? forgetBlankDay(prev) : prev, games, origin, left);
         const entry = { service, source, origin, fetchedAt: new Date().toISOString(), games, history };
         writeJson(this.fileFor(service), entry);
         this.cache[service] = entry;
@@ -245,4 +293,4 @@ class Catalog {
   }
 }
 
-module.exports = { Catalog, SERVICES, mergeDuplicates, applyHistory, titleKey, realDate };
+module.exports = { Catalog, SERVICES, mergeDuplicates, applyHistory, titleKey, realDate, fillMissingDetails, looksBlank, forgetBlankDay };

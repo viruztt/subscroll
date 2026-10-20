@@ -61,7 +61,7 @@ Under **Updates** in Settings you can turn off the automatic download (Subscroll
 
 Other services can be added under **Add another service** in Settings, with their games added by hand.
 
-If a live source fails, the app falls back to community mirrors on GitHub ([catabox](https://github.com/nanhopper/catabox), [ps-plus-games-list](https://github.com/ppazour/ps-plus-games-list)), and if those fail too it keeps the last list it had. A snapshot ships with the app so it works offline from the first launch.
+If a live source fails, the app falls back to community mirrors on GitHub ([catabox](https://github.com/nanhopper/catabox), [ps-plus-games-list](https://github.com/ppazour/ps-plus-games-list)), and if those fail too it keeps the last list it had. Microsoft's store sometimes refuses part of a burst of requests: the app asks again, takes names and pictures it still lacks from the last list, and refuses a list where more than a tenth of the games would show only a product code. A snapshot ships with the app so it works offline from the first launch.
 
 Game Pass Ultimate includes EA Play and Ubisoft+ Classics, so those games count as in your plans when you have Ultimate. PC Game Pass includes EA Play on PC only, so EA Play's Xbox console games (such as Xbox 360 ones) don't count with it.
 

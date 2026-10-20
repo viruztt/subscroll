@@ -16,7 +16,7 @@ const SOURCES = {
   ],
 };
 
-async function fetchService(service, { market = 'US', language = 'en-us' } = {}) {
+async function fetchService(service, { market = 'US', language = 'en-us', retryMs } = {}) {
   const lists = await gamepass.fetchSubscriptionLists(market);
   const members = new Map();
   for (const { list, tier, platform } of SOURCES[service]) {
@@ -30,12 +30,16 @@ async function fetchService(service, { market = 'US', language = 'en-us' } = {})
     // Say which lists exist, so a renamed list is easy to spot.
     throw new Error(`no ${service} list in Microsoft's catalogue (lists: ${Object.keys(lists).join(', ')})`);
   }
-  const details = await gamepass.fetchProducts([...members.keys()], { market, language });
+  const details = await gamepass.fetchProducts([...members.keys()], { market, language, retryMs });
+  // No details at all means the store didn't answer: say so, and keep the last list.
+  if (!details.size) throw new Error(`Microsoft's store didn't answer for the ${members.size} games in Microsoft's ${service} lists`);
   const games = [];
   for (const [id, m] of members) {
-    const d = details.get(id);
+    // Without details (the store didn't answer for it) the catalogue fills
+    // them in from the last list.
+    const d = details.get(id) || { title: id, image: null, genres: [], releaseDate: null, description: null, screenshots: [], missing: true };
     // Lists include add-ons and bundles that aren't games.
-    if (!d || d.kind && d.kind !== 'Game') continue;
+    if (d.kind && d.kind !== 'Game') continue;
     games.push({
       id: `${service}:${id}`,
       service,
@@ -51,6 +55,7 @@ async function fetchService(service, { market = 'US', language = 'en-us' } = {})
       description: d.description,
       screenshots: d.screenshots,
       storeUrl: gamepass.storeUrl(id),
+      ...(d.missing ? { noDetails: true } : {}),
     });
   }
   return games;
