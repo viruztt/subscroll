@@ -1053,6 +1053,67 @@ function renderComing() {
   renderGrid(list, t('Nothing announced right now.'));
 }
 
+// ---------- now playing ----------
+// How far into a game you are: your hours (or Steam's) against How Long To Beat.
+function playProgress(g) {
+  const played = playedHours(g)?.hours || 0;
+  const beat = beatHours(g);
+  return { played, beat, share: beat ? Math.min(1, played / beat) : null, left: beat ? Math.max(0, beat - played) : null };
+}
+
+function progressBlock(g) {
+  const p = playProgress(g);
+  const text = p.beat
+    ? (p.played ? (p.played >= p.beat ? t('{played} played, past its {beat} main story', { played: fmtHours(p.played), beat: fmtHours(p.beat) }) : t('{played} of {beat} · {left} to go', { played: fmtHours(p.played), beat: fmtHours(p.beat), left: fmtHours(p.left) })) : t('{beat} to beat', { beat: fmtHours(p.beat) }))
+    : (p.played ? t('{played} played', { played: fmtHours(p.played) }) : t('No time yet'));
+  // One more hour: adds to your own hours, or starts from Steam's.
+  const plus = el('button', {
+    class: 'mark plus-hour',
+    title: t('Add an hour to your hours played'),
+    onclick: async (e) => {
+      e.stopPropagation();
+      await setNote(g.id, { hours: Math.round((p.played + 1) * 10) / 10 });
+      render(true);
+    },
+  }, t('+1h'));
+  return el('div', { class: 'progress' },
+    p.share != null ? el('div', { class: 'bar', title: t('Hours played against How Long To Beat\'s main story') }, el('span', { class: 'bar-playing', style: `width:${p.share * 100}%` })) : null,
+    el('div', { class: 'progress-line' }, el('span', { class: 'muted' }, text), plus));
+}
+
+// Games you're playing now: leaving soon first, then the ones you're furthest into.
+function renderPlaying() {
+  const keys = unlocked();
+  const list = filtered(games.filter((g) => markOf(g.id) === 'playing'));
+  const leaving = (g) => { const l = leaveInfo(g); return l && l.soon && !l.past ? (l.date || '9999') : null; };
+  list.sort((a, b) => {
+    const la = leaving(a);
+    const lb = leaving(b);
+    if (la || lb) return !la ? 1 : !lb ? -1 : la.localeCompare(lb);
+    return (playProgress(b).share ?? -1) - (playProgress(a).share ?? -1) || a.title.localeCompare(b.title, I18n.locale());
+  });
+  const left = list.reduce((sum, g) => sum + (playProgress(g).left || 0), 0);
+  $('#summary').textContent = list.length
+    ? `${tn(list.length, '{n} game on the go', '{n} games on the go')}${left ? ` · ${t('about {hours} left to beat them', { hours: fmtHours(left) })}` : ''}`
+    : '';
+  const content = $('#content');
+  content.replaceChildren();
+  if (!list.length) {
+    content.append(el('div', { class: 'empty' }, t('Mark a game ▶ Now playing (hover its cover) and it shows up here, with how far you are.')));
+    return;
+  }
+  const grid = gameGrid(list, keys);
+  for (const node of grid.children) {
+    const g = list.find((x) => x.id === node.dataset.id);
+    if (!g) continue;
+    // In the list it sits before the buttons at the end of the line.
+    const actions = node.querySelector('.row-actions');
+    if (actions) actions.before(progressBlock(g));
+    else node.querySelector('.body').append(progressBlock(g));
+  }
+  content.append(grid);
+}
+
 function renderMine() {
   const list = sorted(filtered(games.filter((g) => markOf(g.id) !== 'none')));
   const done = list.filter((g) => markOf(g.id) === 'completed').length;
@@ -2844,6 +2905,7 @@ function renderChrome() {
   $('#leaving-count').textContent = leaving || '';
   $('#coming-count').textContent = games.filter((g) => isComing(g) && (!ui.mineOnly || isMine(g, keys))).length || '';
   // Games on your To play list you can start now.
+  $('#playing-count').textContent = games.filter((g) => markOf(g.id) === 'playing').length || '';
   $('#toplay-count').textContent = games.filter((g) => markOf(g.id) === 'wishlist' && !isComing(g) && isMine(g, keys)).length || '';
   $('#free-count').textContent = openFree().length || '';
 
@@ -2866,6 +2928,7 @@ function toolbarNeeded() {
   if (['subs', 'stats', 'value', 'foryou', 'free'].includes(ui.view)) return false;
   if (ui.view === 'toplay') return games.some((g) => markOf(g.id) === 'wishlist') || departed.some((d) => state.marks[d.id] === 'wishlist');
   if (ui.view === 'mine') return games.some((g) => markOf(g.id) !== 'none');
+  if (ui.view === 'playing') return games.some((g) => markOf(g.id) === 'playing');
   if (ui.view === 'coming') return games.some(isComing);
   if (ui.view === 'leaving') return games.some((g) => leaveInfo(g));
   return true;
@@ -2915,7 +2978,7 @@ function render(keepScroll = false) {
   const top = content.scrollTop;
   if (!keepScroll) ui.shown = PAGE_SIZE;
   renderChrome();
-  ({ foryou: renderForYou, browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, toplay: renderToPlay, free: renderFree, calendar: renderCalendar, stats: renderStats, value: renderValue, subs: renderSubs })[ui.view]();
+  ({ foryou: renderForYou, browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, playing: renderPlaying, toplay: renderToPlay, free: renderFree, calendar: renderCalendar, stats: renderStats, value: renderValue, subs: renderSubs })[ui.view]();
   compactSummary();
   if (keepScroll) content.scrollTop = top;
   if (drawerGame) openDrawer(drawerGame);

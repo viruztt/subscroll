@@ -10,6 +10,7 @@
     "({source})": "({source})",
     "+ Add another period": "+ Weiteren Zeitraum hinzufügen",
     "+ Extras": "+ Extras",
+    "+1h": "+1 Std.",
     "+{n} more": "+{n} weitere",
     ". One plan a month, counting games announced for the next few months.": ". Ein Abo pro Monat, mitgezählt sind Spiele, die für die nächsten Monate angekündigt sind.",
     "10 to 20 hours": "10 bis 20 Stunden",
@@ -28,6 +29,7 @@
     "Action & adventure": "Action & Abenteuer",
     "Add a game to your own service": "Spiel zu deinem eigenen Dienst hinzufügen",
     "Add a plan you paid for before…": "Ein früher bezahltes Abo hinzufügen…",
+    "Add an hour to your hours played": "Eine Stunde zu deinen Spielstunden hinzufügen",
     "Add another service": "Weiteren Dienst hinzufügen",
     "Add game": "Spiel hinzufügen",
     "Add goal": "Ziel hinzufügen",
@@ -276,6 +278,7 @@
     "Horror": "Horror",
     "Hours for {timed} of {total} games; the rest counted at their average": "Stunden für {timed} von {total} Spielen; der Rest mit dem Durchschnitt gerechnet",
     "Hours played": "Gespielte Stunden",
+    "Hours played against How Long To Beat's main story": "Gespielte Stunden im Verhältnis zur Hauptstory laut How Long To Beat",
     "Hours played, or How Long To Beat main-story time, of {n} of your completed games": "Gespielte Stunden oder Hauptstory-Zeit von How Long To Beat für {n} deiner durchgespielten Spiele",
     "Hours you play a week": "Spielstunden pro Woche",
     "How Long To Beat main story": "How Long To Beat, Hauptstory",
@@ -353,6 +356,7 @@
     "Longest to beat": "Längste Spieldauer",
     "Looking for giveaways…": "Suche nach Gratisaktionen…",
     "Main": "Hauptstory",
+    "Mark a game ▶ Now playing (hover its cover) and it shows up here, with how far you are.": "Markiere ein Spiel als ▶ Spiele ich gerade (über das Cover fahren), dann erscheint es hier mit deinem Fortschritt.",
     "Mark as completed": "Als durchgespielt markieren",
     "Mark as dropped: started, but you stopped": "Als abgebrochen markieren: angefangen, aber aufgehört",
     "Mark as now playing": "Als „Spiele ich gerade“ markieren",
@@ -396,6 +400,7 @@
     "No longer available": "Nicht mehr verfügbar",
     "No plans picked yet.": "Noch keine Abos ausgewählt.",
     "No streak yet": "Noch keine Serie",
+    "No time yet": "Noch keine Zeit",
     "None of your plans has {platform} games.": "Keiner deiner Pläne hat {platform}-Spiele.",
     "Not checked yet.": "Noch nicht geprüft.",
     "Not counted yet": "Noch nicht gezählt",
@@ -705,6 +710,7 @@
     "a guess, as Steam shows no play in the last two weeks and you haven't completed games lately": "geschätzt, da Steam in den letzten zwei Wochen keine Spielzeit zeigt und du zuletzt keine Spiele durchgespielt hast",
     "a month": "1 Monat",
     "a year": "1 Jahr",
+    "about {hours} left to beat them": "noch etwa {hours}, um sie durchzuspielen",
     "an hour if bought": "pro Stunde beim Kauf",
     "an hour played": "pro gespielter Stunde",
     "as you set it": "wie von dir eingestellt",
@@ -771,6 +777,7 @@
     "week": "Woche",
     "within the hour": "innerhalb der nächsten Stunde",
     "year": "Jahr",
+    "{beat} to beat": "{beat} zum Durchspielen",
     "{completed} completed, {played} started, of {total}": "{completed} abgeschlossen, {played} angefangen, von {total}",
     "{completed} of {total} completed · {played} started": "{completed} von {total} abgeschlossen · {played} angefangen",
     "{count} games in your plans across {n} service|{count} games in your plans across {n} services": {
@@ -866,6 +873,10 @@
     "{n} game marked · {playing} now playing · {done} completed · {ignored} ignored|{n} games marked · {playing} now playing · {done} completed · {ignored} ignored": {
       "one": "{n} Spiel markiert · {playing} gerade gespielt · {done} abgeschlossen · {ignored} ignoriert",
       "other": "{n} Spiele markiert · {playing} gerade gespielt · {done} abgeschlossen · {ignored} ignoriert"
+    },
+    "{n} game on the go|{n} games on the go": {
+      "one": "{n} Spiel läuft gerade",
+      "other": "{n} Spiele laufen gerade"
     },
     "{n} game to play · {ready} ready now|{n} games to play · {ready} ready now": {
       "one": "{n} Spiel auf der Merkliste · {ready} jetzt spielbereit",
@@ -968,6 +979,9 @@
       "other": "{plan}: {price} für {n} Monate ({monthly} pro Monat)"
     },
     "{played} and {completed}": "{played} und {completed}",
+    "{played} of {beat} · {left} to go": "{played} von {beat} · noch {left}",
+    "{played} played": "{played} gespielt",
+    "{played} played, past its {beat} main story": "{played} gespielt, über die {beat} der Hauptstory hinaus",
     "{price} an hour over about {hours} hours": "{price} pro Stunde bei etwa {hours} Stunden",
     "{price} more than buying": "{price} mehr als beim Kaufen",
     "{price} paid over {n} month|{price} paid over {n} months": {

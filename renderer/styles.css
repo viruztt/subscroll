@@ -63,18 +63,25 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
   background: none;
   border: 0;
   border-radius: 8px;
-  padding: 7px 10px;
+  padding: 6px 10px;
   color: var(--muted);
 }
 /* Pages grouped under small headings. */
-.nav-head { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); opacity: .7; padding: 10px 10px 3px; }
+.nav-head { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); opacity: .7; padding: 8px 10px 2px; }
 .nav-head:first-child { padding-top: 0; }
-.nav-sep { height: 1px; background: var(--line); margin: 8px 10px; }
+.nav-sep { height: 1px; background: var(--line); margin: 6px 10px; flex: none; }
 #nav button:hover { background: var(--panel-2); color: var(--text); }
 #nav button.active { background: var(--panel-2); color: var(--text); font-weight: 600; }
 #nav .count { background: var(--warn); color: #111; border-radius: 10px; padding: 0 7px; font-size: 12px; font-weight: 700; }
 #nav .count:empty { display: none; }
 #nav #toplay-count { background: var(--accent); color: #0a1a33; }
+#nav #playing-count { background: var(--ok); color: #0b2a1d; }
+/* Now playing: how far you are, and +1h. */
+.progress { display: flex; flex-direction: column; gap: 6px; margin-top: auto; font-size: 12px; }
+.progress .bar { height: 6px; }
+.progress-line { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.mark.plus-hour { flex: none; padding: 2px 8px; }
+.card.row .progress { margin-top: 0; flex: 0 1 220px; min-width: 150px; }
 .sync { font-size: 12px; padding: 0 8px; flex: none; }
 /* One line ("Catalogues updated today"); click it for each catalogue's date. */
 .sync summary { cursor: pointer; color: var(--muted); list-style: none; }
@@ -414,7 +421,8 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .card.row .title { flex: 0 1 280px; min-width: 120px; -webkit-line-clamp: 1; }
 .card.row .meta { flex: 0 1 260px; min-width: 0; flex-wrap: nowrap; overflow: hidden; white-space: nowrap; }
 .card.row .stats { flex: none; }
-.row-badges { display: flex; flex-wrap: wrap; gap: 4px; flex: 1 1 0; min-width: 0; }
+.row-badges { display: flex; flex-wrap: wrap; gap: 4px; flex: 1 1 140px; min-width: 0; }
+.row-badges .badge, .row-badges .deadline { white-space: nowrap; }
 .row-badges .badge { color: #fff; }
 .row-badges .deadline { font-size: 12px; }
 .row-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; flex: none; }
