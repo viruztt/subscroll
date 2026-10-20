@@ -38,7 +38,7 @@ Your plans and marks stay on your computer and carry over when you download a ne
 
 Subscroll updates itself. It checks GitHub for a new version twice a day, downloads it next to the file you're running, and checks it against the checksum GitHub publishes for that file. A box in the sidebar then says the new version is ready: click **Restart to update**, or carry on and it switches over the next time Subscroll starts (Windows startup included). The old file is deleted afterwards. Your plans, marks and settings carry over.
 
-If you keep the release's file name (`Subscroll-0.4.0-….exe`), the new version arrives under its own name. If you've pinned Subscroll to the taskbar or made a shortcut, rename the file to `Subscroll.exe` (or `Subscroll.AppImage`) first: updates then keep that name, so the shortcut keeps working. The folder must be one you can write to, such as Downloads or Documents.
+If you keep the release's file name (`Subscroll-0.5.0-….exe`), the new version arrives under its own name. If you've pinned Subscroll to the taskbar or made a shortcut, rename the file to `Subscroll.exe` (or `Subscroll.AppImage`) first: updates then keep that name, so the shortcut keeps working. The folder must be one you can write to, such as Downloads or Documents.
 
 Under **Updates** (Settings › **Background and updates**) you can turn off the automatic download (Subscroll then asks first, with a **Download and install** button), turn off the check altogether, or check straight away. Copies started from source (`npm start`) only show a download link.
 
