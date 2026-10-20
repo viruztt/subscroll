@@ -207,6 +207,7 @@
     "Goals leave out completed games without a date": "날짜 없는 클리어 게임은 목표에 포함되지 않아요",
     "Hide completed": "클리어 숨기기",
     "Hide departed": "종료된 게임 숨기기",
+    "Hide dropped": "중단한 게임 숨기기",
     "Hide ignored": "무시한 게임 숨기기",
     "Hide it and skip its reminder": "숨기고 알림 받지 않기",
     "Hide them": "숨기기",

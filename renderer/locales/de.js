@@ -258,6 +258,7 @@
     "Goals leave out completed games without a date": "Ziele lassen durchgespielte Spiele ohne Datum aus",
     "Hide completed": "Durchgespielte ausblenden",
     "Hide departed": "Entfernte ausblenden",
+    "Hide dropped": "Abgebrochene ausblenden",
     "Hide ignored": "Ignorierte ausblenden",
     "Hide it and skip its reminder": "Ausblenden und keine Erinnerung",
     "Hide them": "Ausblenden",

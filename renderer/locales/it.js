@@ -258,6 +258,7 @@
     "Goals leave out completed games without a date": "Gli obiettivi escludono i giochi completati senza data",
     "Hide completed": "Nascondi completati",
     "Hide departed": "Nascondi rimossi",
+    "Hide dropped": "Nascondi abbandonati",
     "Hide ignored": "Nascondi ignorati",
     "Hide it and skip its reminder": "Nascondilo e salta il promemoria",
     "Hide them": "Nascondili",

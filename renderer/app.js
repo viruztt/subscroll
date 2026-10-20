@@ -340,6 +340,8 @@ const hideDeparted = () => !!state.settings.hideDeparted;
 const hideCompleted = () => !!state.settings.hideCompleted && ui.view !== 'mine';
 // Picking "Ignored" in the status filter shows them anyway, to un-ignore.
 const hideIgnored = () => state.settings.hideIgnored !== false && ui.view !== 'mine' && ui.status !== 'ignored';
+// Same for dropped games: they stay on My games and under the "Dropped" filter.
+const hideDropped = () => !!state.settings.hideDropped && ui.view !== 'mine' && ui.status !== 'dropped';
 
 function filtered(list, { keepDeparted = false } = {}) {
   const keys = unlocked();
@@ -351,6 +353,7 @@ function filtered(list, { keepDeparted = false } = {}) {
     if (!keepDeparted && hideDeparted() && (g.leftOn || g.departed || leaveInfo(g)?.past)) return false;
     if (hideCompleted() && markOf(g.id) === 'completed') return false;
     if (hideIgnored() && markOf(g.id) === 'ignored') return false;
+    if (hideDropped() && markOf(g.id) === 'dropped') return false;
     if (ui.status === 'steam' ? !g.steam : ui.status !== 'all' && markOf(g.id) !== ui.status) return false;
     if (!platformOk(g, keys)) return false;
     if (!fitsGenreAndLength(g)) return false;
@@ -2913,7 +2916,7 @@ function wire() {
   $('#length-filter').addEventListener('change', (e) => { ui.length = e.target.value; render(); });
   $('#sort').addEventListener('change', (e) => { ui.sort = e.target.value; render(); });
   $('#mine-only').addEventListener('change', (e) => { ui.mineOnly = e.target.checked; render(); });
-  for (const [id, setting] of [['#hide-departed', 'hideDeparted'], ['#hide-completed', 'hideCompleted'], ['#hide-ignored', 'hideIgnored']]) {
+  for (const [id, setting] of [['#hide-departed', 'hideDeparted'], ['#hide-completed', 'hideCompleted'], ['#hide-dropped', 'hideDropped'], ['#hide-ignored', 'hideIgnored']]) {
     $(id).addEventListener('change', async (e) => {
       await saveState({ settings: { ...state.settings, [setting]: e.target.checked } });
       render(true);
@@ -2955,6 +2958,7 @@ async function init() {
   $('#hide-departed').checked = hideDeparted();
   $('#hide-completed').checked = !!state.settings.hideCompleted;
   $('#hide-ignored').checked = state.settings.hideIgnored !== false;
+  $('#hide-dropped').checked = !!state.settings.hideDropped;
   if (!hasSubs) ui.view = 'subs';
   // Back where you were after switching language.
   try {

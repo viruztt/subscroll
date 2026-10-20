@@ -207,6 +207,7 @@
     "Goals leave out completed games without a date": "日付のないクリア済みゲームは目標に含まれません",
     "Hide completed": "クリア済みを隠す",
     "Hide departed": "終了したゲームを隠す",
+    "Hide dropped": "途中でやめたゲームを隠す",
     "Hide ignored": "無視したゲームを隠す",
     "Hide it and skip its reminder": "非表示にして通知もしない",
     "Hide them": "隠す",

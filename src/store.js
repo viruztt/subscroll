@@ -11,7 +11,7 @@ const DEFAULT_STATE = {
   costs: {}, // serviceId -> { monthly, since: 'YYYY-MM' }, for the Value page
   priceOverrides: {}, // gameId -> price the user entered
   viaSub: {}, // gameId -> whether it was played through a subscription (when the user changed it)
-  settings: { region: 'US', market: 'US', language: 'en-us', psLocale: 'en-us', autoRefreshHours: 24, hideDeparted: false, hideCompleted: false, hideIgnored: true, closeToTray: true, startWithWindows: false, alerts: true },
+  settings: { region: 'US', market: 'US', language: 'en-us', psLocale: 'en-us', autoRefreshHours: 24, hideDeparted: false, hideCompleted: false, hideDropped: false, hideIgnored: true, closeToTray: true, startWithWindows: false, alerts: true },
 };
 
 // The country picker sets every store code at once (renderer/regions.js).

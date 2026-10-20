@@ -258,6 +258,7 @@
     "Goals leave out completed games without a date": "As metas não contam jogos concluídos sem data",
     "Hide completed": "Ocultar concluídos",
     "Hide departed": "Ocultar os que saíram",
+    "Hide dropped": "Ocultar abandonados",
     "Hide ignored": "Ocultar ignorados",
     "Hide it and skip its reminder": "Ocultar e pular o lembrete",
     "Hide them": "Ocultá-los",
