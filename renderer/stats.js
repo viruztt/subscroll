@@ -1,6 +1,6 @@
 // Numbers for the Statistics page. The app passes its merged game list and
 // a few helpers, so this stays plain arithmetic (and testable):
-//   markOf(game)     'played' | 'completed' | 'ignored' | 'wishlist' | 'none'
+//   markOf(game)     'playing' | 'played' | 'completed' | 'dropped' | 'ignored' | 'wishlist' | 'none'
 //   myServices(game) services offering it in your plans, lead service first
 //   hours(game)      How Long To Beat main-story hours, or null
 //   score(game)      Metacritic score, or null
@@ -32,14 +32,16 @@
     return out;
   }
 
+  const STARTED = new Set(['playing', 'played', 'dropped']);
+
   function compute(games, { markOf, myServices, myPlatforms, hours, score, subscribed = [] }) {
-    const totals = { inPlans: 0, completed: 0, played: 0, ignored: 0 };
+    const totals = { inPlans: 0, completed: 0, playing: 0, played: 0, dropped: 0, ignored: 0 };
     // Games in your plans, by status.
-    const plans = { completed: 0, played: 0, wishlist: 0, ignored: 0, untouched: 0 };
+    const plans = { completed: 0, playing: 0, played: 0, dropped: 0, wishlist: 0, ignored: 0, untouched: 0 };
     // The games behind each number, for listing them when a chart is clicked.
-    const planGames = { completed: [], played: [], wishlist: [], ignored: [], untouched: [] };
+    const planGames = { completed: [], playing: [], played: [], dropped: [], wishlist: [], ignored: [], untouched: [] };
     const completedGames = new Map();
-    const marked = { completed: [], played: [] };
+    const marked = { completed: [], playing: [], played: [], dropped: [] };
     const steamGames = [];
     const genreGames = new Map();
     const services = new Map(subscribed.map((s) => [s, { service: s, inPlans: 0, played: 0, completed: 0 }]));
@@ -54,6 +56,8 @@
 
     for (const g of games) {
       const mark = markOf(g);
+      // Bars split games into completed and started (playing, played or dropped).
+      const step = mark === 'completed' ? 'completed' : STARTED.has(mark) ? 'played' : null;
       const mine = myServices(g);
       if (mark in totals) totals[mark] += 1;
       marked[mark]?.push(g);
@@ -73,11 +77,11 @@
         if (!platforms.has(p)) platforms.set(p, { platform: p, inPlans: 0, played: 0, completed: 0, marked: 0 });
         const row = platforms.get(p);
         // played/completed count games in your plans, so the bar stays within
-        // them; marked counts every played or completed game on the platform.
-        if (mark === 'played' || mark === 'completed') row.marked += 1;
+        // them; marked counts every started or completed game on the platform.
+        if (step) row.marked += 1;
         if (yours.has(p)) {
           row.inPlans += 1;
-          if (mark === 'played' || mark === 'completed') row[mark] += 1;
+          if (step) row[step] += 1;
         }
       }
       // Per service, a game in two of your services counts for both.
@@ -85,7 +89,7 @@
         const row = services.get(s);
         if (!row) continue;
         row.inPlans += 1;
-        if (mark === 'played' || mark === 'completed') row[mark] += 1;
+        if (step) row[step] += 1;
       }
       const h = hours(g);
       if (mark === 'completed') {
@@ -108,7 +112,7 @@
           scoreSum += sc;
           scored += 1;
         }
-      } else if (mark === 'played' && h != null) {
+      } else if ((mark === 'played' || mark === 'playing') && h != null) {
         time.playing += h;
         time.playingTimed += 1;
       }
@@ -120,7 +124,8 @@
       plans,
       planGames,
       // Completed out of everything you've started.
-      finishRate: totals.completed + totals.played ? totals.completed / (totals.completed + totals.played) : null,
+      finishRate: totals.completed + totals.played + totals.playing + totals.dropped
+        ? totals.completed / (totals.completed + totals.played + totals.playing + totals.dropped) : null,
       services: [...services.values()].sort((a, b) => b.inPlans - a.inPlans),
       platforms: [...platforms.values()].sort((a, b) => PLATFORMS.indexOf(a.platform) - PLATFORMS.indexOf(b.platform)),
       completedBy: [...completedBy].sort(byCount).map(([service, count]) => ({ service, count, games: completedGames.get(service) })),

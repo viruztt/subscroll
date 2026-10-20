@@ -4,7 +4,7 @@ const Regions = require('../renderer/regions');
 
 const DEFAULT_STATE = {
   subscriptions: {}, // serviceId -> tierId
-  marks: {}, // gameId -> 'played' | 'completed' | 'ignored'
+  marks: {}, // gameId -> 'playing' | 'played' | 'completed' | 'dropped' | 'ignored' | 'wishlist'
   leaveDates: {}, // gameId -> 'YYYY-MM-DD', entered by the user
   customServices: [], // { id, name, color, tiers: [{ id, name, includes }] }
   customGames: [], // same shape as catalogue games, service = a custom service id

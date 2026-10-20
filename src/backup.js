@@ -7,7 +7,7 @@
 // app fetches those again.
 const FORMAT = 'subscroll-backup';
 const VERSION = 2;
-const MARKS = new Set(['played', 'completed', 'ignored', 'wishlist']);
+const MARKS = new Set(['playing', 'played', 'completed', 'dropped', 'ignored', 'wishlist']);
 const FREE_MARKS = new Set(['claimed', 'skip']);
 const FIELDS = [
   'subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings', 'costs', 'priceOverrides', 'viaSub',

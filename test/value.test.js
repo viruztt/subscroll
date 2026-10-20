@@ -134,3 +134,26 @@ test('Value: cost per hour, per service and per game', () => {
   const plain = compute(games, { markOf: () => 'completed', myServices: (g) => [g.svc], price: () => null, viaSub: () => true, today: '2026-10-18' });
   assert.deepStrictEqual([plain.hours, plain.perHour, plain.boughtPerHour], [0, null, null]);
 });
+
+test('Value: dropped games count for their share, now playing only with played ones', () => {
+  const games = [
+    { id: 'a', title: 'A', offers: [{ id: 'a', service: 'gamepass' }] },
+    { id: 'b', title: 'B', offers: [{ id: 'b', service: 'gamepass' }] },
+    { id: 'c', title: 'C', offers: [{ id: 'c', service: 'gamepass' }] },
+  ];
+  const marks = { a: 'completed', b: 'dropped', c: 'playing' };
+  const opts = {
+    markOf: (g) => marks[g.id],
+    myServices: () => ['gamepass'],
+    price: () => ({ amount: 40 }),
+    viaSub: () => true,
+    share: (g) => (g.id === 'b' ? 0.25 : 1),
+    today: '2026-10-20',
+  };
+  const v = compute(games, opts);
+  assert.strictEqual(v.games, 2);
+  assert.strictEqual(v.worth, 50);
+  const b = v.list.find((x) => x.game.id === 'b');
+  assert.deepStrictEqual([b.price.amount, b.price.fullAmount, b.price.share], [10, 40, 0.25]);
+  assert.strictEqual(compute(games, { ...opts, includePlayed: true }).worth, 90);
+});

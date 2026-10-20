@@ -1,11 +1,13 @@
 // Numbers for the Value page: what the games you beat through your
 // subscriptions would cost to buy, against what the subscriptions cost.
 // The app passes its game list and helpers:
-//   markOf(game)     'played' | 'completed' | …
+//   markOf(game)     'completed' | 'dropped' | 'played' | 'playing' | …
 //   myServices(game) services offering it in your plans, lead service first
 //   price(game)      { amount, … } in your currency, or null
 //   viaSub(game)     whether you played it through a subscription
 //   hours(game)      How Long To Beat hours, or null (optional)
+//   share(game)      the part of its price a game counts for (dropped games
+//                    count for the part you played), 1 when left out
 //   costs            { serviceId: { periods: [{ from: 'YYYY-MM', to: 'YYYY-MM' | null, monthly, plan }] } }
 //                    (older saves: { monthly, since }, read as one open period)
 (function (root) {
@@ -37,11 +39,11 @@
   // at the average of the ones with.
   const estimate = (hours, timed, games) => (timed ? hours * (games / timed) : 0);
 
-  function compute(games, { markOf, myServices, price, viaSub, hours = () => null, costs = {}, today, includePlayed = false }) {
-    const counts = (g) => {
-      const mark = markOf(g);
-      return (mark === 'completed' || (includePlayed && mark === 'played')) && viaSub(g);
-    };
+  // Completed and dropped games always count; played and now playing ones when asked.
+  const counted = (mark, includePlayed) => mark === 'completed' || mark === 'dropped' || (includePlayed && (mark === 'played' || mark === 'playing'));
+
+  function compute(games, { markOf, myServices, price, viaSub, hours = () => null, share = () => 1, costs = {}, today, includePlayed = false }) {
+    const counts = (g) => counted(markOf(g), includePlayed) && viaSub(g);
     const services = new Map();
     const row = (s) => {
       if (!services.has(s)) services.set(s, { service: s, monthly: null, since: null, months: 0, paid: 0, value: 0, games: 0, hours: 0, timed: 0 });
@@ -69,7 +71,10 @@
     let boughtHours = 0;
     for (const g of games) {
       if (!counts(g)) continue;
-      const p = price(g);
+      const full = price(g);
+      const part = Math.min(1, Math.max(0, Number(share(g)) || 0));
+      // A dropped game's price counts for the part of it you played.
+      const p = full && part < 1 ? { ...full, amount: full.amount * part, fullAmount: full.amount, share: part } : full;
       const s = myServices(g)[0] || (g.offers || [g])[0].service;
       const r = row(s);
       r.games += 1;
@@ -117,7 +122,7 @@
     };
   }
 
-  const api = { compute, monthsSince, periodsOf, monthsIn };
+  const api = { compute, counted, monthsSince, periodsOf, monthsIn };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Value = api;
 })(this);

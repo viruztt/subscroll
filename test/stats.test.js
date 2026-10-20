@@ -22,8 +22,8 @@ const st = compute(games, {
 });
 
 test('Statistics: totals and your plans by status', () => {
-  assert.deepStrictEqual(st.totals, { inPlans: 5, completed: 3, played: 1, ignored: 1 });
-  assert.deepStrictEqual(st.plans, { completed: 2, played: 1, wishlist: 1, ignored: 1, untouched: 0 });
+  assert.deepStrictEqual(st.totals, { inPlans: 5, completed: 3, playing: 0, played: 1, dropped: 0, ignored: 1 });
+  assert.deepStrictEqual(st.plans, { completed: 2, playing: 0, played: 1, dropped: 0, wishlist: 1, ignored: 1, untouched: 0 });
   assert.strictEqual(st.finishRate, 3 / 4);
   assert.strictEqual(st.steamOwned, 1);
 });
@@ -69,4 +69,19 @@ test('Stats: platforms group stores\' names, and Switch Online counts as Switch'
   const st = Stats.compute(games, { markOf: (g) => marks[g.id] || 'none', myServices: (g) => (g.service === 'psplus' ? [] : [g.service]), hours: () => null, score: () => null });
   // A game outside your plans doesn't fill the plan bar (it would run past 100%), but still shows the platform.
   assert.deepStrictEqual(st.platforms.map((r) => [r.platform, r.inPlans, r.completed, r.played, r.marked]), [['xbox', 1, 1, 0, 1], ['pc', 1, 1, 0, 1], ['playstation', 0, 0, 0, 1], ['switch', 1, 0, 1, 1]]);
+});
+
+test('Statistics: now playing and dropped count as started', () => {
+  const games = [
+    { id: 'p', service: 'gamepass', tiers: ['pc'], platforms: ['pc'] },
+    { id: 'd', service: 'gamepass', tiers: ['pc'], platforms: ['pc'] },
+    { id: 'c', service: 'gamepass', tiers: ['pc'], platforms: ['pc'] },
+  ];
+  const marks = { p: 'playing', d: 'dropped', c: 'completed' };
+  const r = Stats.compute(games, { markOf: (g) => marks[g.id] || 'none', myServices: () => ['gamepass'], hours: () => 10, score: () => null, subscribed: ['gamepass'] });
+  assert.deepStrictEqual([r.totals.playing, r.totals.dropped, r.plans.playing, r.plans.dropped], [1, 1, 1, 1]);
+  assert.deepStrictEqual(r.services[0], { service: 'gamepass', inPlans: 3, played: 2, completed: 1 });
+  assert.strictEqual(r.finishRate, 1 / 3);
+  assert.deepStrictEqual(r.marked.dropped.map((g) => g.id), ['d']);
+  assert.strictEqual(r.time.playing, 10); // now playing counts toward the hours still ahead
 });

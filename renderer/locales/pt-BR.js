@@ -22,6 +22,7 @@
     "A notification when a To play game that isn't in your plans goes on sale (Microsoft Store, PlayStation Store or Steam).": "Uma notificação quando um jogo da lista Para jogar que não está nos seus planos entra em promoção (Microsoft Store, PlayStation Store ou Steam).",
     "A notification when games join a service in your plans, or games in your plans start leaving. Completed and ignored games are left out.": "Uma notificação quando jogos entram em um serviço dos seus planos ou quando jogos dos seus planos começam a sair. Jogos concluídos e ignorados ficam de fora.",
     "A notification when new games are free to keep, and on the last day of ones you haven't marked claimed.": "Uma notificação quando houver novos jogos grátis para sempre e no último dia dos que você não marcou como resgatados.",
+    "A quarter of How Long To Beat's main story time": "Um quarto do tempo da história principal no How Long To Beat",
     "API key saved (enter a new one to replace it)": "Chave de API salva (digite uma nova para substituí-la)",
     "Action & adventure": "Ação e aventura",
     "Add a game to your own service": "Adicionar um jogo ao seu próprio serviço",
@@ -141,6 +142,8 @@
     "Couldn't read your trophies ({error}).": "Não foi possível ler seus troféus ({error}).",
     "Count games you played but didn't finish": "Contar jogos que você jogou mas não terminou",
     "Country ": "País ",
+    "Counts for a quarter of its price: add your hours played in its details to count the part you played": "Conta por um quarto do preço: adicione suas horas jogadas nos detalhes para contar a parte que você jogou",
+    "Counts for the part you played: your hours over How Long To Beat's time": "Conta pela parte que você jogou: suas horas em relação ao tempo do How Long To Beat",
     "Covers {count} of your {n} To play game|Covers {count} of your {n} To play games": {
       "one": "Cobre {count} de {n} jogo da sua lista Para jogar",
       "other": "Cobre {count} dos {n} jogos da sua lista Para jogar"
@@ -157,6 +160,8 @@
     "Download {version}": "Baixar {version}",
     "Downloading Subscroll {version}: {percent}% done.": "Baixando o Subscroll {version}: {percent}% concluído.",
     "Downloading Subscroll {version}…": "Baixando o Subscroll {version}…",
+    "Dropped": "Abandonado",
+    "Dropped games count for the part you played: your hours over How Long To Beat's time, or a quarter of the price when either is missing.": "Jogos abandonados contam pela parte que você jogou: suas horas em relação ao tempo do How Long To Beat, ou um quarto do preço quando falta um dos dois.",
     "Ending soonest first.": "Os que acabam primeiro aparecem antes.",
     "Enter the price": "Digite o preço",
     "Enter what you pay below": "Informe abaixo quanto você paga",
@@ -337,10 +342,12 @@
     "Looking for giveaways…": "Procurando brindes…",
     "Main": "Principal",
     "Mark as completed": "Marcar como concluído",
+    "Mark as dropped: started, but you stopped": "Marcar como abandonado: começou, mas parou",
+    "Mark as now playing": "Marcar como jogando agora",
     "Mark as played": "Marcar como jogado",
     "Mark games as completed and they show up here.": "Marque jogos como concluídos e eles aparecem aqui.",
+    "Mark games as now playing, played, completed, dropped or ignored and they will be collected here.": "Marque jogos como jogando agora, jogados, concluídos, abandonados ou ignorados e eles serão reunidos aqui.",
     "Mark games as played or completed (or import your Steam library in Settings) and your statistics will show up here.": "Marque jogos como jogados ou concluídos (ou importe sua biblioteca Steam nas Configurações) e suas estatísticas aparecem aqui.",
-    "Mark games as played, completed or ignored and they will be collected here.": "Marque jogos como jogados, concluídos ou ignorados e eles serão reunidos aqui.",
     "Mark games as ★ Completed or rate them 4 or 5 stars, and games like them show up here, by the same studio or with similar genres.": "Marque jogos como ★ Concluído ou dê 4 ou 5 estrelas a eles, e jogos parecidos aparecem aqui, do mesmo estúdio ou com gêneros semelhantes.",
     "Marked as played but not completed": "Marcados como jogados, mas não concluídos",
     "Metacritic score": "Nota no Metacritic",
@@ -396,6 +403,7 @@
     "Nothing matches these choices yet. Try another genre or length.": "Nada corresponde a essas escolhas ainda. Tente outro gênero ou duração.",
     "Nothing on this day.": "Nada neste dia.",
     "Nothing to roll": "Nada para sortear",
+    "Now playing": "Jogando agora",
     "On Steam": "Na Steam",
     "On sale from your To play list: {n} game|On sale from your To play list: {n} games": {
       "one": "Em promoção da sua lista Para jogar: {n} jogo",
@@ -454,7 +462,6 @@
     "Played or completed, but not in a plan you have: bought, from another tier, or marked by an import": "Jogado ou concluído, mas fora das suas assinaturas: comprado, de outro plano ou marcado por uma importação",
     "Played status": "Status de jogo",
     "Played through a subscription": "Jogado por uma assinatura",
-    "Playing": "Jogando",
     "Premium": "Premium",
     "Previous month": "Mês anterior",
     "Price a month": "Preço por mês",
@@ -537,6 +544,7 @@
     "Start browsing": "Começar a explorar",
     "Start when you log in": "Iniciar ao fazer login",
     "Start with Windows": "Iniciar com o Windows",
+    "Started, but you stopped": "Começou, mas parou",
     "Starts in the tray, without opening the window.": "Inicia na bandeja, sem abrir a janela.",
     "Statistics": "Estatísticas",
     "Stays in your library while you have PS Plus": "Fica na sua biblioteca enquanto você tiver PS Plus",
@@ -689,6 +697,8 @@
     "checking now…": "verificando agora…",
     "community mirror": "espelho da comunidade",
     "completed": "concluídos",
+    "dropped": "abandonados",
+    "dropped · {percent}%": "abandonado · {percent}%",
     "edit": "editar",
     "enter price": "informe o preço",
     "finish rate": "taxa de conclusão",
@@ -718,6 +728,7 @@
     "not in your plans now": "não está nos seus planos agora",
     "not loaded yet": "ainda não carregado",
     "now": "agora",
+    "now playing": "jogando agora",
     "of games finished": "de jogos concluídos",
     "of your plans done": "dos seus planos concluídos",
     "official": "oficial",
@@ -727,7 +738,6 @@
     "paid in subscriptions": "pagos em assinaturas",
     "per game beaten": "por jogo zerado",
     "played": "jogado",
-    "playing": "jogando",
     "saved by subscribing": "economizados assinando",
     "saved {price}": "economizou {price}",
     "set your subscriptions to see what you can play": "defina suas assinaturas para ver o que você pode jogar",
@@ -743,8 +753,8 @@
     "week": "semana",
     "within the hour": "em menos de uma hora",
     "year": "ano",
-    "{completed} completed, {played} playing, of {total}": "{completed} concluídos, {played} jogando, de {total}",
-    "{completed} of {total} completed · {played} playing": "{completed} de {total} concluídos · {played} jogando",
+    "{completed} completed, {played} started, of {total}": "{completed} concluídos, {played} começados, de {total}",
+    "{completed} of {total} completed · {played} started": "{completed} de {total} concluídos · {played} começados",
     "{count} games in your plans across {n} service|{count} games in your plans across {n} services": {
       "one": "{count} jogos nos seus planos em {n} serviço",
       "other": "{count} jogos nos seus planos em {n} serviços"
@@ -835,9 +845,9 @@
       "one": "{n} jogo saindo. O Xbox sinaliza esses jogos, mas não dá a data exata.",
       "other": "{n} jogos saindo. O Xbox sinaliza esses jogos, mas não dá a data exata."
     },
-    "{n} game marked · {done} completed · {ignored} ignored|{n} games marked · {done} completed · {ignored} ignored": {
-      "one": "{n} jogo marcado · {done} concluídos · {ignored} ignorados",
-      "other": "{n} jogos marcados · {done} concluídos · {ignored} ignorados"
+    "{n} game marked · {playing} now playing · {done} completed · {ignored} ignored|{n} games marked · {playing} now playing · {done} completed · {ignored} ignored": {
+      "one": "{n} jogo marcado · {playing} jogando agora · {done} concluídos · {ignored} ignorados",
+      "other": "{n} jogos marcados · {playing} jogando agora · {done} concluídos · {ignored} ignorados"
     },
     "{n} game to play · {ready} ready now|{n} games to play · {ready} ready now": {
       "one": "{n} jogo para jogar · {ready} prontos agora",

@@ -145,7 +145,7 @@ async function setMark(id, value) {
   // A game you mark yourself starts out not counted on the Value page (tick
   // it there if a subscription paid for it). Imports keep the old guess.
   const patch = { marks, finishedOn };
-  if ((value === 'completed' || value === 'played') && viaSubSet(id) === undefined) patch.viaSub = { ...(state.viaSub || {}), [id]: false };
+  if (['completed', 'played', 'playing', 'dropped'].includes(value) && viaSubSet(id) === undefined) patch.viaSub = { ...(state.viaSub || {}), [id]: false };
   await saveState(patch);
 }
 
@@ -381,6 +381,24 @@ const timeTaken = (g) => playedHours(g)?.hours ?? beatHours(g);
 const TIME_SOURCE = { you: tk('Your hours played'), steam: tk('Steam playtime'), hltb: tk('How Long To Beat main story') };
 const timeSource = (g) => t(TIME_SOURCE[playedHours(g)?.source || 'hltb']);
 
+// A dropped game counts on the Value page for the part of it you played:
+// your hours over How Long To Beat's, or a quarter when either is missing.
+const DROPPED_SHARE = 0.25;
+function droppedShare(g) {
+  const own = playedHours(g)?.hours;
+  const beat = beatHours(g);
+  return own > 0 && beat > 0 ? Math.min(1, own / beat) : DROPPED_SHARE;
+}
+// Hours for the Value page: a dropped game without your own hours counts
+// its share of How Long To Beat's time.
+function valueHours(g) {
+  if (markOf(g.id) !== 'dropped') return timeTaken(g);
+  const own = playedHours(g)?.hours;
+  if (own > 0) return own;
+  const beat = beatHours(g);
+  return beat ? beat * DROPPED_SHARE : null;
+}
+
 // ---------- can I finish it in time? ----------
 // How many hours a day you play, worked out again when your marks, Steam
 // import or settings change (state is replaced on every save).
@@ -397,7 +415,7 @@ function playPace() {
 function finishVerdict(g) {
   const leave = leaveInfo(g);
   const mark = markOf(g.id);
-  if (!leave || !leave.soon || leave.past || isComing(g) || mark === 'completed' || mark === 'ignored') return null;
+  if (!leave || !leave.soon || leave.past || isComing(g) || ['completed', 'ignored', 'dropped'].includes(mark)) return null;
   const played = noteOf(g.id)?.hours || (g.steam?.minutes || 0) / 60;
   return Deadline.verdict({ beat: beatHours(g), played, leave, today: todayIso(), perDay: playPace().perDay });
 }
@@ -533,11 +551,15 @@ function markButtons(g, wide = false) {
     await setMark(g.id, mark === value ? null : value);
     render(true);
   };
-  return el('div', { class: 'marks' },
-    el('button', { class: `mark ${mark === 'played' ? 'on' : ''}`, title: t('Mark as played'), onclick: set('played') }, `▶ ${t('Played')}`),
-    el('button', { class: `mark ${mark === 'completed' ? 'on done' : ''}`, title: t('Mark as completed'), onclick: set('completed') }, `★ ${t('Completed')}`),
-    wide ? toPlayButton(g, 'mark toplay') : null,
-    wide ? ignoreButton(g, 'mark ignore') : null);
+  const button = (value, cls, title, label) => el('button', { class: `mark ${mark === value ? `on ${cls}` : ''}`, title, onclick: set(value) }, label);
+  const playing = button('playing', '', t('Mark as now playing'), `▶ ${t('Now playing')}`);
+  const played = button('played', 'played', t('Mark as played'), `✓ ${t('Played')}`);
+  const completed = button('completed', 'done', t('Mark as completed'), `★ ${t('Completed')}`);
+  const dropped = button('dropped', 'dropped', t('Mark as dropped: started, but you stopped'), `✕ ${t('Dropped')}`);
+  // Cards have room for two: the first shows how far you got, and clicking
+  // it when it's on clears the mark.
+  if (!wide) return el('div', { class: 'marks' }, mark === 'played' ? played : mark === 'dropped' ? dropped : playing, completed);
+  return el('div', { class: 'marks' }, playing, played, completed, dropped, toPlayButton(g, 'mark toplay'), ignoreButton(g, 'mark ignore'));
 }
 
 // Games you want to play, available now or coming. Playing one replaces it.
@@ -968,8 +990,9 @@ function renderMine() {
   const list = sorted(filtered(games.filter((g) => markOf(g.id) !== 'none')));
   const done = list.filter((g) => markOf(g.id) === 'completed').length;
   const ignored = list.filter((g) => markOf(g.id) === 'ignored').length;
-  $('#summary').textContent = tn(list.length, '{n} game marked · {done} completed · {ignored} ignored', '{n} games marked · {done} completed · {ignored} ignored', { done, ignored });
-  renderGrid(list, t('Mark games as played, completed or ignored and they will be collected here.'));
+  const playing = list.filter((g) => markOf(g.id) === 'playing').length;
+  $('#summary').textContent = tn(list.length, '{n} game marked · {playing} now playing · {done} completed · {ignored} ignored', '{n} games marked · {playing} now playing · {done} completed · {ignored} ignored', { done, ignored, playing });
+  renderGrid(list, t('Mark games as now playing, played, completed, dropped or ignored and they will be collected here.'));
 }
 
 // Your To play list, grouped by when and where you can play each game.
@@ -1425,7 +1448,7 @@ function donut(slices, centre, caption, { onPick, picked } = {}) {
   return el('div', { class: 'chart' }, svg, legend);
 }
 
-const STATUS_COLOR = { completed: '#f2c94c', played: '#3ccf91', wishlist: '#6aa8ff', untouched: '#3a404d', ignored: '#6b7280' };
+const STATUS_COLOR = { completed: '#f2c94c', playing: '#3ccf91', played: '#2a9d8f', dropped: '#e07a5f', wishlist: '#6aa8ff', untouched: '#3a404d', ignored: '#6b7280' };
 const pct = (x) => `${Math.round(x * 100)}%`;
 // Shares too small to round up still show as something.
 const share = (x) => (x > 0 && x < 0.005 ? '<1%' : pct(x));
@@ -1597,7 +1620,7 @@ function renderStats() {
     renderStats();
   };
   const pickedKey = (chart) => (pick && pick.chart === chart ? pick.key : null);
-  const STATUS_LABEL = { completed: t('Completed'), played: t('Playing'), wishlist: t('To play'), ignored: t('Ignored'), untouched: t('Not started') };
+  const STATUS_LABEL = { completed: t('Completed'), playing: t('Now playing'), played: t('Played'), dropped: t('Dropped'), wishlist: t('To play'), ignored: t('Ignored'), untouched: t('Not started') };
   const pickedGames = (chart) => {
     if (!pick || pick.chart !== chart) return null;
     if (chart === 'completed') {
@@ -1630,7 +1653,9 @@ function renderStats() {
     : el('div', { class: 'tile', title: title || '' }, el('div', { class: 'tile-num' }, value), el('div', { class: 'tile-label' }, label)));
   content.append(el('div', { class: 'tiles' },
     tile(totals.completed, t('completed'), '', totals.completed ? 'completed' : null),
-    tile(totals.played, t('playing'), t('Marked as played but not completed'), totals.played ? 'played' : null),
+    tile(totals.playing, t('now playing'), '', totals.playing ? 'playing' : null),
+    totals.played ? tile(totals.played, t('played'), t('Marked as played but not completed'), 'played') : null,
+    totals.dropped ? tile(totals.dropped, t('dropped'), t('Started, but you stopped'), 'dropped') : null,
     st.finishRate != null ? tile(pct(st.finishRate), t('finish rate'), t('Completed out of every game you have started')) : null,
     st.time.completedTimed ? tile(t('{n}h', { n: Math.round(st.time.completed) }), t('of games finished'), t('Hours played, or How Long To Beat main-story time, of {n} of your completed games', { n: st.time.completedTimed })) : null,
     st.averageScore != null ? tile(st.averageScore, t('average Metacritic'), t('Average score of the games you completed')) : null,
@@ -1647,7 +1672,7 @@ function renderStats() {
       el('h2', {}, t('Your plans by status')),
       el('p', { class: 'muted' }, t('Every game in your plans, by how far you got with it.')),
       totals.inPlans
-        ? donut(['completed', 'played', 'wishlist', 'ignored', 'untouched'].map((k) => ({ key: k, label: STATUS_LABEL[k], value: st.plans[k], color: STATUS_COLOR[k] })),
+        ? donut(['completed', 'playing', 'played', 'dropped', 'wishlist', 'ignored', 'untouched'].map((k) => ({ key: k, label: STATUS_LABEL[k], value: st.plans[k], color: STATUS_COLOR[k] })),
           totals.inPlans, t('in plans'), { onPick: picker('plans'), picked: pickedKey('plans') })
         : el('p', { class: 'muted' }, chosen !== 'all' && keys.size ? t('None of your plans has {platform} games.', { platform: statsPlatformName(chosen) }) : t('No plans picked yet.')))));
   content.append(pickPanel('completed') || pickPanel('plans') || '');
@@ -1657,10 +1682,10 @@ function renderStats() {
       el('h2', {}, t('Progress per service')),
       withGames.map((r) => el('div', { class: 'svc-progress', style: `--svc:${colorOf(r.service)}` },
         el('div', { class: 'svc-progress-name' }, nameOf(r.service)),
-        el('div', { class: 'bar', title: t('{completed} completed, {played} playing, of {total}', { completed: r.completed, played: r.played, total: r.inPlans }) },
+        el('div', { class: 'bar', title: t('{completed} completed, {played} started, of {total}', { completed: r.completed, played: r.played, total: r.inPlans }) },
           el('span', { class: 'bar-done', style: `width:${r.inPlans ? (r.completed / r.inPlans) * 100 : 0}%` }),
           el('span', { class: 'bar-playing', style: `width:${r.inPlans ? (r.played / r.inPlans) * 100 : 0}%` })),
-        el('div', { class: 'svc-progress-num' }, t('{completed} of {total} completed · {played} playing', { completed: r.completed, total: r.inPlans, played: r.played }))))));
+        el('div', { class: 'svc-progress-num' }, t('{completed} of {total} completed · {played} started', { completed: r.completed, total: r.inPlans, played: r.played }))))));
   }
 
   // Progress per platform, when looking at all of them. A game on several counts for each.
@@ -1671,10 +1696,10 @@ function renderStats() {
       el('p', { class: 'muted' }, t('Games in your plans on each platform. A game on several platforms counts for each; Switch Online games count as Switch.')),
       onPlatforms.map((r) => el('div', { class: 'svc-progress' },
         el('button', { class: 'link svc-progress-name', onclick: () => { ui.statsPlatform = r.platform; renderStats(); } }, statsPlatformName(r.platform)),
-        el('div', { class: 'bar', title: t('{completed} completed, {played} playing, of {total}', { completed: r.completed, played: r.played, total: r.inPlans }) },
+        el('div', { class: 'bar', title: t('{completed} completed, {played} started, of {total}', { completed: r.completed, played: r.played, total: r.inPlans }) },
           el('span', { class: 'bar-done', style: `width:${(r.completed / r.inPlans) * 100}%` }),
           el('span', { class: 'bar-playing', style: `width:${(r.played / r.inPlans) * 100}%` })),
-        el('div', { class: 'svc-progress-num' }, t('{completed} of {total} completed · {played} playing', { completed: r.completed, total: r.inPlans, played: r.played }),
+        el('div', { class: 'svc-progress-num' }, t('{completed} of {total} completed · {played} started', { completed: r.completed, total: r.inPlans, played: r.played }),
           r.marked > r.completed + r.played ? el('span', { class: 'muted', title: t('Played or completed, but not in a plan you have: bought, from another tier, or marked by an import') }, ` · ${tn(r.marked - r.completed - r.played, '{n} more outside your plans', '{n} more outside your plans')}`) : null)))));
   }
 
@@ -1726,7 +1751,7 @@ function renderValue() {
   content.replaceChildren();
   const keys = unlocked();
   const includePlayed = !!state.settings.valueIncludePlayed;
-  const beaten = statsGames().filter((g) => ['completed', ...(includePlayed ? ['played'] : [])].includes(markOf(g.id)));
+  const beaten = statsGames().filter((g) => Value.counted(markOf(g.id), includePlayed));
   // Prices for every beaten game, so ticking one shows its price at once.
   // The app only looks up the ones it has no recent price for.
   if (Date.now() - lastPriceAsk > 60000) {
@@ -1738,7 +1763,8 @@ function renderValue() {
     myServices: (g) => serviceOffers(g).filter((o) => offerIsMine(o, keys)).map((o) => o.service),
     price: priceOf,
     viaSub: (g) => viaSub(g, keys),
-    hours: timeTaken,
+    hours: valueHours,
+    share: (g) => (markOf(g.id) === 'dropped' ? droppedShare(g) : 1),
     costs: state.costs || {},
     today: todayIso(),
     includePlayed,
@@ -1761,7 +1787,8 @@ function renderValue() {
   const playedBox = el('input', { type: 'checkbox' });
   playedBox.checked = includePlayed;
   playedBox.addEventListener('change', async () => { await saveState({ settings: { ...state.settings, valueIncludePlayed: playedBox.checked } }); render(true); });
-  content.append(el('label', { class: 'check-row value-toggle' }, playedBox, el('span', {}, t('Count games you played but didn\'t finish'))));
+  content.append(el('label', { class: 'check-row value-toggle' }, playedBox, el('span', {}, t('Count games you played but didn\'t finish'))),
+    el('p', { class: 'muted value-note' }, t('Dropped games count for the part you played: your hours over How Long To Beat\'s time, or a quarter of the price when either is missing.')));
 
   content.append(costsPanel(v), beatenPanel(v));
 }
@@ -1878,7 +1905,7 @@ function costsPanel(v) {
 // Every beaten game, its price, and whether it counts.
 function beatenPanel(v) {
   const keys = unlocked();
-  const all = statsGames().filter((g) => ['completed', ...(state.settings.valueIncludePlayed ? ['played'] : [])].includes(markOf(g.id)));
+  const all = statsGames().filter((g) => Value.counted(markOf(g.id), !!state.settings.valueIncludePlayed));
   const counted = new Set(v.list.map((x) => x.game.id));
   all.sort((a, b) => (counted.has(b.id) - counted.has(a.id)) || ((priceOf(b)?.amount || 0) - (priceOf(a)?.amount || 0)) || a.title.localeCompare(b.title, I18n.locale()));
   const rows = all.map((g) => {
@@ -1906,12 +1933,19 @@ function beatenPanel(v) {
       ? el('span', { class: 'price' }, el('button', { class: 'link inline', title: t('Full price on {store}', { store: p.source }), onclick: () => p.url && api.openExternal(p.url) }, money(p.amount, 2)), el('span', { class: 'muted' }, ` ${p.source}`),
         el('button', { class: 'link inline price-edit', title: t('Use a different price'), onclick: (e) => { e.currentTarget.parentElement.replaceWith(input); input.focus(); } }, t('edit')))
       : input;
-    const h = timeTaken(g);
-    const time = h ? el('span', { class: 'beaten-hours muted', title: p?.amount > 0 ? t('{source}, and the price over those hours', { source: timeSource(g) }) : timeSource(g) },
-      `${t('{n} h', { n: h < 1 ? '<1' : Math.round(h) })}${p?.amount > 0 ? ` · ${t('{price}/h', { price: money(p.amount / Math.max(h, 0.5), 2) })}` : ''}`) : el('span', { class: 'beaten-hours' });
+    const h = valueHours(g);
+    const dropped = markOf(g.id) === 'dropped';
+    const part = dropped ? droppedShare(g) : 1;
+    const source = dropped && !playedHours(g) ? t('A quarter of How Long To Beat\'s main story time') : timeSource(g);
+    const time = h ? el('span', { class: 'beaten-hours muted', title: p?.amount > 0 ? t('{source}, and the price over those hours', { source }) : source },
+      `${t('{n} h', { n: h < 1 ? '<1' : Math.round(h) })}${p?.amount > 0 ? ` · ${t('{price}/h', { price: money((p.amount * part) / Math.max(h, 0.5), 2) })}` : ''}`) : el('span', { class: 'beaten-hours' });
+    const markTag = markOf(g.id) === 'played' ? el('span', { class: 'tier' }, t('played'))
+      : markOf(g.id) === 'playing' ? el('span', { class: 'tier' }, t('now playing'))
+      : dropped ? el('span', { class: 'tier dropped', title: playedHours(g) && beatHours(g) ? t('Counts for the part you played: your hours over How Long To Beat\'s time') : t('Counts for a quarter of its price: add your hours played in its details to count the part you played') }, t('dropped · {percent}%', { percent: Math.round(part * 100) }))
+      : null;
     const node = el('div', { class: `beaten-row ${on ? '' : 'off'}` },
       el('label', { class: 'beaten-check' }, box, el('span', { class: 'beaten-title', title: g.title }, g.title)),
-      el('div', { class: 'meta' }, serviceOffers(g).slice(0, 3).map((o) => serviceTag(o)), markOf(g.id) === 'played' ? el('span', { class: 'tier' }, t('played')) : null),
+      el('div', { class: 'meta' }, serviceOffers(g).slice(0, 3).map((o) => serviceTag(o)), markTag),
       time,
       shown);
     return { g, on, node };
@@ -2612,7 +2646,7 @@ function rollPool() {
   const hasSubs = keys.size > 0;
   return games.filter((g) => {
     if (hasSubs && !isMine(g, keys)) return false;
-    if (['completed', 'ignored'].includes(markOf(g.id)) || isComing(g)) return false;
+    if (['completed', 'ignored', 'dropped'].includes(markOf(g.id)) || isComing(g)) return false;
     if (ui.services.size && !inServices(g, ui.services)) return false;
     if (!platformOk(g, keys)) return false;
     if (!fitsGenreAndLength(g)) return false;

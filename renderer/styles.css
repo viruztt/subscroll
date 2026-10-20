@@ -208,6 +208,9 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .mark.on { color: #0b2a1d; background: var(--ok); border-color: var(--ok); font-weight: 600; }
 .mark.on.done { color: #2a2205; background: var(--gold); border-color: var(--gold); }
 .mark.on.ignored { color: #fff; background: #6b7280; border-color: #6b7280; }
+.mark.on.played { color: #fff; background: #2a9d8f; border-color: #2a9d8f; }
+.mark.on.dropped { color: #2a120b; background: #e07a5f; border-color: #e07a5f; }
+.card.mark-dropped .cover { filter: saturate(.4) brightness(.7); }
 .more { text-align: center; color: var(--muted); padding: 20px; }
 .empty { padding: 60px 0; text-align: center; color: var(--muted); }
 .empty.small { padding: 10px 0 20px; text-align: left; }

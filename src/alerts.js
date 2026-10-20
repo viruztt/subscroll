@@ -40,7 +40,7 @@ function pickAlerts({ games, newIds, keys, marks, alertedLeaving = [] }) {
     if (!offers.length) continue;
     const ids = (g.offers || [g]).map((o) => o.id);
     const mark = ids.map((id) => marks[id]).find(Boolean);
-    if (mark === 'completed' || mark === 'ignored') continue;
+    if (mark === 'completed' || mark === 'ignored' || mark === 'dropped') continue;
     // Already somewhere in your plans means it isn't new to you.
     if (offers.every((o) => newIds.has(o.id))) added.push(g.title);
     const going = offers.filter((o) => o.leavingSoon).map((o) => o.id);
