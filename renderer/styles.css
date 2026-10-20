@@ -43,17 +43,18 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
   flex: none;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 20px 14px;
+  gap: 14px;
+  padding: 18px 14px 16px;
   background: var(--panel);
   border-right: 1px solid var(--line);
-  overflow-y: auto;
+  overflow: hidden;
 }
 .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; }
 .brand img { width: 40px; height: 40px; flex: none; }
 .brand-name { font-weight: 700; font-size: 18px; line-height: 1.1; }
 .brand-tagline { color: var(--muted); font-size: 11px; line-height: 1.25; margin-top: 2px; }
-#nav { display: flex; flex-direction: column; gap: 2px; }
+/* The pages scroll on their own when the window is short, so Roll and Refresh stay in view. */
+#nav { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
 #nav button {
   display: flex;
   justify-content: space-between;
@@ -62,15 +63,26 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
   background: none;
   border: 0;
   border-radius: 8px;
-  padding: 9px 10px;
+  padding: 7px 10px;
   color: var(--muted);
 }
+/* Pages grouped under small headings. */
+.nav-head { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); opacity: .7; padding: 10px 10px 3px; }
+.nav-head:first-child { padding-top: 0; }
+.nav-sep { height: 1px; background: var(--line); margin: 8px 10px; }
 #nav button:hover { background: var(--panel-2); color: var(--text); }
 #nav button.active { background: var(--panel-2); color: var(--text); font-weight: 600; }
 #nav .count { background: var(--warn); color: #111; border-radius: 10px; padding: 0 7px; font-size: 12px; font-weight: 700; }
 #nav .count:empty { display: none; }
 #nav #toplay-count { background: var(--accent); color: #0a1a33; }
-.sync { margin-top: auto; font-size: 12px; display: flex; flex-direction: column; gap: 3px; padding: 0 8px; }
+.sync { font-size: 12px; padding: 0 8px; flex: none; }
+/* One line ("Catalogues updated today"); click it for each catalogue's date. */
+.sync summary { cursor: pointer; color: var(--muted); list-style: none; }
+.sync summary::-webkit-details-marker { display: none; }
+.sync summary::before { content: "▸"; display: inline-block; font-size: 10px; margin-right: 5px; transition: transform .12s; }
+.sync[open] summary::before { transform: rotate(90deg); }
+.sync summary:hover { color: var(--text); }
+.sync-list { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
 .refresh {
   background: var(--panel-2);
   border: 1px solid var(--line);
@@ -151,6 +163,13 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .hide-menu[hidden] { display: none; }
 .hide-menu .toggle { color: var(--text); padding: 6px 8px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
 .hide-menu .toggle:hover { background: var(--line); }
+/* Settings tabs */
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); margin: 4px 0 16px; max-width: 980px; }
+.tab { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted); padding: 8px 12px; margin-bottom: -1px; }
+.tab:hover { color: var(--text); }
+.tab.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+.intro-more { padding: 0 3px; font-size: 13px; line-height: 1; vertical-align: baseline; }
+.intro-more.on { color: var(--text); }
 .summary { padding: 10px 20px; color: var(--muted); font-size: 13px; }
 #content { flex: 1; overflow-y: auto; padding: 4px 20px 30px; }
 #content h2 { font-size: 16px; margin: 18px 0 10px; }
@@ -357,6 +376,52 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
   transition: opacity .12s;
 }
 .card:hover .cover-btn, .cover-btn.on { opacity: 1; }
+/* A card's buttons wait on its cover until you hover (or tab to) it. */
+.cover-actions {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 36px 8px 8px;
+  background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, .85) 40%);
+  opacity: 0; pointer-events: none; transition: opacity .12s;
+}
+.card:hover .cover-actions, .card:focus-within .cover-actions { opacity: 1; pointer-events: auto; }
+.cover-actions .marks { margin-top: 0; }
+.cover-actions .mark:not(.on) { background: rgba(20, 22, 28, .85); color: #ddd; border-color: #ffffff2e; }
+.cover-tools { display: flex; justify-content: flex-end; gap: 6px; }
+.cover-tools .cover-btn { position: static; opacity: 1; }
+.badge.status.playing { background: var(--ok); color: #0b2a1d; }
+.badge.status.played { background: #2a9d8f; color: #fff; }
+.badge.status.completed { background: var(--gold); color: #2a2205; }
+.badge.status.dropped { background: #e07a5f; color: #2a120b; }
+.badge.status.ignored { background: #6b7280; color: #fff; }
+
+/* Covers or list, beside the sort menu. */
+.layout-seg { display: flex; }
+.layout-seg button { background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); padding: 6px 10px; font-size: 15px; line-height: 1.2; }
+.layout-seg button:first-child { border-radius: 8px 0 0 8px; }
+.layout-seg button:last-child { border-radius: 0 8px 8px 0; margin-left: -1px; }
+.layout-seg button.on { color: var(--text); border-color: var(--accent); position: relative; z-index: 1; }
+
+/* The list: one game a line. */
+.grid.list { grid-template-columns: 1fr; gap: 6px; }
+.card.row { flex-direction: row; align-items: stretch; }
+.card.row:hover { transform: none; }
+.card.row .cover-wrap { width: 36px; flex: none; aspect-ratio: 2 / 3; }
+.row-badges .badge.status { display: none; } /* the lit button says it */
+.card.row .cover.placeholder { font-size: 0; padding: 0; }
+.card.row .cover.contain { padding: 2px; }
+.card.row .body { flex-direction: row; align-items: center; gap: 14px; padding: 6px 10px; min-width: 0; }
+.card.row .title { flex: 0 1 280px; min-width: 120px; -webkit-line-clamp: 1; }
+.card.row .meta { flex: 0 1 260px; min-width: 0; flex-wrap: nowrap; overflow: hidden; white-space: nowrap; }
+.card.row .stats { flex: none; }
+.row-badges { display: flex; flex-wrap: wrap; gap: 4px; flex: 1 1 0; min-width: 0; }
+.row-badges .badge { color: #fff; }
+.row-badges .deadline { font-size: 12px; }
+.row-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; flex: none; }
+.row-actions .marks { flex-wrap: nowrap; margin-top: 0; }
+.row-actions .mark { flex: none; padding: 4px 8px; }
+.row-actions .cover-btn { width: 26px; height: 26px; font-size: 13px; }
+.card.row:not(:hover) .row-actions .mark:not(.on), .card.row:not(:hover) .row-actions .cover-btn:not(.on) { opacity: .35; }
 .cover-toplay { right: 44px; font-size: 15px; }
 .cover-toplay:hover, .cover-toplay.on { background: var(--accent); color: #0a1a33; }
 .mark.on.toplay-on, .mark.toplay.on { color: #0a1a33; background: var(--accent); border-color: var(--accent); font-weight: 600; }

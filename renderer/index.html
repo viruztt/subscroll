@@ -11,22 +11,26 @@
   <aside class="sidebar">
     <div class="brand"><img src="logo.svg" alt=""><div><div class="brand-name">Subscroll</div><div class="brand-tagline" data-i18n>Every game you already pay for, in one place.</div></div></div>
     <nav id="nav">
+      <div class="nav-head" data-i18n>Discover</div>
       <button data-view="foryou" data-i18n>For you</button>
       <button data-view="browse" class="active" data-i18n>Browse</button>
+      <div class="nav-head" data-i18n>What's changing</div>
       <button data-view="coming"><span data-i18n>Coming soon</span> <span class="count" id="coming-count"></span></button>
       <button data-view="leaving"><span data-i18n>Leaving soon</span> <span class="count" id="leaving-count"></span></button>
       <button data-view="changes" data-i18n>New &amp; departed</button>
       <button data-view="calendar" data-i18n>Calendar</button>
-      <button data-view="toplay"><span data-i18n>To play</span> <span class="count" id="toplay-count"></span></button>
       <button data-view="free"><span data-i18n>Free to keep</span> <span class="count" id="free-count"></span></button>
+      <div class="nav-head" data-i18n>Your games</div>
+      <button data-view="toplay"><span data-i18n>To play</span> <span class="count" id="toplay-count"></span></button>
       <button data-view="mine" data-i18n>My games</button>
       <button data-view="stats" data-i18n>Statistics</button>
       <button data-view="value" data-i18n>Value</button>
+      <div class="nav-sep"></div>
       <button data-view="subs" data-i18n>Settings</button>
     </nav>
     <div class="update-banner" id="update-banner"></div>
     <button class="roll" id="roll-btn" title="Pick a random game from your subscriptions" data-i18n-title data-i18n>🎲 Roll a game</button>
-    <div class="sync" id="sync"></div>
+    <details class="sync" id="sync"><summary id="sync-summary"></summary><div class="sync-list" id="sync-list"></div></details>
     <div class="sync muted" id="ratings-status"></div>
     <div class="refresh-split" id="refresh-split">
       <button class="refresh" id="refresh-btn">Refresh your subscriptions</button>
@@ -39,7 +43,7 @@
 
   <main>
     <header class="toolbar" id="toolbar">
-      <input id="search" type="search" placeholder="Search games…" data-i18n-placeholder autocomplete="off">
+      <input id="search" type="search" placeholder="Search games…" data-i18n-placeholder title="Search (Ctrl+F)" data-i18n-title autocomplete="off">
       <div class="chips" id="service-chips"></div>
       <select id="status-filter" title="Played status" data-i18n-title>
         <option value="all" data-i18n>Any status</option>
@@ -64,6 +68,10 @@
         <option value="long" data-i18n>Longest to beat</option>
         <option value="stars" data-i18n>Your rating</option>
       </select>
+      <div class="layout-seg" id="layout-seg" role="group">
+        <button data-layout="grid" title="Covers" data-i18n-title>▦</button>
+        <button data-layout="list" title="List" data-i18n-title>☰</button>
+      </div>
       <div class="hide-wrap" id="hide-wrap">
         <button class="hide-btn" id="hide-btn" aria-haspopup="true" aria-expanded="false"><span data-i18n>Hide…</span><span class="hide-count" id="hide-count"></span><span class="hide-arrow">▾</span></button>
         <div class="hide-menu" id="hide-menu" hidden>

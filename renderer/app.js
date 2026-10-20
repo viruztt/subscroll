@@ -20,8 +20,45 @@ const ui = {
   sort: 'title',
   leavingOrder: 'date', // the Leaving soon page: 'date' or 'start' (what to start first)
   mineOnly: false,
+  settingsTab: 'plans',
+  openIntros: new Set(), // long explanations you've opened with ⓘ
   shown: PAGE_SIZE,
 };
+
+// Long explanations show their first sentence; ⓘ opens the rest in place.
+function splitIntro(text) {
+  const m = /^(.+?(?:[.!?](?=\s)|。))\s*(\S.*)$/s.exec(String(text).trim());
+  return m ? [m[1], m[2]] : [String(text).trim(), ''];
+}
+function introNodes(text, onToggle) {
+  const [first, rest] = splitIntro(text);
+  if (!rest) return [first];
+  const open = ui.openIntros.has(first);
+  return [first, ' ', el('button', {
+    class: `link intro-more ${open ? 'on' : ''}`,
+    title: open ? t('Show less') : rest,
+    'aria-expanded': String(open),
+    onclick: (e) => {
+      e.stopPropagation();
+      if (open) ui.openIntros.delete(first); else ui.openIntros.add(first);
+      onToggle();
+    },
+  }, 'ⓘ'), ...(open ? [el('span', { class: 'intro-rest' }, ` ${rest}`)] : [])];
+}
+function intro(text, cls = 'muted') {
+  const p = el('p', { class: `${cls} intro` });
+  const fill = () => p.replaceChildren(...introNodes(text, fill));
+  fill();
+  return p;
+}
+// The line under the toolbar, shortened the same way when it runs long.
+function compactSummary() {
+  const box = $('#summary');
+  const text = box.textContent;
+  if (text.length < 110) return;
+  const fill = () => box.replaceChildren(...introNodes(text, fill));
+  fill();
+}
 
 let services = [];
 let tierBadges = {};
@@ -597,10 +634,18 @@ function steamText(s) {
   return s.minutes ? t('You own this on Steam, {time} played', { time: fmtHours(s.minutes / 60) }) : t('You own this on Steam, not played yet');
 }
 
-function card(g, keys) {
+// Your mark on a game, shown on its cover so the buttons can wait for a hover.
+const STATUS_BADGE = { playing: ['▶', tk('Now playing')], played: ['✓', tk('Played')], completed: ['★', tk('Completed')], dropped: ['✕', tk('Dropped')], ignored: ['⊘', tk('Ignored')] };
+
+// Grid or list, for the pages that list games (Settings › list view).
+const listView = () => !!state.settings.listView;
+
+function card(g, keys, { list = false } = {}) {
   const leave = leaveInfo(g);
   const mine = isMine(g, keys);
   const badges = [];
+  const status = STATUS_BADGE[markOf(g.id)];
+  if (status) badges.push(el('span', { class: `badge status ${markOf(g.id)}` }, `${status[0]} ${t(status[1])}`));
   if (leave) {
     const text = leave.date ? (leave.past ? t('Left {date}', { date: fmtDate(leave.date) }) : t('Leaves {date}', { date: fmtDate(leave.date) }))
       : leave.from?.length ? t('Leaving {service} soon', { service: leave.from.join(', ') }) : t('Leaving soon');
@@ -634,14 +679,32 @@ function card(g, keys) {
     badges.push(el('span', { class: `badge gfn ${yours.length || free ? 'yours' : ''}`, title: free ? t('Free to play on GeForce NOW') : yours.length ? t('Stream it on GeForce NOW: you have it on {store}', { store: yours.map(gfnStoreName).join(', ') }) : t('Streams on GeForce NOW if you own it on {stores}', { stores }) }, 'GeForce NOW'));
   }
   const open = () => { drawerRoll = null; openDrawer(g); };
+  const tools = () => el('div', { class: 'cover-tools' }, toPlayButton(g, 'cover-btn cover-toplay'), ignoreButton(g, 'cover-btn cover-ignore'));
+  // A list row: a small cover, then everything on one line, buttons at the end.
+  if (list) {
+    return el('article', { class: `card row ${mine ? 'mine' : ''} mark-${markOf(g.id)}`, 'data-id': g.id, onclick: open },
+      el('div', { class: 'cover-wrap' }, cover(g)),
+      el('div', { class: 'body' },
+        el('div', { class: 'title', title: g.title }, g.title),
+        serviceMeta(g, keys),
+        el('div', { class: 'stats' }, stats(g)),
+        el('div', { class: 'row-badges' }, badges, verdictLine(g)),
+        el('div', { class: 'row-actions' }, markButtons(g), tools())));
+  }
   return el('article', { class: `card ${mine ? 'mine' : ''} mark-${markOf(g.id)}`, 'data-id': g.id, onclick: open },
-    el('div', { class: 'cover-wrap' }, cover(g), el('div', { class: 'badges' }, badges), toPlayButton(g, 'cover-btn cover-toplay'), ignoreButton(g, 'cover-btn cover-ignore')),
+    el('div', { class: 'cover-wrap' }, cover(g), el('div', { class: 'badges' }, badges),
+      el('div', { class: 'cover-actions' }, tools(), markButtons(g))),
     el('div', { class: 'body' },
       el('div', { class: 'title', title: g.title }, g.title),
       serviceMeta(g, keys),
       el('div', { class: 'stats' }, stats(g)),
-      verdictLine(g),
-      markButtons(g)));
+      verdictLine(g)));
+}
+
+// The pages that list games, as a grid of covers or a compact list.
+function gameGrid(list, keys) {
+  const rows = listView();
+  return el('div', { class: `grid ${rows ? 'list' : ''}` }, list.map((g) => card(g, keys, { list: rows })));
 }
 
 function renderGrid(list, emptyText) {
@@ -652,7 +715,7 @@ function renderGrid(list, emptyText) {
     return;
   }
   const keys = unlocked();
-  const grid = el('div', { class: 'grid' }, list.slice(0, ui.shown).map((g) => card(g, keys)));
+  const grid = gameGrid(list.slice(0, ui.shown), keys);
   content.append(grid);
   if (list.length > ui.shown) {
     const more = el('div', { class: 'more' }, t('Showing {shown} of {total}', { shown: ui.shown, total: list.length }));
@@ -723,7 +786,7 @@ function recommendationGrid(picks) {
     const c = card(game, keys);
     // Leaving soon and new already show as badges on the cover.
     const why = el('div', { class: 'reasons' }, reasons.filter((r) => !['leaving', 'new'].includes(r.id)).slice(0, 3).map((r) => el('span', { class: `reason ${r.id}` }, r.label)));
-    c.querySelector('.body').insertBefore(why, c.querySelector('.marks'));
+    c.querySelector('.body').append(why);
     return c;
   }));
 }
@@ -978,7 +1041,7 @@ function renderChanges() {
   const keys = unlocked();
   const section = (title, list, empty) => el('div', {},
     el('h2', {}, title),
-    list.length ? el('div', { class: 'grid' }, list.slice(0, 240).map((g) => card(g, keys))) : el('div', { class: 'empty small' }, empty));
+    list.length ? gameGrid(list.slice(0, 240), keys) : el('div', { class: 'empty small' }, empty));
   content.append(section(t('Added in the last 30 days ({n})', { n: added.length }), added, t('Nothing added in the last 30 days. New games show up here after a refresh finds them.')));
   if (!hideDeparted()) content.append(section(t('Left the service ({n})', { n: gone.length }), gone, t('No departures recorded yet.')));
 }
@@ -1027,7 +1090,7 @@ function renderToPlay() {
     const c = card(g, keys);
     if (!gone && isMine(g, keys) && !isComing(g)) return c;
     const [best] = waysToPlay(g, { gone });
-    if (best && best.kind !== 'included') c.querySelector('.body').insertBefore(el('div', { class: `cheapest ${best.kind}`, title: t('The cheapest way to play it. Open the game for the other ways.') }, wayText(best, true)), c.querySelector('.marks'));
+    if (best && best.kind !== 'included') c.querySelector('.body').append(el('div', { class: `cheapest ${best.kind}`, title: t('The cheapest way to play it. Open the game for the other ways.') }, wayText(best, true)));
     return c;
   };
   for (const [title, hint, items] of groups) {
@@ -1555,7 +1618,7 @@ function goalsPanel() {
   };
   return el('div', { class: 'panel goals' },
     el('h2', {}, t('Goals')),
-    el('p', { class: 'muted' }, goals.length
+    intro(goals.length
       ? t('Games count in the week, month or year you marked them completed. Hours are your hours played where you\'ve entered them or Steam has them, otherwise How Long To Beat main story times.')
       : t('Set a goal, like beating two games a month, and see how you\'re doing and how many months in a row you\'ve made it. Games count in the week, month or year you mark them completed.')),
     rows,
@@ -1792,7 +1855,7 @@ function renderValue() {
   playedBox.checked = includePlayed;
   playedBox.addEventListener('change', async () => { await saveState({ settings: { ...state.settings, valueIncludePlayed: playedBox.checked } }); render(true); });
   content.append(el('label', { class: 'check-row value-toggle' }, playedBox, el('span', {}, t('Count games you played but didn\'t finish'))),
-    el('p', { class: 'muted value-note' }, t('Dropped games count for the part you played: your hours over How Long To Beat\'s time, or a quarter of the price when either is missing.')));
+    intro(t('Dropped games count for the part you played: your hours over How Long To Beat\'s time, or a quarter of the price when either is missing.')));
 
   content.append(costsPanel(v), beatenPanel(v));
 }
@@ -1898,10 +1961,9 @@ function costsPanel(v) {
   });
   return el('div', { class: 'panel' },
     el('h2', {}, t('What you pay')),
-    el('p', { class: 'muted' },
-      t('Pick each plan and its price (the list shows today\'s prices; change the amount if you paid something else), and when you started. '),
-      t('If you stopped and came back later, untick "still paying", set when it ended and add another period. '),
-      t('Yearly plans count as their price spread over 12 months. Leave out plans that come included with another, like EA Play with Game Pass Ultimate.')),
+    intro(t('Pick each plan and its price (the list shows today\'s prices; change the amount if you paid something else), and when you started. ')
+      + t('If you stopped and came back later, untick "still paying", set when it ended and add another period. ')
+      + t('Yearly plans count as their price spread over 12 months. Leave out plans that come included with another, like EA Play with Game Pass Ultimate.')),
     shown.length ? shown.map(block) : el('p', { class: 'muted' }, t('Pick your plans in Settings, or add one you paid for before below.')),
     others.length ? el('div', { class: 'form add-past' }, addPast) : null);
 }
@@ -1976,14 +2038,29 @@ function beatenPanel(v) {
   filter();
   return el('div', { class: 'panel' },
     el('h2', {}, t('Games you beat')),
-    el('p', { class: 'muted' }, t('Untick games you bought or played some other way; they don\'t count. Games you mark as completed start unticked, so tick the ones a subscription paid for. Prices come from the service\'s own store, else Steam; Switch Online classics aren\'t sold anywhere, so enter what they\'re worth to you.')),
+    intro(t('Untick games you bought or played some other way; they don\'t count. Games you mark as completed start unticked, so tick the ones a subscription paid for. Prices come from the service\'s own store, else Steam; Switch Online classics aren\'t sold anywhere, so enter what they\'re worth to you.')),
     rows.length ? [el('div', { class: 'form beaten-tools' }, search, which), count, ...rows.map((r) => r.node)] : el('p', { class: 'muted' }, t('Mark games as completed and they show up here.')));
 }
 
+// Settings in tabs, one subject each.
+const SETTINGS_TABS = [['plans', tk('Plans')], ['region', tk('Region and language')], ['accounts', tk('Accounts')], ['app', tk('Background and updates')], ['backup', tk('Backup')], ['sources', tk('Data sources')]];
+
 function renderSubs() {
-  $('#summary').textContent = t('Your plans, region, background, updates, Steam, Xbox and PlayStation accounts, and profile export. Everything is saved on this computer.');
+  $('#summary').textContent = t('Everything here is saved on this computer.');
   const content = $('#content');
   content.replaceChildren();
+  const tab = SETTINGS_TABS.some(([id]) => id === ui.settingsTab) ? ui.settingsTab : 'plans';
+  content.append(el('div', { class: 'tabs', role: 'tablist' }, SETTINGS_TABS.map(([id, label]) => el('button', {
+    class: `tab ${id === tab ? 'on' : ''}`,
+    role: 'tab',
+    'aria-selected': String(id === tab),
+    onclick: () => { ui.settingsTab = id; $('#content').scrollTop = 0; render(); },
+  }, t(label)))));
+  if (tab !== 'plans') {
+    const panels = { region: () => [regionPanel()], accounts: () => [steamPanel(), achievementsPanel('xbox'), achievementsPanel('psn')], app: () => [backgroundPanel(), updatePanel()], backup: () => [backupPanel()], sources: () => [sourcesPanel()] };
+    content.append(...panels[tab]());
+    return;
+  }
 
   const rows = allServices().map((s) => {
     const current = state.subscriptions[s.id] || '';
@@ -2004,7 +2081,7 @@ function renderSubs() {
   content.append(el('div', { class: 'panel' },
     el('div', { class: 'panel-head' }, el('h2', {}, t('My subscriptions')), el('button', { class: 'link', onclick: startOnboarding }, t('Run the welcome setup again'))),
     rows));
-  content.append(customServicePanel(), customGamePanel(), regionPanel(), backgroundPanel(), updatePanel(), steamPanel(), achievementsPanel('xbox'), achievementsPanel('psn'), backupPanel(), sourcesPanel());
+  content.append(customServicePanel(), customGamePanel());
 }
 
 // Tray, start at login and alerts.
@@ -2367,7 +2444,7 @@ function regionPanel() {
   language.addEventListener('change', async () => {
     await saveState({ settings: { ...state.settings, uiLanguage: language.value } });
     // Everything on screen is built in the old language; start again in the new one.
-    try { sessionStorage.setItem('subscroll-view', 'subs'); } catch { /* opens on Browse instead */ }
+    try { sessionStorage.setItem('subscroll-view', 'subs'); sessionStorage.setItem('subscroll-tab', 'region'); } catch { /* opens on Browse instead */ }
     location.reload();
   });
   return el('div', { class: 'panel' },
@@ -2727,7 +2804,7 @@ function roll() {
 
 function renderChrome() {
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.view === ui.view));
-  $('#toolbar').classList.toggle('hidden', ['subs', 'stats', 'value', 'foryou', 'free'].includes(ui.view));
+  $('#toolbar').classList.toggle('hidden', !toolbarNeeded());
 
   const chips = $('#service-chips');
   // With "Games outside my subscriptions" hidden, only your services get a chip; a
@@ -2777,7 +2854,49 @@ function renderChrome() {
     const when = c.fetchedAt ? new Date(c.fetchedAt).toLocaleDateString(I18n.locale()) : '—';
     return el('div', {}, tEl('{service}: {date} {source}', { service: s.short, date: when, source: el('span', { class: 'muted' }, t('({source})', { source: SHORT_SOURCE[c.source] ? t(SHORT_SOURCE[c.source]) : c.source })) }));
   });
-  $('#sync').replaceChildren(...sync);
+  $('#sync-list').replaceChildren(...sync);
+  for (const b of document.querySelectorAll('#layout-seg button')) b.classList.toggle('on', (b.dataset.layout === 'list') === listView());
+  $('#sync-summary').replaceChildren(...syncSummary());
+}
+
+// The filters only show on pages listing games, and not while a list is
+// empty before any filter (your To play list or My games when you've
+// marked nothing yet).
+function toolbarNeeded() {
+  if (['subs', 'stats', 'value', 'foryou', 'free'].includes(ui.view)) return false;
+  if (ui.view === 'toplay') return games.some((g) => markOf(g.id) === 'wishlist') || departed.some((d) => state.marks[d.id] === 'wishlist');
+  if (ui.view === 'mine') return games.some((g) => markOf(g.id) !== 'none');
+  if (ui.view === 'coming') return games.some(isComing);
+  if (ui.view === 'leaving') return games.some((g) => leaveInfo(g));
+  return true;
+}
+
+// Ctrl+F (or /) jumps to the search box, from Browse when the page has none.
+function focusSearch() {
+  if (!toolbarNeeded()) {
+    ui.view = 'browse';
+    $('#content').scrollTop = 0;
+    render();
+  }
+  $('#search').focus();
+  $('#search').select();
+}
+
+// The sidebar's one line about how fresh the catalogues are: the oldest
+// one's date ("today", "3 days ago"), and how many haven't loaded yet.
+function syncSummary() {
+  const loaded = catalogs.filter((c) => c.games.length && c.fetchedAt);
+  const missing = catalogs.filter((c) => !c.games.length).length;
+  const parts = [];
+  if (loaded.length) {
+    const oldest = loaded.map((c) => c.fetchedAt).sort()[0];
+    const day = (d) => Date.parse(new Date(d).toLocaleDateString('sv')); // local calendar day
+    const days = Math.max(0, Math.round((day(Date.now()) - day(oldest)) / 86400000));
+    const when = new Intl.RelativeTimeFormat(I18n.locale(), { numeric: 'auto' }).format(-days, 'day');
+    parts.push(el('span', { title: t('When each catalogue was last downloaded: click for details') }, t('Updated {when}', { when })));
+  }
+  if (missing) parts.push(el('span', { class: 'muted' }, ` ${tn(missing, '· {n} not loaded', '· {n} not loaded')}`));
+  return parts.length ? parts : [el('span', {}, t('Catalogues'))];
 }
 
 // keepScroll: redraw in place (after marking a game, new results…) rather
@@ -2789,6 +2908,7 @@ function render(keepScroll = false) {
   if (!keepScroll) ui.shown = PAGE_SIZE;
   renderChrome();
   ({ foryou: renderForYou, browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, toplay: renderToPlay, free: renderFree, calendar: renderCalendar, stats: renderStats, value: renderValue, subs: renderSubs })[ui.view]();
+  compactSummary();
   if (keepScroll) content.scrollTop = top;
   if (drawerGame) openDrawer(drawerGame);
   // Lists arriving during onboarding fill in its counts and picks.
@@ -2798,6 +2918,8 @@ function render(keepScroll = false) {
 // A click on an alert opens the page it's about.
 api.onShowView((view) => {
   ui.view = view;
+  // Update alerts open Settings on its updates tab.
+  if (view === 'subs') ui.settingsTab = 'app';
   $('#content').scrollTop = 0;
   render();
 });
@@ -2935,6 +3057,12 @@ function wire() {
       render(true);
     });
   }
+  $('#layout-seg').addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-layout]');
+    if (!b) return;
+    await saveState({ settings: { ...state.settings, listView: b.dataset.layout === 'list' } });
+    render(true);
+  });
   $('#hide-btn').addEventListener('click', (e) => {
     e.stopPropagation();
     const menu = $('#hide-menu');
@@ -2953,6 +3081,12 @@ function wire() {
   document.addEventListener('click', (e) => { if (!e.target.closest('#refresh-split')) closeRefreshMenu(); });
   $('#roll-btn').addEventListener('click', roll);
   document.addEventListener('keydown', (e) => {
+    const typing = /^(input|textarea|select)$/i.test(e.target.tagName) || e.target.isContentEditable;
+    if (((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'f') || (e.key === '/' && !typing)) {
+      e.preventDefault();
+      focusSearch();
+      return;
+    }
     if (e.key !== 'Escape') return;
     const box = document.querySelector('.lightbox');
     if (box) box.remove();
@@ -2986,7 +3120,9 @@ async function init() {
   try {
     const back = sessionStorage.getItem('subscroll-view');
     if (back) ui.view = back;
+    ui.settingsTab = sessionStorage.getItem('subscroll-tab') || ui.settingsTab;
     sessionStorage.removeItem('subscroll-view');
+    sessionStorage.removeItem('subscroll-tab');
   } catch { /* not available */ }
   wire();
   render();
