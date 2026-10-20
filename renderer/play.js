@@ -20,7 +20,8 @@
       else out.push({ kind: 'steam', label: t('Open in Steam'), url: `steam://nav/games/details/${id}` });
     }
     const pc = platform === 'win32' && offers.find((o) => XBOX.has(o.service) && (o.platforms || []).includes('pc') && /^[0-9A-Z]{12}$/.test(productId(o.id)));
-    if (pc) out.push({ kind: 'xbox', label: t('Open in the Xbox app'), url: `msxbox://game/?productId=${productId(pc.id)}` });
+    // A merged entry shown under its console edition keeps the PC edition's id in pcId.
+    if (pc) out.push({ kind: 'xbox', label: t('Open in the Xbox app'), url: `msxbox://game/?productId=${productId(pc.pcId || pc.id)}` });
     const ps = offers.find((o) => o.service === 'psplus' && o.storeUrl);
     if (ps) out.push({ kind: 'ps', label: t('Open in PlayStation Store'), url: ps.storeUrl });
     if (out.length) out[0].primary = true;

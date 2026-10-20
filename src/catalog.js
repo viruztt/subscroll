@@ -47,6 +47,8 @@ function titleKey(title) {
 
 const isWindowsVariant = (g) => titleKey(g.title) !== plainKey(g.title);
 
+const pcIdOf = (g) => g.pcId || ((g.platforms || []).includes('pc') ? g.id : null);
+
 function mergeDuplicates(games) {
   const byKey = new Map();
   for (const g of games) {
@@ -67,6 +69,9 @@ function mergeDuplicates(games) {
       tiers: [...new Set([...primary.tiers, ...other.tiers])],
       leavingSoon: primary.leavingSoon || other.leavingSoon,
       altIds: [...prev.altIds, other.id],
+      // The Windows edition's id, when the visible entry is the console one
+      // (an Xbox 360 game and its PC release): the Xbox app on PC needs it.
+      ...((pcIdOf(primary) || pcIdOf(other)) && (pcIdOf(primary) || pcIdOf(other)) !== primary.id ? { pcId: pcIdOf(primary) || pcIdOf(other) } : {}),
     });
   }
   return [...byKey.values()];
