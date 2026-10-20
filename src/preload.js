@@ -5,7 +5,7 @@ contextBridge.exposeInMainWorld('api', {
   getState: () => ipcRenderer.invoke('get-state'),
   updateState: (patch) => ipcRenderer.invoke('update-state', patch),
   getCatalog: () => ipcRenderer.invoke('get-catalog'),
-  refresh: () => ipcRenderer.invoke('refresh'),
+  refresh: (scope) => ipcRenderer.invoke('refresh', scope),
   getDetails: (game) => ipcRenderer.invoke('get-details', game),
   getRatings: () => ipcRenderer.invoke('get-ratings'),
   onRatings: (fn) => ipcRenderer.on('ratings', (_e, msg) => fn(msg)),

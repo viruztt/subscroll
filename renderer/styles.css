@@ -79,6 +79,25 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 }
 .refresh:hover { border-color: var(--accent); }
 .refresh:disabled { opacity: .6; cursor: progress; }
+/* "Refresh your subscriptions" with a ▾ that offers "Refresh all catalogues". */
+.refresh-split { position: relative; display: flex; }
+.refresh-split #refresh-btn { flex: 1; border-radius: 8px 0 0 8px; min-width: 0; }
+.refresh-more { border-radius: 0 8px 8px 0; border-left: none; padding: 9px 10px; }
+.refresh-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+  z-index: 20;
+}
+.refresh-menu[hidden] { display: none; }
+.refresh-menu button { width: 100%; text-align: left; background: none; border: none; border-radius: 6px; padding: 8px; }
+.refresh-menu button:hover { background: var(--line); }
 
 /* main */
 main { flex: 1; display: flex; flex-direction: column; min-width: 0; }

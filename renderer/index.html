@@ -28,7 +28,13 @@
     <button class="roll" id="roll-btn" title="Pick a random game from your subscriptions" data-i18n-title data-i18n>🎲 Roll a game</button>
     <div class="sync" id="sync"></div>
     <div class="sync muted" id="ratings-status"></div>
-    <button class="refresh" id="refresh-btn">Refresh catalogues</button>
+    <div class="refresh-split" id="refresh-split">
+      <button class="refresh" id="refresh-btn">Refresh your subscriptions</button>
+      <button class="refresh refresh-more" id="refresh-more" aria-haspopup="menu" aria-expanded="false" title="More refresh options" data-i18n-title>▾</button>
+      <div class="refresh-menu" id="refresh-menu" role="menu" hidden>
+        <button role="menuitem" id="refresh-all" data-i18n>Refresh all catalogues</button>
+      </div>
+    </div>
   </aside>
 
   <main>

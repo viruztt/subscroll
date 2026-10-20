@@ -132,21 +132,33 @@ function startWiki() {
   })).catch(() => {});
 }
 
+// The catalogues your plans cover (PC Game Pass brings EA Play's), or every
+// one when you've picked no plans.
+function myCatalogs() {
+  const { subscriptions, customServices } = store.get();
+  const services = new Set([...unlockedTiers(subscriptions, customServices)].map((k) => k.split(':')[0]));
+  const mine = CATALOG_SERVICES.filter((s) => services.has(s));
+  return mine.length ? mine : CATALOG_SERVICES;
+}
+
 let refreshing = null;
-async function refreshAll() {
+// `only`: the services to refresh; all of them when left out.
+async function refreshAll(only = null) {
   if (refreshing) return refreshing;
   refreshing = (async () => {
     const settings = store.get().settings;
     const before = new Set(catalogGames().map((g) => g.id));
     const waitingBefore = wishlistNow().waiting;
     const results = [];
-    for (const service of CATALOG_SERVICES) {
+    const services = only ? CATALOG_SERVICES.filter((s) => only.includes(s)) : CATALOG_SERVICES;
+    for (const service of services) {
       win?.webContents.send('refresh-progress', { service, state: 'running' });
       const result = await catalog.refresh(service, settings);
       results.push(result);
       win?.webContents.send('refresh-progress', { service, state: result.ok ? 'done' : 'failed', result });
     }
-    store.update({ lastRefresh: new Date().toISOString() });
+    // The daily check counts only full refreshes.
+    if (services.length === CATALOG_SERVICES.length) store.update({ lastRefresh: new Date().toISOString() });
     startRatings();
     enrichArcade();
     startWiki();
@@ -574,8 +586,8 @@ function registerIpc() {
   ipcMain.handle('get-catalog', () => catalogPayload());
   ipcMain.handle('get-free', () => freeGames.list());
   ipcMain.handle('refresh-free', () => refreshFree());
-  ipcMain.handle('refresh', async () => {
-    const results = await refreshAll();
+  ipcMain.handle('refresh', async (_e, scope) => {
+    const results = await refreshAll(scope === 'mine' ? myCatalogs() : null);
     return { results, catalog: catalogPayload() };
   });
   ipcMain.handle('get-details', (_e, game) => details.get(game, store.get().settings));

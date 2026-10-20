@@ -2345,7 +2345,7 @@ function applyLanguage() {
   I18n.setLanguage(state.settings.uiLanguage || 'auto', navigator.languages || [navigator.language]);
   document.documentElement.lang = I18n.language();
   I18n.translatePage(document);
-  $('#refresh-btn').textContent = t('Refresh catalogues');
+  $('#refresh-btn').textContent = t('Refresh your subscriptions');
 }
 
 function sourcesPanel() {
@@ -2820,17 +2820,25 @@ api.onRatings(({ updates, progress }) => {
 });
 
 // ---------- refresh ----------
-async function refresh() {
+// 'mine': the catalogues your plans cover; 'all': every catalogue. A retry
+// after a failure repeats the same kind.
+let refreshScope = 'mine';
+async function refresh(scope = refreshScope) {
+  refreshScope = scope;
+  closeRefreshMenu();
   const btn = $('#refresh-btn');
   btn.disabled = true;
+  $('#refresh-more').disabled = true;
+  btn.title = '';
   btn.textContent = t('Refreshing…');
   try {
-    const { results, catalog } = await api.refresh();
+    const { results, catalog } = await api.refresh(scope);
     catalogs = catalog;
     rebuildGames();
     ratings = (await api.getRatings()).ratings;
     const failed = results.filter((r) => !r.ok);
-    btn.textContent = failed.length ? t('Some lists failed, retry') : t('Refresh catalogues');
+    btn.textContent = failed.length ? t('Some lists failed, retry') : t('Refresh your subscriptions');
+    if (!failed.length) refreshScope = 'mine';
     if (failed.length) btn.title = failed.map((r) => `${r.service}: ${r.errors.join('; ')}`).join('\n');
     render(true);
   } catch (err) {
@@ -2838,7 +2846,13 @@ async function refresh() {
     btn.title = String(err);
   } finally {
     btn.disabled = false;
+    $('#refresh-more').disabled = false;
   }
+}
+
+function closeRefreshMenu() {
+  $('#refresh-menu').hidden = true;
+  $('#refresh-more').setAttribute('aria-expanded', 'false');
 }
 
 api.onRefreshProgress(({ service, state: s }) => {
@@ -2871,7 +2885,15 @@ function wire() {
       render(true);
     });
   }
-  $('#refresh-btn').addEventListener('click', refresh);
+  $('#refresh-btn').addEventListener('click', () => refresh());
+  $('#refresh-more').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const menu = $('#refresh-menu');
+    menu.hidden = !menu.hidden;
+    $('#refresh-more').setAttribute('aria-expanded', String(!menu.hidden));
+  });
+  $('#refresh-all').addEventListener('click', () => refresh('all'));
+  document.addEventListener('click', (e) => { if (!e.target.closest('#refresh-split')) closeRefreshMenu(); });
   $('#roll-btn').addEventListener('click', roll);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
