@@ -9,7 +9,7 @@ const { systemName } = require('./covers');
 // and reads each game's card (title, system, genre, picture, link), plus any
 // game list JSON the page downloads on the way.
 // What was read last is kept in the catalog folder (antstream-cards.json,
-// antstream-capture.json, antstream-requests.txt, antstream-page.txt,
+// antstream-capture.json, antstream-requests.txt, antstream-page.txt/.html,
 // antstream-log.txt) so the reader can be checked against it.
 const SITE_LIST = 'https://www.antstream.com/gameslist';
 // Antstream has well over a thousand games; fewer than this means a page changed.
@@ -174,10 +174,18 @@ function parseCaptured(responses, seen = []) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Runs in the page: presses the "Load More" button if there is one.
+// In-page helper: the innermost elements whose whole text matches (the page
+// draws its buttons from plain elements, not only <button> and <a>).
+const FIND_LEAVES = `const leaves = (re) => [...document.querySelectorAll('body *')]
+  .filter((e) => e.tagName !== 'SCRIPT' && e.tagName !== 'STYLE' && re.test(e.textContent || '') && ![...e.children].some((c) => re.test(c.textContent || '')));`;
+
+// Runs in the page: presses the "Load More" button if there is one.
 const PRESS_MORE = `(() => {
-  const b = [...document.querySelectorAll('button, a, [role=button]')]
-    .find((e) => /^\\s*(load|show) more\\s*$/i.test(e.textContent || '') && !e.disabled);
-  if (!b) return false;
+  ${FIND_LEAVES}
+  const leaf = leaves(/^\\s*(load|show) more\\s*$/i)[0];
+  if (!leaf) return false;
+  const b = leaf.closest('button, a, [role=button]') || leaf;
+  if (b.disabled) return false;
   b.scrollIntoView({ block: 'center' });
   b.click();
   return true;
@@ -186,7 +194,8 @@ const PRESS_MORE = `(() => {
 // Runs in the page: every game card, found from its "View" button. A card is
 // the largest box around the button that holds no other card's button.
 const READ_CARDS = `(() => {
-  const views = [...document.querySelectorAll('a, button, [role=button]')].filter((e) => /^\\s*view\\s*$/i.test(e.textContent || ''));
+  ${FIND_LEAVES}
+  const views = leaves(/^\\s*view\\s*$/i);
   views.forEach((v) => v.setAttribute('data-subscroll-view', ''));
   const texts = (el) => {
     const out = [];
@@ -202,7 +211,7 @@ const READ_CARDS = `(() => {
     const img = el.querySelector('img');
     // Lazy pictures keep a placeholder until scrolled to; their real address waits in a data attribute.
     const web = (u) => u && /^https?:/i.test(u) ? new URL(u, location.href).href : null;
-    if (img) return { img: [img.currentSrc, img.src, img.dataset.src, img.dataset.lazySrc, (img.getAttribute('srcset') || '').split(/\s+/)[0]].map(web).find(Boolean) || null, alt: img.alt || '' };
+    if (img) return { img: [img.currentSrc, img.src, img.dataset.src, img.dataset.lazySrc, (img.getAttribute('srcset') || '').split(/\\s+/)[0]].map(web).find(Boolean) || null, alt: img.alt || '' };
     for (const x of [el, ...el.querySelectorAll('*')]) {
       const m = (getComputedStyle(x).backgroundImage || '').match(/url\\(["']?([^"')]+)/);
       if (m) return { img: new URL(m[1], location.href).href, alt: '' };
@@ -217,7 +226,10 @@ const READ_CARDS = `(() => {
   });
 })()`;
 
-const COUNT_CARDS = `[...document.querySelectorAll('a, button, [role=button]')].filter((e) => /^\\s*view\\s*$/i.test(e.textContent || '')).length`;
+const COUNT_CARDS = `(() => {
+  ${FIND_LEAVES}
+  return leaves(/^\\s*view\\s*$/i).length;
+})()`;
 
 // Runs in the page: a step further down each time, back to the top at the end.
 const SCROLL_THROUGH = `(() => {
@@ -307,7 +319,8 @@ async function captureSite(url = SITE_LIST, budgetMs = 180000) {
     const cards = await run(READ_CARDS, []);
     const pictures = await run(SEEN_PICTURES, []);
     const text = await run('document.body ? document.body.innerText : ""', '');
-    return { responses, requests, cards: cards || [], pictures: pictures || [], presses, text: String(text || '') };
+    const html = await run('document.documentElement.outerHTML', '');
+    return { responses, requests, cards: cards || [], pictures: pictures || [], presses, text: String(text || ''), html: String(html || '') };
   } finally {
     try {
       dbg.detach();
@@ -366,6 +379,7 @@ async function fetchLive(_settings, dir, { capture = captureSite } = {}) {
     save(dir, 'antstream-cards.json', (cap.cards || []).slice(0, 60));
     save(dir, 'antstream-requests.txt', (cap.requests || []).join('\n'));
     save(dir, 'antstream-page.txt', cap.text);
+    save(dir, 'antstream-page.html', String(cap.html || '').slice(0, 4e6));
   } catch (err) {
     tried.push(`antstream.com: ${err.message}`);
   }
