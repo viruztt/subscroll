@@ -82,7 +82,10 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 /* "Refresh your subscriptions" with a ▾ that offers "Refresh all catalogues". */
 .refresh-split { position: relative; display: flex; }
 .refresh-split #refresh-btn { flex: 1; border-radius: 8px 0 0 8px; min-width: 0; }
-.refresh-more { border-radius: 0 8px 8px 0; border-left: none; padding: 9px 10px; }
+/* The halves share one line in the middle; the hovered one draws it on top, so it gets a full outline. */
+.refresh-more { border-radius: 0 8px 8px 0; margin-left: -1px; padding: 9px 10px; }
+.refresh-split > .refresh { position: relative; }
+.refresh-split > .refresh:hover, .refresh-split > .refresh:focus-visible { z-index: 1; }
 .refresh-menu {
   position: absolute;
   bottom: calc(100% + 4px);
