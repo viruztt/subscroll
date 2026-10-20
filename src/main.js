@@ -52,7 +52,10 @@ const ICON = path.join(__dirname, '..', 'renderer', 'icon.png');
 // A real .ico next to the app (packaged builds), which the Windows taskbar
 // reads more reliably than a PNG.
 const ICO = app.isPackaged ? path.join(process.resourcesPath, 'icon.ico') : path.join(__dirname, '..', 'build', 'icon.ico');
-const APP_ID = 'local.subscroll';
+// Windows keeps the taskbar icon it last resolved for an app id. Builds before
+// 4266ef1 pointed it at a temp folder that no longer exists, which left
+// 'local.subscroll' stuck on a blank icon, so this id is new.
+const APP_ID = 'local.subscroll.app';
 
 // The portable exe unpacks into a temp folder whose name changes with every
 // build and which is deleted on exit. Windows remembers the taskbar icon path
