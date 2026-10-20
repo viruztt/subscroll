@@ -65,3 +65,17 @@ test('Regional versions of a Switch Online game share one entry', () => {
   assert.deepStrictEqual(lolo.versions, ['NA', 'JP']);
   assert.strictEqual(lolo.offers.length, 2);
 });
+
+test('Antstream: each system\'s version keeps its own card, apart from modern releases', () => {
+  const list = unify([
+    { id: 'antstream:arcade:bubble-bobble', service: 'antstream', title: 'Bubble Bobble', system: 'Arcade', tiers: ['any'], platforms: ['PC'] },
+    { id: 'antstream:commodore-64:bubble-bobble', service: 'antstream', title: 'Bubble Bobble', system: 'Commodore 64', tiers: ['any'], platforms: ['PC'] },
+    { id: 'gamepass:X', service: 'gamepass', title: 'Bubble Bobble', tiers: ['pc'], platforms: ['pc'] },
+  ]);
+  assert.strictEqual(list.length, 3);
+  const { mergeDuplicates } = require('../src/catalog');
+  assert.strictEqual(mergeDuplicates([
+    { id: 'antstream:arcade:bubble-bobble', service: 'antstream', title: 'Bubble Bobble', platforms: ['PC'], tiers: ['any'] },
+    { id: 'antstream:amiga:bubble-bobble', service: 'antstream', title: 'Bubble Bobble', platforms: ['PC'], tiers: ['any'] },
+  ]).length, 2);
+});

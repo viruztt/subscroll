@@ -100,6 +100,8 @@ function tierLabel(g) {
   // PS Plus and NSO lists describe what kind of entry it is (Classic, etc.).
   const badge = g.tiers.map((t) => tierBadges[`${g.service}:${t}`]).find(Boolean);
   if (badge && g.service !== 'nso') return badge;
+  // Antstream has one plan; its games differ by the system they're from.
+  if (g.service === 'antstream' && g.system) return g.system;
   const plans = plansFor(g);
   if (!s || plans.length === 0) return '';
   if (plans.length === s.tiers.length) return t('All plans');

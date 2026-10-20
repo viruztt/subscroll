@@ -37,7 +37,7 @@ const SERVICES = Object.keys(PROVIDERS);
 // Xbox lists console and Windows versions as separate products. Fold them
 // into one entry per game so a title shows (and gets marked) once. Retro
 // games share titles across systems (Dr. Mario on NES and Game Boy), so the
-// Switch Online library is left alone.
+// Switch Online and Antstream libraries are left alone.
 const plainKey = (title) => title.toLowerCase().replace(/[™®©]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 const WINDOWS_SUFFIX = /\s*[-–:(]?\s*(for )?(windows( 10| 11)?( edition)?|pc)\)?\s*$/i;
 
@@ -47,12 +47,13 @@ function titleKey(title) {
 
 const isWindowsVariant = (g) => titleKey(g.title) !== plainKey(g.title);
 
+const RETRO = new Set(['nso', 'antstream']);
 const pcIdOf = (g) => g.pcId || ((g.platforms || []).includes('pc') ? g.id : null);
 
 function mergeDuplicates(games) {
   const byKey = new Map();
   for (const g of games) {
-    const key = g.service === 'nso' ? g.id : `${g.service}:${titleKey(g.title)}`;
+    const key = RETRO.has(g.service) ? g.id : `${g.service}:${titleKey(g.title)}`;
     const prev = byKey.get(key);
     if (!prev) {
       byKey.set(key, { ...g, altIds: [] });
@@ -91,8 +92,9 @@ function originOf(service, source, settings = {}) {
     gamepass: settings.market, psplus: settings.psLocale, eaplay: settings.market,
     ubisoftplus: settings.market, netflix: settings.region || settings.market, crunchyroll: settings.region || settings.market,
     playpass: settings.region || settings.market,
-    // Antstream's list moved from its help centre to its games page.
-    antstream: 'site',
+    // Antstream's list moved from its help centre to its games page, and
+    // later kept each system's version of a game ('cards').
+    antstream: 'cards',
   }[service];
   return region ? `live:${region}` : 'live';
 }

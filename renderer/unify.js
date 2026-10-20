@@ -1,8 +1,8 @@
 // One card per game. The same game in several services (A Way Out in Game
 // Pass, EA Play and PS Plus) becomes one entry that lists every service
-// offering it in `offers`. Switch Online games stay on their own (each is a
-// particular old console version, not the modern release), apart from
-// regional versions of the same game, which share a card.
+// offering it in `offers`. Switch Online and Antstream games stay on their
+// own (each is a particular old console version, not the modern release),
+// apart from regional Switch Online versions of the same game, which share a card.
 (function (root) {
   // Which service's entry leads (its artwork, id and details are used).
   const ORDER = ['gamepass', 'psplus', 'eaplay', 'ubisoftplus', 'netflix', 'applearcade', 'crunchyroll', 'humble', 'playpass', 'luna', 'horizonplus', 'antstream'];
@@ -93,7 +93,9 @@
         groups.get(k).push(g);
         continue;
       }
-      const k = g.custom ? '' : matchKey(g.title);
+      // Antstream's games are particular old versions on one system (Bubble
+      // Bobble on Arcade, C64, Amiga…): each keeps its own card.
+      const k = g.custom || g.service === 'antstream' ? '' : matchKey(g.title);
       if (!k) {
         out.push([g]);
         continue;
