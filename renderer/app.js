@@ -1701,6 +1701,7 @@ function renderStats() {
     myPlatforms: (g) => new Set(offersOf(g).filter((o) => offerIsMine(o, keys)).flatMap((o) => [...Stats.platformsOf(o)])),
     hours: (g) => (markOf(g.id) === 'completed' ? timeTaken(g) : beatHours(g)),
     score: mcScore,
+    viaSub: (g) => viaSub(g, keys),
     subscribed,
   };
   const everything = statsGames();
@@ -1757,6 +1758,7 @@ function renderStats() {
     }
     if (chart === 'tiles') {
       if (pick.key === 'steam') return st.steamGames.length ? { title: t('On Steam'), list: st.steamGames } : null;
+      if (pick.key === 'viaSub') return st.completedViaSub.length ? { title: t('Completed through a subscription'), list: st.completedViaSub } : null;
       return st.marked[pick.key]?.length ? { title: STATUS_LABEL[pick.key], list: st.marked[pick.key] } : null;
     }
     if (chart === 'plans') return st.planGames[pick.key]?.length ? { title: t('Your plans: {status}', { status: STATUS_LABEL[pick.key] }), list: st.planGames[pick.key] } : null;
@@ -1781,6 +1783,7 @@ function renderStats() {
     : el('div', { class: 'tile', title: title || '' }, el('div', { class: 'tile-num' }, value), el('div', { class: 'tile-label' }, label)));
   content.append(el('div', { class: 'tiles' },
     tile(totals.completed, t('completed'), '', totals.completed ? 'completed' : null),
+    totals.completed ? tile(st.completedViaSub.length, t('completed through a subscription'), t('Completed games ticked as played through a subscription on the Value page'), st.completedViaSub.length ? 'viaSub' : null) : null,
     tile(totals.playing, t('now playing'), '', totals.playing ? 'playing' : null),
     totals.played ? tile(totals.played, t('played'), t('Marked as played but not completed'), 'played') : null,
     totals.dropped ? tile(totals.dropped, t('dropped'), t('Started, but you stopped'), 'dropped') : null,

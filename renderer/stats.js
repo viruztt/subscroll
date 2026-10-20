@@ -4,6 +4,7 @@
 //   myServices(game) services offering it in your plans, lead service first
 //   hours(game)      How Long To Beat main-story hours, or null
 //   score(game)      Metacritic score, or null
+//   viaSub(game)     whether you played it through a subscription (optional)
 (function (root) {
   const OTHER = 'other'; // marked games that aren't in any of your plans
 
@@ -34,7 +35,7 @@
 
   const STARTED = new Set(['playing', 'played', 'dropped']);
 
-  function compute(games, { markOf, myServices, myPlatforms, hours, score, subscribed = [] }) {
+  function compute(games, { markOf, myServices, myPlatforms, hours, score, viaSub = null, subscribed = [] }) {
     const totals = { inPlans: 0, completed: 0, playing: 0, played: 0, dropped: 0, ignored: 0 };
     // Games in your plans, by status.
     const plans = { completed: 0, playing: 0, played: 0, dropped: 0, wishlist: 0, ignored: 0, untouched: 0 };
@@ -43,6 +44,8 @@
     const completedGames = new Map();
     const marked = { completed: [], playing: [], played: [], dropped: [] };
     const steamGames = [];
+    // Completed games you played through a subscription (the Value page's tick).
+    const completedViaSub = [];
     const genreGames = new Map();
     const services = new Map(subscribed.map((s) => [s, { service: s, inPlans: 0, played: 0, completed: 0 }]));
     // Per platform: a game on several counts for each.
@@ -93,6 +96,7 @@
       }
       const h = hours(g);
       if (mark === 'completed') {
+        if (viaSub && viaSub(g)) completedViaSub.push(g);
         // In the pie, each game belongs to one service, so the slices add up.
         const s = mine[0] || OTHER;
         completedBy.set(s, (completedBy.get(s) || 0) + 1);
@@ -135,6 +139,7 @@
       steamOwned,
       marked,
       steamGames,
+      completedViaSub,
     };
   }
 

@@ -85,3 +85,16 @@ test('Statistics: now playing and dropped count as started', () => {
   assert.deepStrictEqual(r.marked.dropped.map((g) => g.id), ['d']);
   assert.strictEqual(r.time.playing, 10); // now playing counts toward the hours still ahead
 });
+
+test('Statistics: completed games played through a subscription', () => {
+  const r = compute(games, {
+    markOf: (g) => g.mark,
+    myServices: (g) => g.mine,
+    hours: () => null,
+    score: () => null,
+    viaSub: (g) => g.mine.length > 0 && g.id !== 'b',
+  });
+  assert.deepStrictEqual(r.completedViaSub.map((g) => g.id), ['a']);
+  // Without the helper the list is just empty.
+  assert.deepStrictEqual(st.completedViaSub, []);
+});
