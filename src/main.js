@@ -53,6 +53,26 @@ const ICON = path.join(__dirname, '..', 'renderer', 'icon.png');
 // reads more reliably than a PNG.
 const ICO = app.isPackaged ? path.join(process.resourcesPath, 'icon.ico') : path.join(__dirname, '..', 'build', 'icon.ico');
 const APP_ID = 'local.subscroll';
+
+// The portable exe unpacks into a temp folder whose name changes with every
+// build and which is deleted on exit. Windows remembers the taskbar icon path
+// for the app id, so pointing it there left a blank icon once that folder was
+// gone. Keep a copy of the icon in the app's own data folder, which never moves.
+function stableIcon() {
+  const dest = path.join(app.getPath('userData'), 'icon.ico');
+  try {
+    const data = fs.readFileSync(ICO);
+    let same = false;
+    try { same = fs.readFileSync(dest).equals(data); } catch {}
+    if (!same) {
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.writeFileSync(dest, data);
+    }
+    return dest;
+  } catch {
+    return ICO;
+  }
+}
 // Started with Windows: stay in the tray until the user opens the window.
 const startHidden = process.argv.includes('--hidden');
 // Started by the copy it replaced: delete that copy's file once it's gone.
@@ -80,13 +100,13 @@ function createWindow() {
     },
   });
   // Windows draws the taskbar button from the app id's shortcut, and the
-  // portable exe has none, so the button came out blank. Give it the icon file
-  // directly.
+  // portable exe has none, so the button came out blank. Give it an icon file
+  // directly, from a folder that outlives this run (see stableIcon).
   if (process.platform === 'win32') {
     const exe = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
     win.setAppDetails({
       appId: APP_ID,
-      appIconPath: ICO,
+      appIconPath: stableIcon(),
       appIconIndex: 0,
       relaunchCommand: `"${exe}"`,
       relaunchDisplayName: 'Subscroll',
