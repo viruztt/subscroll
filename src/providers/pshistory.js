@@ -13,7 +13,8 @@ const REPO = 'ppazour/ps-plus-games-list';
 const FILES = ['plus-games-list', 'plus-classics-list'];
 // A game missing for longer than this and then back has joined again.
 const GAP_DAYS = 7;
-const VERSION = 1;
+// 2: lists from the first day all count as already there.
+const VERSION = 2;
 
 const DAY = 86400000;
 const keyOf = (g) => String(g.conceptId || g.productId || g.name);
@@ -27,8 +28,10 @@ function keysIn(payload) {
 // Folds one day's list into the file's record:
 //   seen[key] = { added: date or null (there from the start), absentSince }
 function step(record, date, keys) {
-  const first = !record.start;
-  if (first) record.start = date;
+  if (!record.start) record.start = date;
+  // Every list from the mirror's first day counts as "already there": it
+  // sometimes committed more than once that day.
+  const first = date === record.start;
   for (const key of keys) {
     const s = record.seen[key];
     if (!s) record.seen[key] = { added: first ? null : date };

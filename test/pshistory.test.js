@@ -11,6 +11,8 @@ const list = (ids) => [{ catalogKey: 'A', games: ids.map((id) => ({ conceptId: i
 
 test('PS Plus history: a game joins on the first day it is listed', () => {
   const r = { lastSha: null, start: null, seen: {} };
+  history.step(r, '2026-07-01', new Set(['1']));
+  // A second list on the first day: still "already there".
   history.step(r, '2026-07-01', new Set(['1', '2']));
   history.step(r, '2026-07-21', new Set(['1', '2', '3']));
   // 2 leaves for a day and comes back: still the same stay.
@@ -21,6 +23,7 @@ test('PS Plus history: a game joins on the first day it is listed', () => {
   history.step(r, '2026-09-15', new Set(['1', '2', '3']));
   assert.deepStrictEqual(Object.fromEntries(history.joinDates({ files: { x: r } })), { 3: '2026-09-15' });
   assert.strictEqual(r.seen['1'].added, null); // there from the start: unknown
+  assert.strictEqual(r.seen['2'].added, null);
 });
 
 test('PS Plus history: reads new commits only, and adds join dates to the list', async () => {
