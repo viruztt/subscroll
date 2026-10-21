@@ -54,3 +54,9 @@ test('what to start first: the least time to spare', () => {
   assert.strictEqual(Deadline.startWithin(a, 2), 2);
   assert.strictEqual(Deadline.startWithin(b, 2), 4);
 });
+
+test('Deadline: minutes a day you set beat everything else', () => {
+  const Deadline = require('../renderer/deadline');
+  const p = Deadline.pace({ minutesDay: 90, hoursWeek: 14, steam: { recentMinutes: 6000, importedAt: '2026-10-20' }, today: '2026-10-21' });
+  assert.deepStrictEqual(p, { perDay: 1.5, source: 'setting' });
+});

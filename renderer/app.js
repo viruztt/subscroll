@@ -19,6 +19,7 @@ const ui = {
   length: 'all',
   sort: 'title',
   leavingOrder: 'date', // the Leaving soon page: 'date' or 'start' (what to start first)
+  openPossible: false, // Leaving soon: the less likely predictions unfolded
   mineOnly: false,
   settingsTab: 'plans',
   openIntros: new Set(), // long explanations you've opened with ⓘ
@@ -288,7 +289,8 @@ function rebuildGames() {
   const out = [];
   for (const c of catalogs) {
     for (const g of c.games) {
-      if (inMyRegion(g)) out.push({ ...g, firstSeen: c.history?.firstSeen?.[g.id] || g.addedOn || recentRelease(g) });
+      // joined: when it joined the service, if known (for predicting when it leaves).
+      if (inMyRegion(g)) out.push({ ...g, firstSeen: c.history?.firstSeen?.[g.id] || g.addedOn || recentRelease(g), joined: g.addedOn || c.history?.firstSeen?.[g.id] || null });
     }
     for (const d of c.history?.departed || []) departed.push(d);
   }
@@ -446,9 +448,46 @@ let paceMemo = { state: null, day: null, value: null };
 function playPace() {
   const today = todayIso();
   if (paceMemo.state !== state || paceMemo.day !== today) {
-    paceMemo = { state, day: today, value: Deadline.pace({ hoursWeek: state.settings.playHoursWeek, steam: state.steam, finished: finishedList(), today }) };
+    paceMemo = { state, day: today, value: Deadline.pace({ minutesDay: playMinutesSet(), steam: state.steam, finished: finishedList(), today }) };
   }
   return paceMemo.value;
+}
+
+// Minutes a day you said you play, or null to work it out. Older versions
+// saved hours a week.
+function playMinutesSet() {
+  const s = state.settings;
+  if (s.playMinutesDay > 0) return s.playMinutesDay;
+  if (s.playHoursWeek > 0) return (s.playHoursWeek * 60) / 7;
+  return null;
+}
+
+// How long you play a day, in hours or minutes. Empty: Subscroll works it
+// out from your Steam playtime and the games you complete.
+function playTimeControl(onSaved = () => render(true)) {
+  const unit = el('select', { 'aria-label': t('Unit') },
+    el('option', { value: 'h' }, t('hours a day')),
+    el('option', { value: 'm' }, t('minutes a day')));
+  const set = playMinutesSet();
+  unit.value = state.settings.playTimeUnit || (set && set < 60 ? 'm' : 'h');
+  const box = el('input', { type: 'number', min: '0', step: 'any', class: 'play-time', placeholder: t('Work it out'), 'aria-label': t('Time you play a day') });
+  const show = () => {
+    const m = playMinutesSet();
+    box.value = m ? String(unit.value === 'h' ? Math.round(m / 6) / 10 : Math.round(m)) : '';
+  };
+  show();
+  box.addEventListener('change', async () => {
+    const n = Number(box.value);
+    const minutes = n > 0 ? Math.round(unit.value === 'h' ? n * 60 : n) : null;
+    await saveState({ settings: { ...state.settings, playMinutesDay: minutes, playHoursWeek: null, playTimeUnit: unit.value } });
+    onSaved();
+  });
+  // A new unit shows the same time in it.
+  unit.addEventListener('change', async () => {
+    await saveState({ settings: { ...state.settings, playTimeUnit: unit.value } });
+    show();
+  });
+  return el('span', { class: 'play-time-control' }, box, unit);
 }
 
 // The verdict for a game leaving soon that you haven't completed or ignored.
@@ -970,6 +1009,8 @@ function renderOnboarding() {
       el('h1', {}, t('What do you like to play?')),
       el('p', { class: 'lead' }, t('Pick a few genres and how long you like games to be. You can change this any time on the For you page.')),
       tastePicker(),
+      el('label', { class: 'onboard-field' }, el('span', {}, t('How long do you play a day?')), playTimeControl(() => {})),
+      el('p', { class: 'muted' }, t('Optional. It tells you whether you can finish games before they leave. Leave it empty and Subscroll works it out from your Steam playtime and the games you complete. You can change it in Settings.')),
     ];
   } else {
     const picks = recommendations(8);
@@ -986,6 +1027,86 @@ function renderOnboarding() {
       step > 0 && step < 3 ? el('button', { class: 'link', onclick: finishOnboarding }, t('Skip')) : null, next))));
 }
 
+// ---------- predictions ----------
+// When a game could leave, from when it joined (renderer/predict.js). A game
+// on several services (or editions) is predicted only when all of them
+// could end, and then for the last of those dates. Your own services count
+// when you have one; a service saying the game is leaving comes first.
+const PREDICT_DAYS = 45;
+function predictionOf(g, keys = unlocked()) {
+  if (g.custom || leaveInfo(g) || isComing(g)) return null;
+  const all = offersOf(g);
+  const mine = all.filter((o) => offerIsMine(o, keys));
+  const today = todayIso();
+  let last = null;
+  for (const o of mine.length ? mine : all) {
+    const p = Predict.predict(o, { today, horizon: PREDICT_DAYS });
+    if (!p) return null;
+    if (!last || p.date > last.date) last = { ...p, service: o.service, likely: p.likely && (!last || last.likely) };
+    else if (!p.likely) last = { ...last, likely: false };
+  }
+  return last;
+}
+
+const PREDICT_KIND = {
+  short: tk('Rockstar and 2K games usually stay 3 to 6 months.'),
+  big: tk('Big publishers\' games often stay 24 months, renewed a year at a time.'),
+  standard: tk('Most games sign for 12 months, renewed a year at a time.'),
+};
+const PREDICT_DAY = {
+  psplus: tk('PS Plus removes games on the third Tuesday of the month.'),
+  gamepass: tk('Game Pass removes games on the 15th or the last day of the month.'),
+};
+
+// "Joined Game Pass on 5 Nov 2025: 12 months on is 5 Nov. Most games…"
+function predictionReason(p) {
+  const service = serviceById(p.service)?.name || p.service;
+  return [
+    tn(p.months, 'Joined {service} on {joined}, {n} month earlier.', 'Joined {service} on {joined}, {n} months earlier.', { service, joined: fmtDate(p.joined) }),
+    t(PREDICT_KIND[p.kind]),
+    PREDICT_DAY[p.service] ? t(PREDICT_DAY[p.service]) : '',
+  ].filter(Boolean).join(' ');
+}
+
+function predictionLine(p) {
+  return el('div', { class: `predicted ${p.likely ? 'likely' : 'possible'}`, title: predictionReason(p) },
+    p.likely ? t('Likely to leave around {date}', { date: fmtDate(p.date) }) : t('Could leave around {date}', { date: fmtDate(p.date) }));
+}
+
+// Cards with their predicted date, and how much a day finishing would take.
+function predictionGrid(list, keys) {
+  const grid = gameGrid(list.map((x) => x.g), keys);
+  const pace = playPace();
+  [...grid.children].forEach((c, i) => {
+    const { g, p } = list[i];
+    const v = ['completed', 'ignored', 'dropped'].includes(markOf(g.id)) ? null
+      : Deadline.verdict({ beat: beatHours(g), played: noteOf(g.id)?.hours || (g.steam?.minutes || 0) / 60, leave: { date: p.date }, today: todayIso(), perDay: pace.perDay });
+    const line = predictionLine(p);
+    const need = v ? el('div', { class: `deadline ${v.status}`, title: `${verdictText(v)}\n${t(VERDICT_LABEL[v.status])}` }, t('{perDay} a day to finish', { perDay: fmtPerDay(v.perDay) })) : null;
+    (c.querySelector('.row-badges') || c.querySelector('.body')).append(line, need || '');
+  });
+  return grid;
+}
+
+// The Predictions part of Leaving soon: likely ones, then the rest folded away.
+function predictionsSection() {
+  const keys = unlocked();
+  const found = filtered(games).map((g) => ({ g, p: predictionOf(g, keys) })).filter((x) => x.p);
+  found.sort((a, b) => a.p.date.localeCompare(b.p.date) || a.g.title.localeCompare(b.g.title, I18n.locale()));
+  const likely = found.filter((x) => x.p.likely);
+  const possible = found.filter((x) => !x.p.likely);
+  const more = el('details', { class: 'predict-more' },
+    el('summary', {}, tn(possible.length, 'Less likely: {n} game at a later renewal', 'Less likely: {n} games at a later renewal')),
+    possible.length ? predictionGrid(possible.slice(0, 120), keys) : '');
+  more.open = !!ui.openPossible;
+  more.addEventListener('toggle', () => { ui.openPossible = more.open; });
+  return el('section', { class: 'predictions' },
+    el('h2', {}, t('Predictions ({n})', { n: found.length })),
+    intro(t('Games that could leave in the next {days} days, worked out from when they joined. Most games sign for 12 months, big publishers\' games often 24, Rockstar and 2K games 3 to 6, and the service\'s own studios\' games usually stay. PS Plus removes games on the third Tuesday of the month and Game Pass on the 15th or the last day. Only games with a known join date are here: Game Pass gives it; for PS Plus it comes from a daily copy of the list kept since July 2026, and for other services from Subscroll\'s own refreshes.', { days: PREDICT_DAYS })),
+    likely.length ? predictionGrid(likely, keys) : el('div', { class: 'empty small' }, t('No games look likely to leave in the next {days} days.', { days: PREDICT_DAYS })),
+    possible.length ? more : null);
+}
+
 function renderLeaving() {
   const list = filtered(games.filter((g) => leaveInfo(g)));
   const byDate = (a, b) => (leaveInfo(a).date || '9999').localeCompare(leaveInfo(b).date || '9999') || a.title.localeCompare(b.title, I18n.locale());
@@ -1000,18 +1121,11 @@ function renderLeaving() {
   $('#summary').textContent = tn(list.length, '{n} game leaving. Xbox flags these itself but gives no exact date.', '{n} games leaving. Xbox flags these itself but gives no exact date.');
   renderGrid(list, t('Nothing is flagged as leaving right now.'));
   if (list.length) $('#content').prepend(paceBar([...verdicts.values()].filter(Boolean), pace));
+  $('#content').append(predictionsSection());
 }
 
-// Your playing pace, the hours-a-week setting and the order of the Leaving soon page.
+// Your playing pace, how long you play a day, and the order of the Leaving soon page.
 function paceBar(verdicts, pace) {
-  const hours = el('select', { title: t('Hours you play a week') },
-    el('option', { value: '' }, t('Work it out')),
-    [2, 3, 5, 7, 10, 14, 21, 28, 35, 42].map((n) => el('option', { value: String(n) }, tn(n, '{n} hour a week', '{n} hours a week'))));
-  hours.value = state.settings.playHoursWeek ? String(state.settings.playHoursWeek) : '';
-  hours.addEventListener('change', async () => {
-    await saveState({ settings: { ...state.settings, playHoursWeek: Number(hours.value) || null } });
-    render(true);
-  });
   const fits = verdicts.filter((v) => v.status === 'ok').length;
   const order = (value) => () => { ui.leavingOrder = value; render(true); };
   return el('div', { class: 'pace-bar' },
@@ -1021,7 +1135,7 @@ function paceBar(verdicts, pace) {
       verdicts.length ? tn(fits, '{n} game fits it.', '{n} games fit it.') : '',
       pace.source === 'default' || pace.source === 'setting' ? null : el('span', { class: 'muted' }, ` ${t('Not right? Pick how much you play.')}`)),
     el('div', { class: 'pace-controls' },
-      el('label', { class: 'pace-hours' }, el('span', { class: 'muted' }, t('You play')), hours),
+      el('label', { class: 'pace-hours' }, el('span', { class: 'muted' }, t('You play')), playTimeControl()),
       el('div', { class: 'seg' },
         el('button', { class: ui.leavingOrder === 'start' ? '' : 'on', onclick: order('date') }, t('By leave date')),
         el('button', { class: ui.leavingOrder === 'start' ? 'on' : '', onclick: order('start') }, t('What to start first')))));
@@ -2145,7 +2259,19 @@ function renderSubs() {
   content.append(el('div', { class: 'panel' },
     el('div', { class: 'panel-head' }, el('h2', {}, t('My subscriptions')), el('button', { class: 'link', onclick: startOnboarding }, t('Run the welcome setup again'))),
     rows));
-  content.append(customServicePanel(), customGamePanel());
+  content.append(playTimePanel(), customServicePanel(), customGamePanel());
+}
+
+// How long you play a day: used instead of the estimate from imports.
+function playTimePanel() {
+  const pace = playPace();
+  return el('div', { class: 'panel' },
+    el('h2', {}, t('How much you play')),
+    el('p', { class: 'muted' }, t('About how long you play games a day. Subscroll uses it to tell whether you can finish games before they leave, instead of working it out from your Steam playtime and the games you complete. Leave it empty to let Subscroll work it out.')),
+    el('div', { class: 'form' }, el('label', { class: 'pace-hours' }, el('span', {}, t('You play')), playTimeControl())),
+    el('p', { class: 'muted' }, pace.source === 'setting'
+      ? t('Using what you set: about {pace} a day.', { pace: fmtPerDay(pace.perDay) })
+      : t('Worked out for now: about {pace} a day, {source}.', { pace: fmtPerDay(pace.perDay), source: paceSource(pace) })));
 }
 
 // Tray, start at login and alerts.
@@ -2590,6 +2716,7 @@ function openDrawer(g) {
         finishedRows(g),
         cheapestRows(g),
         leave ? [el('dt', {}, t('Leaving')), el('dd', {}, leave.date ? fmtDate(leave.date) : leave.from?.length ? t('{services}: soon, no date announced', { services: leave.from.join(', ') }) : t('soon, no date announced'))] : null,
+        predictRows(g),
         finishRows(g)),
       markButtons(g, true),
       notesSection(g),
@@ -2598,6 +2725,13 @@ function openDrawer(g) {
         o.service === 'nso' ? t('Open the Wikipedia list ↗') : offers.length > 1 ? t('Open on {service} ↗', { service: serviceById(o.service)?.short || o.service }) : t('Open store page ↗'))),
       g.custom ? el('button', { class: 'link danger', onclick: deleteCustom }, t('Delete this game')) : null));
   drawer.classList.remove('hidden');
+}
+
+// A predicted leave date in the details.
+function predictRows(g) {
+  const p = predictionOf(g);
+  if (!p) return null;
+  return [el('dt', {}, t('Could leave')), el('dd', {}, predictionLine(p), el('div', { class: 'muted' }, predictionReason(p)))];
 }
 
 // "Can you finish it in time?" in the details.

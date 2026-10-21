@@ -677,6 +677,16 @@ button.svc-progress-name:hover { color: var(--accent); }
 .deadline.tight { color: var(--warn); }
 .deadline.unlikely { color: #ff7a7a; }
 dd .deadline { margin: 2px 0; }
+.predicted { font-size: 12px; font-weight: 600; margin: 2px 0; }
+.predicted.likely { color: var(--warn); }
+.predicted.possible { color: var(--muted); }
+.row-badges .predicted { white-space: nowrap; font-size: 12px; }
+.predictions { margin-top: 28px; }
+.predictions > h2 { margin-bottom: 4px; }
+.predict-more { margin-top: 16px; }
+.predict-more > summary { cursor: pointer; color: var(--muted); margin-bottom: 12px; }
+.play-time-control { display: inline-flex; gap: 6px; align-items: center; }
+.play-time-control input.play-time { width: 110px; }
 .pace-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin: 0 0 16px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; --svc: var(--accent); }
 .pace-text { flex: 1 1 320px; line-height: 1.5; }
 .pace-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }

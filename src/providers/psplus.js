@@ -1,4 +1,5 @@
 const { getJson } = require('./http');
+const history = require('./pshistory');
 
 // playstation.com's own lists behind the "PS Plus games" pages.
 const LISTS = {
@@ -14,6 +15,23 @@ function flatten(payload) {
 }
 
 const titleCase = (s) => s.charAt(0) + s.slice(1).toLowerCase();
+
+// The lists don't name publishers, but a product id starts with the
+// publisher's PlayStation code (EP9000-CUSA... is Sony's own). The ones
+// that matter for when games leave:
+const PUBLISHER_CODES = {
+  9000: 'Sony Interactive Entertainment',
+  '0001': 'Ubisoft',
+  '0082': 'Square Enix',
+  '0102': 'Capcom',
+  '0177': 'Sega',
+  '0700': 'Bandai Namco',
+  1001: '2K',
+  1003: 'Bethesda Softworks',
+  1004: 'Rockstar Games',
+  1018: 'Warner Bros. Games',
+};
+const publisherOf = (productId) => PUBLISHER_CODES[String(productId || '').slice(2, 6)] || null;
 
 function normalize(listsByTier) {
   const games = new Map();
@@ -31,6 +49,7 @@ function normalize(listsByTier) {
           leavingSoon: false,
           genres: [...new Set((g.genre || []).map(titleCase))],
           releaseDate: g.releaseDate ? g.releaseDate.slice(0, 10) : null,
+          publisher: publisherOf(g.productId),
           storeUrl: g.conceptUrl || null,
         });
       }
@@ -43,7 +62,7 @@ function normalize(listsByTier) {
   return [...games.values()];
 }
 
-async function fetchFrom(urlFor) {
+async function fetchFrom(urlFor, dir) {
   const lists = {};
   for (const [tier, list] of Object.entries(LISTS)) {
     // Monthly games are a small bonus list; don't fail the refresh over it.
@@ -54,12 +73,13 @@ async function fetchFrom(urlFor) {
       lists[tier] = [];
     }
   }
-  return normalize(lists);
+  // When each game joined, from the mirror's daily history.
+  return history.withJoinDates(normalize(lists), dir);
 }
 
-const fetchLive = ({ psLocale = 'en-us' } = {}) =>
-  fetchFrom((list) => `https://www.playstation.com/bin/imagic/gameslist?locale=${psLocale}&categoryList=${list}`);
+const fetchLive = ({ psLocale = 'en-us' } = {}, dir = null) =>
+  fetchFrom((list) => `https://www.playstation.com/bin/imagic/gameslist?locale=${psLocale}&categoryList=${list}`, dir);
 
-const fetchMirror = () => fetchFrom((list) => `${MIRROR_BASE}/${list}.json`);
+const fetchMirror = (settings, dir = null) => fetchFrom((list) => `${MIRROR_BASE}/${list}.json`, dir);
 
-module.exports = { fetchLive, fetchMirror, normalize, LISTS };
+module.exports = { fetchLive, fetchMirror, normalize, publisherOf, LISTS };

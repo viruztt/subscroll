@@ -196,10 +196,10 @@ class FreeGames {
     return !this.data.at || now - new Date(this.data.at) > CHECK_HOURS * 3600000;
   }
 
-  refresh({ country = 'US', locale = 'en-US', psLocale = 'en-us' } = {}) {
+  // `now` is for tests.
+  refresh({ country = 'US', locale = 'en-US', psLocale = 'en-us', now = new Date() } = {}) {
     if (this.running) return this.running;
     this.running = (async () => {
-      const now = new Date();
       const errors = {};
       let epic = null;
       let others = null;

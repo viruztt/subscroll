@@ -29,10 +29,12 @@
     return iso(d.getTime() <= mid ? mid : end);
   }
 
-  // settings.playHoursWeek: a number to use instead of working it out.
+  // minutesDay (settings.playMinutesDay), or the older hoursWeek: what you
+  // said you play, used instead of working it out.
   // steam: { recentMinutes, importedAt } from the Steam import.
   // finished: [{ date, hours }] completed games (hours: How Long To Beat).
-  function pace({ hoursWeek, steam, finished = [], today }) {
+  function pace({ minutesDay, hoursWeek, steam, finished = [], today }) {
+    if (Number(minutesDay) > 0) return { perDay: Number(minutesDay) / 60, source: 'setting' };
     const set = Number(hoursWeek);
     if (set > 0) return { perDay: set / 7, source: 'setting' };
     const found = [];
