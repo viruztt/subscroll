@@ -554,17 +554,37 @@ async function refreshAchievements() {
 // ---- PS Plus join dates from the PlayStation Blog, read slowly in the background ----
 // The first read takes a few minutes (one post every 5 seconds); after
 // that only new monthly posts are read, once a day.
+// The sidebar shows how far it got: { done, total } while reading,
+// { error } when the blog couldn't be reached, null otherwise.
 let psBlogRunning = false;
+let psBlogProgress = null;
+function setPsBlogProgress(p) {
+  psBlogProgress = p;
+  win?.webContents.send('psblog-progress', p);
+}
 async function refreshPsBlog() {
   if (psBlogRunning || !psblog.due(catalog.dir)) return;
   psBlogRunning = true;
   try {
-    if (await psblog.update(catalog.dir)) {
+    // Join dates are applied every few posts, so predictions fill in as it goes.
+    let applied = 0;
+    const onProgress = (p) => {
+      setPsBlogProgress(p);
+      if (p.done - applied >= 10) {
+        applied = p.done;
+        catalog.reapplyPsJoinDates();
+        win?.webContents.send('catalog-changed');
+      }
+    };
+    const read = await psblog.update(catalog.dir, { onProgress });
+    setPsBlogProgress(null);
+    if (read) {
       catalog.reapplyPsJoinDates();
       win?.webContents.send('catalog-changed');
     }
-  } catch {
+  } catch (err) {
     // Tried again after the next refresh.
+    setPsBlogProgress({ error: err.message });
   } finally {
     psBlogRunning = false;
   }
@@ -637,6 +657,7 @@ function registerIpc() {
     return next;
   });
   ipcMain.handle('get-catalog', () => catalogPayload());
+  ipcMain.handle('get-psblog-progress', () => psBlogProgress);
   ipcMain.handle('get-free', () => freeGames.list());
   ipcMain.handle('refresh-free', () => refreshFree());
   ipcMain.handle('refresh', async (_e, scope) => {

@@ -146,7 +146,9 @@ const due = (dir, now = Date.now()) => {
 };
 
 // Reads sitemaps and any posts not read yet. Returns true when new posts were read.
-async function update(dir, { delayMs = CRAWL_DELAY, now = new Date() } = {}) {
+// onProgress({ done, total }) follows along; total is null while the posts
+// are still being looked for.
+async function update(dir, { delayMs = CRAWL_DELAY, now = new Date(), onProgress = () => {} } = {}) {
   const file = path.join(dir, 'psplus-blog.json');
   const state = load(dir);
   const year = now.getUTCFullYear();
@@ -156,6 +158,7 @@ async function update(dir, { delayMs = CRAWL_DELAY, now = new Date() } = {}) {
     first = false;
     return getText(url, { timeoutMs: 30000 });
   };
+  onProgress({ done: 0, total: null });
   const maps = postSitemaps(await fetchText(`${BLOG}/wp-sitemap.xml`));
   const urls = new Set(Object.keys(state.posts));
   for (const map of maps) {
@@ -171,20 +174,22 @@ async function update(dir, { delayMs = CRAWL_DELAY, now = new Date() } = {}) {
   }
   let read = 0;
   // Newest first: recent months matter most for predictions.
-  const todo = [...urls].filter((u) => !state.posts[u]).sort((a, b) => (joinedFor(b) || '').localeCompare(joinedFor(a) || ''));
-  for (const url of todo) {
+  const todo = [...urls].filter((u) => !state.posts[u] && joinedFor(u)).sort((a, b) => joinedFor(b).localeCompare(joinedFor(a)));
+  onProgress({ done: 0, total: todo.length });
+  for (const [i, url] of todo.entries()) {
     const joined = joinedFor(url);
-    if (!joined) continue;
     let html;
     try {
       html = await fetchText(url);
     } catch {
+      onProgress({ done: i + 1, total: todo.length });
       continue;
     }
     state.posts[url] = { joined, titles: parsePost(html).map((x) => x.title) };
     read += 1;
     // Save as it goes, so an interrupted first read isn't lost.
     writeJson(file, state);
+    onProgress({ done: i + 1, total: todo.length });
   }
   state.checkedAt = now.toISOString();
   writeJson(file, state);

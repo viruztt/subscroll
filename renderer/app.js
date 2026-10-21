@@ -3196,6 +3196,20 @@ function showRatingProgress(p) {
   status.textContent = t('Fetching scores and times: {done} of {total}', { done: p.done, total: p.total });
 }
 
+// PS Plus join dates being read from the PlayStation Blog (src/providers/psblog.js).
+function showPsBlogProgress(p) {
+  const status = $('#psblog-status');
+  status.title = '';
+  if (!p) status.textContent = '';
+  else if (p.error) {
+    status.textContent = t("Couldn't reach the PlayStation Blog for PS Plus join dates, will try again later");
+    status.title = p.error;
+  } else if (p.total === null) status.textContent = t('Looking for PS Plus join dates on the PlayStation Blog…');
+  else status.textContent = t('Reading PS Plus join dates: {done} of {total} blog posts', { done: p.done, total: p.total });
+}
+api.onPsBlogProgress(showPsBlogProgress);
+api.getPsBlogProgress().then(showPsBlogProgress).catch(() => {});
+
 api.onRatings(({ updates, progress }) => {
   Object.assign(ratings, updates);
   showRatingProgress(progress);

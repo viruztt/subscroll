@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('api', {
   getDetails: (game) => ipcRenderer.invoke('get-details', game),
   getRatings: () => ipcRenderer.invoke('get-ratings'),
   onRatings: (fn) => ipcRenderer.on('ratings', (_e, msg) => fn(msg)),
+  getPsBlogProgress: () => ipcRenderer.invoke('get-psblog-progress'),
+  onPsBlogProgress: (fn) => ipcRenderer.on('psblog-progress', (_e, p) => fn(p)),
   onCatalogChanged: (fn) => ipcRenderer.on('catalog-changed', () => fn()),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   launch: (url) => ipcRenderer.invoke('launch', url),
