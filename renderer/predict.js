@@ -8,6 +8,7 @@
 // PS Plus removes games on the third Tuesday of the month, Game Pass on the
 // 15th or the last day of the month.
 //   predict(offer, { today, horizon }) -> { date, months, joined, likely, kind } | null
+//   horizon is in days; PS Plus looks further (see windowEnd).
 (function (root) {
   const DAY = 86400000;
   const utc = (iso) => Date.parse(`${String(iso).slice(0, 10)}T00:00:00Z`);
@@ -83,6 +84,20 @@
     return out;
   }
 
+  // How far ahead to look. PS Plus announces a month's departures a few
+  // weeks ahead, so its window always reaches the removal day after the
+  // next one (in late October, mid-December).
+  function windowEnd(service, today, horizon = 45) {
+    const now = utc(today);
+    let end = now + horizon * DAY;
+    if (service === 'psplus') {
+      const d = new Date(now);
+      const days = [0, 1, 2, 3].map((n) => thirdTuesday(d.getUTCFullYear(), d.getUTCMonth() + n)).filter((t) => t > now);
+      end = Math.max(end, days[1]);
+    }
+    return end;
+  }
+
   // offer: { service, joined (YYYY-MM-DD), publisher, developer, tiers }
   function predict(offer, { today, horizon = 45 } = {}) {
     if (!offer || !offer.joined || SKIP.has(offer.service)) return null;
@@ -99,13 +114,13 @@
       const t = utc(date);
       if (t < now) continue;
       if (FLAGGED_AHEAD[offer.service] && t - now < FLAGGED_AHEAD[offer.service] * DAY) continue;
-      if (t > now + horizon * DAY) return null;
+      if (t > windowEnd(offer.service, today, horizon)) return null;
       return { date, months: c.months, joined: offer.joined, likely: c.likely, kind };
     }
     return null;
   }
 
-  const api = { predict, kindOf, leaveDay, addMonths, thirdTuesday };
+  const api = { predict, kindOf, leaveDay, addMonths, thirdTuesday, windowEnd };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Predict = api;
 })(this);

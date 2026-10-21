@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { predict, kindOf, leaveDay, thirdTuesday, addMonths } = require('../renderer/predict');
+const { predict, kindOf, leaveDay, thirdTuesday, addMonths, windowEnd } = require('../renderer/predict');
 
 const today = '2026-10-21';
 
@@ -52,4 +52,16 @@ test('Predictions: Game Pass dates close by without an Xbox flag are skipped', (
   assert.strictEqual(predict({ service: 'gamepass', joined: '2025-11-05' }, { today: '2026-10-25' }), null);
   // Apple Arcade has no flag, so the date stays.
   assert.strictEqual(predict({ service: 'applearcade', joined: '2025-11-05' }, { today: '2026-10-25' }).date, '2026-10-31');
+});
+
+test('Predictions: PS Plus looks ahead to the removal day after next', () => {
+  // 21 October: November's day (17th) is announced, so December's (15th) is in reach too.
+  assert.strictEqual(new Date(windowEnd('psplus', '2026-10-21')).toISOString().slice(0, 10), '2026-12-15');
+  assert.deepStrictEqual(predict({ service: 'psplus', tiers: ['extra'], joined: '2024-12-17', publisher: 'Ubisoft' }, { today: '2026-10-21' }),
+    { date: '2026-12-15', months: 24, joined: '2024-12-17', likely: true, kind: 'big' });
+  assert.strictEqual(predict({ service: 'psplus', tiers: ['extra'], joined: '2025-12-16', publisher: 'Team17' }, { today: '2026-10-21' }).date, '2026-12-15');
+  // On a removal day the window moves on to the next two.
+  assert.strictEqual(new Date(windowEnd('psplus', '2026-11-17')).toISOString().slice(0, 10), '2027-01-19');
+  // Game Pass keeps the plain 45 days.
+  assert.strictEqual(predict({ service: 'gamepass', joined: '2025-12-15', publisher: 'Raw Fury' }, { today: '2026-10-21' }), null);
 });

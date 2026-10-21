@@ -2,6 +2,7 @@ const path = require('path');
 const { readJson, writeJson } = require('./store');
 const gamepass = require('./providers/gamepass');
 const psplus = require('./providers/psplus');
+const psblog = require('./providers/psblog');
 const nintendo = require('./providers/nintendo');
 const covers = require('./providers/covers');
 const msextras = require('./providers/msextras');
@@ -267,6 +268,16 @@ class Catalog {
     const next = { ...entry, games, history: { ...history, firstSeen: entry.history?.firstSeen || {}, departed: mergeDeparted(entry.history?.departed, history.departed) } };
     if (entry.source !== 'bundled') writeJson(this.fileFor('applearcade'), next);
     this.cache.applearcade = next;
+    return next;
+  }
+
+  // Re-applies PS Plus join dates after more PlayStation Blog posts were read.
+  reapplyPsJoinDates() {
+    const entry = this.load('psplus');
+    if (entry.source === 'bundled' || !entry.games.length) return entry;
+    const next = { ...entry, games: psblog.apply(entry.games, this.dir) };
+    writeJson(this.fileFor('psplus'), next);
+    this.cache.psplus = next;
     return next;
   }
 

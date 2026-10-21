@@ -1,6 +1,7 @@
 const path = require('path');
 const { getJson, mapLimit } = require('./http');
 const { readJson, writeJson } = require('../store');
+const blog = require('./psblog');
 
 // When each PS Plus game joined. playstation.com's lists don't say, but the
 // ps-plus-games-list mirror commits the lists every day they change, so the
@@ -102,7 +103,8 @@ function joinDates(state) {
 }
 
 // Adds addedOn to PS Plus games from the history; the list stays as it is
-// when GitHub can't be reached (the last saved history is used).
+// when GitHub can't be reached (the last saved history is used). Games
+// the history has no date for get one from the PlayStation Blog's posts.
 async function withJoinDates(games, dir) {
   if (!dir) return games;
   let state;
@@ -112,11 +114,13 @@ async function withJoinDates(games, dir) {
     state = readJson(path.join(dir, 'psplus-history.json'), null);
   }
   const dates = joinDates(state);
-  if (!dates.size) return games;
-  return games.map((g) => {
+  const dated = !dates.size ? games : games.map((g) => {
     const date = dates.get(g.id.replace(/^psplus:/, ''));
     return date && !g.addedOn ? { ...g, addedOn: date } : g;
   });
+  // Games that were already there when the mirror started: the PlayStation
+  // Blog's monthly posts (read in the background, see psblog.js).
+  return blog.apply(dated, dir);
 }
 
 module.exports = { step, joinDates, withJoinDates, keysIn, newCommits, update };

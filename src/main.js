@@ -3,6 +3,7 @@ const path = require('path');
 const { Store, readJson, writeJson } = require('./store');
 const { Catalog, SERVICES: CATALOG_SERVICES } = require('./catalog');
 const arcade = require('./providers/applearcade');
+const psblog = require('./providers/psblog');
 const { DetailsCache } = require('./details');
 const { Ratings } = require('./ratings');
 const { SERVICES, TIER_BADGES, unlockedTiers, offerOpen } = require('./services');
@@ -196,6 +197,7 @@ async function refreshAll(only = null) {
     refreshSteam();
     refreshAchievements();
     refreshCloud();
+    refreshPsBlog();
     sendAlerts(results, before, waitingBefore);
     win?.webContents.send('catalog-changed');
     return results;
@@ -549,6 +551,25 @@ async function refreshAchievements() {
   }
 }
 
+// ---- PS Plus join dates from the PlayStation Blog, read slowly in the background ----
+// The first read takes a few minutes (one post every 5 seconds); after
+// that only new monthly posts are read, once a day.
+let psBlogRunning = false;
+async function refreshPsBlog() {
+  if (psBlogRunning || !psblog.due(catalog.dir)) return;
+  psBlogRunning = true;
+  try {
+    if (await psblog.update(catalog.dir)) {
+      catalog.reapplyPsJoinDates();
+      win?.webContents.send('catalog-changed');
+    }
+  } catch {
+    // Tried again after the next refresh.
+  } finally {
+    psBlogRunning = false;
+  }
+}
+
 // ---- Apple Arcade icons and details, looked up slowly in the background ----
 let arcadeRunning = false;
 async function enrichArcade() {
@@ -806,6 +827,7 @@ app.whenReady().then(async () => {
   setTimeout(enrichArcade, 5000);
   setTimeout(startWiki, 8000);
   setTimeout(refreshCloud, 10000);
+  setTimeout(refreshPsBlog, 12000);
   // Imports made before this feature lack the last two weeks of Steam playtime (for
   // "Can I finish it in time?"), so read the library again now.
   const steamSaved = store.get().steam;

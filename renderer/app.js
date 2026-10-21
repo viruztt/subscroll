@@ -1113,7 +1113,7 @@ function predictionsSection() {
   more.addEventListener('toggle', () => { ui.openPossible = more.open; });
   return el('section', { class: 'predictions' },
     el('h2', {}, t('Predictions ({n})', { n: found.length })),
-    intro(t('Games that could leave in the next {days} days, worked out from when they joined. Most games sign for 12 months, big publishers\' games often 24, Rockstar and 2K games 3 to 6, and the service\'s own studios\' games usually stay. PS Plus removes games on the third Tuesday of the month and Game Pass on the 15th or the last day. Only games with a known join date are here: Game Pass gives it; for PS Plus it comes from a daily copy of the list kept since July 2026, and for other services from Subscroll\'s own refreshes.', { days: PREDICT_DAYS })),
+    intro(t('Games that could leave in the next {days} days (for PS Plus, up to the removal day after next), worked out from when they joined. Most games sign for 12 months, big publishers\' games often 24, Rockstar and 2K games 3 to 6, and the service\'s own studios\' games usually stay. PS Plus removes games on the third Tuesday of the month and Game Pass on the 15th or the last day. Only games with a known join date are here: Game Pass gives it; for PS Plus it comes from the PlayStation Blog\'s monthly lineup posts since 2022, and for other services from Subscroll\'s own refreshes. Sony doesn\'t publish which PS Plus games are leaving outside the console, so its predictions can include games that were renewed.', { days: PREDICT_DAYS })),
     likely.length ? predictionGrid(likely, keys) : el('div', { class: 'empty small' }, t('No games look likely to leave in the next {days} days.', { days: PREDICT_DAYS })),
     possible.length ? more : null);
 }
