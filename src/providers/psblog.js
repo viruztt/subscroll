@@ -12,7 +12,8 @@ const { matchKey } = require('../../renderer/unify');
 // and kept in psplus-blog.json: a post is read once, and later checks
 // only look for new ones.
 const BLOG = 'https://blog.playstation.com';
-const VERSION = 1;
+// 2: better title parsing, so posts read before are read again.
+const VERSION = 2;
 const FIRST_YEAR = 2022;
 const CRAWL_DELAY = 5000;
 const CHECK_EVERY = 20 * 3600 * 1000;
@@ -75,12 +76,18 @@ function decode(s) {
     .trim();
 }
 
-// Game titles in one post, in order: lines like "Far Cry 5 | PS4" (in a
-// heading, paragraph or list item), under the post's Game Catalog and
-// Classics headings. Essential's monthly games (in 2022's joint posts)
-// are left out: they rotate on their own.
+// Game titles in one post, in order: lines like "Far Cry 5 | PS4" or
+// "Far Cry 6 (PS4/PS5)" (in a heading, paragraph or list item), under the
+// post's Game Catalog and Classics headings. Essential's monthly games (in
+// 2022's joint posts) are left out: they rotate on their own. A few posts
+// name games without platforms ("<h2>Tchia</h2>", "<strong>Yakuza 0</strong>");
+// when a post has hardly any platform lines, such short headings, bold
+// lines and list items count as titles too (anything else they catch,
+// like "Download the image", doesn't match a game).
+const MIN_TITLES = 5;
 function parsePost(html) {
   const out = [];
+  const bare = [];
   let section = 'catalog';
   for (const m of String(html).matchAll(/<(h[1-6]|p|li)\b[^>]*>([\s\S]*?)<\/\1>/gi)) {
     const text = decode(m[2]);
@@ -92,11 +99,19 @@ function parsePost(html) {
       else if (/extra|premium|catalog|classics/i.test(text)) section = /classics|premium$/i.test(text.trim()) && !/extra/i.test(text) ? 'classics' : 'catalog';
       continue;
     }
-    if (bar === -1 || !PLATFORM.test(right) || section === 'essential') continue;
-    const title = text.slice(0, bar).trim();
-    if (title) out.push({ title, section });
+    if (section === 'essential') continue;
+    const bracket = /^(.+?)\s*\(([^)]*)\)$/.exec(text);
+    let title = null;
+    if (bar !== -1 && PLATFORM.test(right)) title = text.slice(0, bar).trim();
+    else if (bracket && PLATFORM.test(bracket[2]) && !/[a-z]{3,}\s[a-z]{3,}\s[a-z]{3,}/.test(bracket[2])) title = bracket[1].trim();
+    if (title) {
+      out.push({ title, section });
+      continue;
+    }
+    const plain = /^h[23]$/i.test(m[1]) || /^li$/i.test(m[1]) || /^\s*<strong>[\s\S]*<\/strong>\s*$/i.test(m[2]);
+    if (plain && text.length <= 70 && text.split(' ').length <= 9 && !/[.!?:,]$/.test(text) && !/^(download|watch|read|share|related)\b/i.test(text)) bare.push({ title: text, section });
   }
-  return out;
+  return out.length >= MIN_TITLES ? out : out.concat(bare);
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -157,13 +172,21 @@ async function update(dir, { delayMs = CRAWL_DELAY, now = new Date() } = {}) {
   return read > 0;
 }
 
-// matchKey(title) -> the latest day the game joined, up to today.
+// Titles compared the way the rest of the app does (unify's matchKey),
+// plus: Roman numerals as digits ("MediEvil II" is "MediEvil 2") and
+// " – Something Edition" dropped.
+const ROMAN = { ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8, ix: 9 };
+const keyOf = (title) => matchKey(String(title)
+  .replace(/\s+[–—-]\s+[^–—-]*\bedition$/i, '')
+  .replace(/\b(ii|iii|iv|v|vi|vii|viii|ix)\b/gi, (r) => ROMAN[r.toLowerCase()]));
+
+// keyOf(title) -> the latest day the game joined, up to today.
 function joinDates(state, today = new Date().toISOString().slice(0, 10)) {
   const out = new Map();
   for (const { joined, titles } of Object.values((state && state.posts) || {})) {
     if (!joined || joined > today) continue;
     for (const title of titles || []) {
-      const key = matchKey(title);
+      const key = keyOf(title);
       if (key && (!out.has(key) || joined > out.get(key))) out.set(key, joined);
     }
   }
@@ -182,17 +205,22 @@ function apply(games, dir, today) {
   });
 }
 
-// The blog's title for a game, allowing for small differences: an exact
-// match, else the one blog title that starts with the store's (or the
-// other way round) when the shorter has at least 10 letters.
+// What one name may add to the other and still be the same game: platform,
+// edition and remaster words ("Hogwarts Legacy PS4 Version", "Final Fantasy
+// VII Remake Intergrade"), never a number or a subtitle ("Ape Academy 2",
+// "Tomb Raider: Legend").
+const SAME_GAME_EXTRA = /^(ps[45]|and|version|edition|remastered|intergrade|deluxe|digital|definitive|complete|ultimate|standard|gameoftheyear|goty|enhanced|cinematic|launch)+$/;
+
+// The blog's date for a game: its exact title, else the one blog title
+// that is the store's plus only such extra words (or the other way round).
 function lookup(dates, title) {
-  const key = matchKey(title);
+  const key = keyOf(title);
   if (!key) return null;
   if (dates.has(key)) return dates.get(key);
   let found = null;
   for (const [k, d] of dates) {
     const [short, long] = k.length < key.length ? [k, key] : [key, k];
-    if (short.length >= 10 && long.startsWith(short)) {
+    if (short.length >= 4 && long.startsWith(short) && SAME_GAME_EXTRA.test(long.slice(short.length))) {
       if (found && found !== d) return null;
       found = d;
     }
@@ -200,4 +228,4 @@ function lookup(dates, title) {
   return found;
 }
 
-module.exports = { update, due, load, apply, joinDates, lookup, parsePost, joinedFor, postSitemaps, isPost };
+module.exports = { update, due, load, apply, joinDates, lookup, keyOf, parsePost, joinedFor, postSitemaps, isPost };

@@ -33,6 +33,25 @@ test('PS Blog: game titles from each kind of post', () => {
   assert.deepStrictEqual(blog.parsePost(LAUNCH).map((x) => x.title), ['Bloodborne', 'Demon’s Souls']);
 });
 
+test('PS Blog: platforms in brackets, and posts that name games without platforms', () => {
+  assert.deepStrictEqual(blog.parsePost('<ul><li>Far Cry 6 (PS4/PS5)</li><li>Deus Ex: Mankind Divided (PS4)</li></ul>').map((x) => x.title), ['Far Cry 6', 'Deus Ex: Mankind Divided']);
+  // March 2023: bare headings, with "Download the image" between them.
+  const bare = `<h2>Game Catalog | PlayStation Plus Extra and Premium</h2><h2>Tchia&nbsp;</h2><p>Explore a tropical archipelago.</p><h2>Download the image</h2>
+<h2>Ghostwire: Tokyo</h2><p><strong>Yakuza 0&nbsp;</strong></p><p>A long sentence that describes the game in some detail.</p><h2>PlayStation Plus Premium | Classics</h2><h2>Ridge Racer Type 4 | PS1</h2>`;
+  const titles = blog.parsePost(bare).map((x) => x.title);
+  for (const t of ['Ridge Racer Type 4', 'Tchia', 'Ghostwire: Tokyo', 'Yakuza 0']) assert.ok(titles.includes(t), t);
+  assert.ok(!titles.some((t) => t.startsWith('Explore') || t.startsWith('A long')));
+});
+
+test('PS Blog: names match across numerals and edition words, not across sequels', () => {
+  const dates = new Map([['Medievil II', '2022-12-20'], ['Earth Defense Force: World Brothers', '2023-05-16'], ['Ape Academy', '2023-01-17'], ['Twisted Metal', '2023-07-18'], ['Tomb Raider: Definitive Edition', '2024-02-20'], ['Final Fantasy VII Remake', '2024-06-18'], ['Tales of Arise – Beyond the Dawn Edition', '2026-10-20']]
+    .map(([t, d]) => [blog.keyOf(t), d]));
+  assert.strictEqual(blog.lookup(dates, 'MediEvil 2'), '2022-12-20');
+  assert.strictEqual(blog.lookup(dates, 'FINAL FANTASY VII REMAKE INTERGRADE'), '2024-06-18');
+  assert.strictEqual(blog.lookup(dates, 'Tales of Arise'), '2026-10-20');
+  for (const t of ['EARTH DEFENSE FORCE: WORLD BROTHERS 2', 'Ape Academy 2', 'Twisted Metal III', 'Twisted Metal World Tour', 'Tomb Raider: Legend']) assert.strictEqual(blog.lookup(dates, t), null, t);
+});
+
 test('PS Blog: games join on the third Tuesday of the month the post is for', () => {
   assert.strictEqual(blog.joinedFor(`${B}/2025/12/10/playstation-plus-game-catalog-for-december-assassins-creed-mirage/`), '2025-12-16');
   assert.strictEqual(blog.joinedFor(`${B}/2024/12/11/playstation-plus-game-catalog-lineup-for-december-the-crew-2/`), '2024-12-17');
