@@ -12,8 +12,8 @@ const { matchKey } = require('../../renderer/unify');
 // and kept in psplus-blog.json: a post is read once, and later checks
 // only look for new ones.
 const BLOG = 'https://blog.playstation.com';
-// 2: better title parsing, so posts read before are read again.
-const VERSION = 2;
+// 3: better title parsing, so posts read before are read again.
+const VERSION = 3;
 const FIRST_YEAR = 2022;
 const CRAWL_DELAY = 5000;
 const CHECK_EVERY = 20 * 3600 * 1000;
@@ -85,16 +85,34 @@ function decode(s) {
 // lines and list items count as titles too (anything else they catch,
 // like "Download the image", doesn't match a game).
 const MIN_TITLES = 5;
+// The post itself, without the site's menus, sidebar and footer.
+function articleOf(html) {
+  let s = String(html);
+  const start = [/class="[^"]*entry-content/i, /<article\b/i, /<h1\b/i].map((re) => s.search(re)).find((i) => i !== -1);
+  if (start !== undefined) s = s.slice(start);
+  const end = s.search(/Comments are closed|Latest News|Trending Stories|<footer\b/i);
+  return end === -1 ? s : s.slice(0, end);
+}
+
+const SECTION = /playstation (plus|premium|extra|classics)|game catalog/i;
+
 function parsePost(html) {
+  const found = titlesIn(articleOf(html), true);
+  // If the page's layout changes and the article isn't found, platform lines
+  // anywhere still count.
+  return found.length ? found : titlesIn(String(html), false);
+}
+
+function titlesIn(html, allowBare) {
   const out = [];
   const bare = [];
   let section = 'catalog';
-  for (const m of String(html).matchAll(/<(h[1-6]|p|li)\b[^>]*>([\s\S]*?)<\/\1>/gi)) {
+  for (const m of html.matchAll(/<(h[1-6]|p|li)\b[^>]*>([\s\S]*?)<\/\1>/gi)) {
     const text = decode(m[2]);
     if (!text || text.length > 160) continue;
     const bar = text.lastIndexOf('|');
     const right = bar === -1 ? '' : text.slice(bar + 1);
-    if (/playstation plus/i.test(text) && !PLATFORM.test(right)) {
+    if (SECTION.test(text) && !PLATFORM.test(right)) {
       if (/essential|monthly games/i.test(text) && !/extra|premium|catalog|classics/i.test(text)) section = 'essential';
       else if (/extra|premium|catalog|classics/i.test(text)) section = /classics|premium$/i.test(text.trim()) && !/extra/i.test(text) ? 'classics' : 'catalog';
       continue;
@@ -111,7 +129,7 @@ function parsePost(html) {
     const plain = /^h[23]$/i.test(m[1]) || /^li$/i.test(m[1]) || /^\s*<strong>[\s\S]*<\/strong>\s*$/i.test(m[2]);
     if (plain && text.length <= 70 && text.split(' ').length <= 9 && !/[.!?:,]$/.test(text) && !/^(download|watch|read|share|related)\b/i.test(text)) bare.push({ title: text, section });
   }
-  return out.length >= MIN_TITLES ? out : out.concat(bare);
+  return out.length >= MIN_TITLES || !allowBare ? out : out.concat(bare);
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -177,6 +195,7 @@ async function update(dir, { delayMs = CRAWL_DELAY, now = new Date() } = {}) {
 // " – Something Edition" dropped.
 const ROMAN = { ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8, ix: 9 };
 const keyOf = (title) => matchKey(String(title)
+  .replace(/\s*\((?:[^)]*\b(?:PS ?[1-5]|PSP)\b[^)]*|(?:19|20)\d\d)\)\s*$/i, '')
   .replace(/\s+[–—-]\s+[^–—-]*\bedition$/i, '')
   .replace(/\b(ii|iii|iv|v|vi|vii|viii|ix)\b/gi, (r) => ROMAN[r.toLowerCase()]));
 
@@ -209,7 +228,7 @@ function apply(games, dir, today) {
 // edition and remaster words ("Hogwarts Legacy PS4 Version", "Final Fantasy
 // VII Remake Intergrade"), never a number or a subtitle ("Ape Academy 2",
 // "Tomb Raider: Legend").
-const SAME_GAME_EXTRA = /^(ps[45]|and|version|edition|remastered|intergrade|deluxe|digital|definitive|complete|ultimate|standard|gameoftheyear|goty|enhanced|cinematic|launch)+$/;
+const SAME_GAME_EXTRA = /^(ps[45]|and|version|edition|remastered|intergrade|deluxe|digital|definitive|complete|ultimate|standard|gameoftheyear|goty|enhanced|cinematic|launch|special|collectors)+$/;
 
 // The blog's date for a game: its exact title, else the one blog title
 // that is the store's plus only such extra words (or the other way round).
@@ -217,6 +236,12 @@ function lookup(dates, title) {
   const key = keyOf(title);
   if (!key) return null;
   if (dates.has(key)) return dates.get(key);
+  // "Blood Omen 2: Legacy of Kain" and "WRC Generations – The FIA WRC
+  // Official Game" are listed as "Blood Omen 2" and "WRC Generations"; the
+  // name before the subtitle has to be distinctive (a number, or long).
+  const head = String(title).split(/:\s|\s+[–—-]\s+/)[0];
+  const headKey = head === String(title) ? null : keyOf(head);
+  if (headKey && dates.has(headKey) && (/\d/.test(headKey) || headKey.length >= 13)) return dates.get(headKey);
   let found = null;
   for (const [k, d] of dates) {
     const [short, long] = k.length < key.length ? [k, key] : [key, k];

@@ -41,6 +41,11 @@ test('PS Blog: platforms in brackets, and posts that name games without platform
   const titles = blog.parsePost(bare).map((x) => x.title);
   for (const t of ['Ridge Racer Type 4', 'Tchia', 'Ghostwire: Tokyo', 'Yakuza 0']) assert.ok(titles.includes(t), t);
   assert.ok(!titles.some((t) => t.startsWith('Explore') || t.startsWith('A long')));
+  // Only the article: menus and footers around it are left out.
+  const page = `<nav><ul><li>PS Store</li><li>French</li></ul></nav><div class="entry-content">${bare}</div><h2>Latest News</h2><ul><li>Careers</li></ul>`;
+  const inPage = blog.parsePost(page).map((x) => x.title);
+  assert.ok(inPage.includes('Tchia') && !inPage.includes('PS Store') && !inPage.includes('Careers') && !inPage.includes('French'));
+  assert.ok(!blog.parsePost('<h2>PlayStation Classics | PlayStation Premium</h2><h2>Tchia</h2>').some((x) => /PlayStation/.test(x.title)));
 });
 
 test('PS Blog: names match across numerals and edition words, not across sequels', () => {
@@ -49,6 +54,13 @@ test('PS Blog: names match across numerals and edition words, not across sequels
   assert.strictEqual(blog.lookup(dates, 'MediEvil 2'), '2022-12-20');
   assert.strictEqual(blog.lookup(dates, 'FINAL FANTASY VII REMAKE INTERGRADE'), '2024-06-18');
   assert.strictEqual(blog.lookup(dates, 'Tales of Arise'), '2026-10-20');
+  const more = new Map([['Skyrim – Special Edition', '2022-06-13'], ['The Elder Scrolls V: Skyrim – Special Edition', '2022-06-13'], ['ANNO: Mutationem', '2023-03-21'], ['Alone in the Dark 2', '2023-08-15'], ['Blood Omen 2', '2023-11-21'], ['WRC Generations', '2024-12-17'], ["Oddworld: Abe's Exoddus", '2023-06-20']].map(([t, d]) => [blog.keyOf(t), d]));
+  assert.strictEqual(blog.lookup(more, 'The Elder Scrolls V: Skyrim Special Edition - PS5 & PS4'), '2022-06-13');
+  assert.strictEqual(blog.lookup(more, "ANNO: Mutationem Collector's Edition PS4 & PS5"), '2023-03-21');
+  assert.strictEqual(blog.lookup(more, 'Alone in the Dark 2 (1996)'), '2023-08-15');
+  assert.strictEqual(blog.lookup(more, 'Blood Omen 2: Legacy of Kain'), '2023-11-21');
+  assert.strictEqual(blog.lookup(more, 'WRC Generations – The FIA WRC Official Game'), '2024-12-17');
+  assert.strictEqual(blog.lookup(more, "Oddworld: Abe's Exoddus (PS1 Emulation)"), '2023-06-20');
   for (const t of ['EARTH DEFENSE FORCE: WORLD BROTHERS 2', 'Ape Academy 2', 'Twisted Metal III', 'Twisted Metal World Tour', 'Tomb Raider: Legend']) assert.strictEqual(blog.lookup(dates, t), null, t);
 });
 
