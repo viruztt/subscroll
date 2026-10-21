@@ -256,7 +256,18 @@ async function setNote(id, patch) {
 
 async function saveState(patch) {
   state = await api.updateState(patch);
+  if (patch.settings) applyTheme();
 }
+
+// Light or dark styles (data-theme on the page). "Same as the system"
+// follows the system's setting, also when it changes while Subscroll runs.
+const systemLight = window.matchMedia('(prefers-color-scheme: light)');
+function applyTheme() {
+  const pref = state?.settings?.theme || 'dark';
+  const light = pref === 'light' || (pref === 'system' && systemLight.matches);
+  document.documentElement.dataset.theme = light ? 'light' : 'dark';
+}
+systemLight.addEventListener('change', applyTheme);
 
 // ---------- data ----------
 // Switch Online lists some games (or regional versions) only in Japan or
@@ -1666,13 +1677,13 @@ function svgEl(tag, attrs = {}, text) {
 function donut(slices, centre, caption, { onPick, picked } = {}) {
   const total = slices.reduce((sum, x) => sum + x.value, 0);
   const svg = svgEl('svg', { viewBox: '0 0 42 42', class: 'donut', role: 'img' });
-  svg.append(svgEl('circle', { cx: 21, cy: 21, r: 15.915, fill: 'none', stroke: '#2a2f3a', 'stroke-width': 6 }));
+  svg.append(svgEl('circle', { cx: 21, cy: 21, r: 15.915, fill: 'none', class: 'donut-track', 'stroke-width': 6 }));
   let offset = 25; // start at 12 o'clock
   for (const x of slices) {
     if (!x.value) continue;
     const pct = (x.value / total) * 100;
     const on = picked != null && picked === x.key;
-    const ring = svgEl('circle', { cx: 21, cy: 21, r: 15.915, fill: 'none', stroke: x.color, 'stroke-width': on ? 7.5 : 6, 'stroke-dasharray': `${pct} ${100 - pct}`, 'stroke-dashoffset': offset, class: onPick ? 'slice' : '' });
+    const ring = svgEl('circle', { cx: 21, cy: 21, r: 15.915, fill: 'none', style: `stroke:${x.color}`, 'stroke-width': on ? 7.5 : 6, 'stroke-dasharray': `${pct} ${100 - pct}`, 'stroke-dashoffset': offset, class: onPick ? 'slice' : '' });
     ring.append(svgEl('title', {}, `${x.label}: ${x.value}`));
     if (onPick) ring.addEventListener('click', () => onPick(x.key));
     svg.append(ring);
@@ -1690,7 +1701,7 @@ function donut(slices, centre, caption, { onPick, picked } = {}) {
   return el('div', { class: 'chart' }, svg, legend);
 }
 
-const STATUS_COLOR = { completed: '#f2c94c', playing: '#3ccf91', played: '#2a9d8f', dropped: '#e07a5f', wishlist: '#6aa8ff', untouched: '#3a404d', ignored: '#6b7280' };
+const STATUS_COLOR = { completed: '#f2c94c', playing: '#3ccf91', played: '#2a9d8f', dropped: '#e07a5f', wishlist: '#6aa8ff', untouched: 'var(--untouched)', ignored: '#6b7280' };
 const pct = (x) => `${Math.round(x * 100)}%`;
 // Shares too small to round up still show as something.
 const share = (x) => (x > 0 && x < 0.005 ? '<1%' : pct(x));
@@ -2221,7 +2232,7 @@ function beatenPanel(v) {
 }
 
 // Settings in tabs, one subject each.
-const SETTINGS_TABS = [['plans', tk('Plans')], ['region', tk('Region and language')], ['accounts', tk('Accounts')], ['app', tk('Background and updates')], ['backup', tk('Backup')], ['sources', tk('Data sources')]];
+const SETTINGS_TABS = [['plans', tk('Plans')], ['region', tk('Region and language')], ['look', tk('Appearance')], ['accounts', tk('Accounts')], ['app', tk('Background and updates')], ['backup', tk('Backup')], ['sources', tk('Data sources')]];
 
 function renderSubs() {
   $('#summary').textContent = t('Everything here is saved on this computer.');
@@ -2235,7 +2246,7 @@ function renderSubs() {
     onclick: () => { ui.settingsTab = id; $('#content').scrollTop = 0; render(); },
   }, t(label)))));
   if (tab !== 'plans') {
-    const panels = { region: () => [regionPanel()], accounts: () => [steamPanel(), achievementsPanel('xbox'), achievementsPanel('psn')], app: () => [backgroundPanel(), updatePanel()], backup: () => [backupPanel()], sources: () => [sourcesPanel()] };
+    const panels = { region: () => [regionPanel()], look: () => [appearancePanel()], accounts: () => [steamPanel(), achievementsPanel('xbox'), achievementsPanel('psn')], app: () => [backgroundPanel(), updatePanel()], backup: () => [backupPanel()], sources: () => [sourcesPanel()] };
     content.append(...panels[tab]());
     return;
   }
@@ -2260,6 +2271,21 @@ function renderSubs() {
     el('div', { class: 'panel-head' }, el('h2', {}, t('My subscriptions')), el('button', { class: 'link', onclick: startOnboarding }, t('Run the welcome setup again'))),
     rows));
   content.append(playTimePanel(), customServicePanel(), customGamePanel());
+}
+
+// Dark, light, or whatever the system uses. The main process sets Electron's
+// theme, and the styles follow it.
+function appearancePanel() {
+  const current = state.settings.theme || 'dark';
+  const pick = (theme) => async () => {
+    await saveState({ settings: { ...state.settings, theme } });
+    render(true);
+  };
+  const options = [['dark', t('Dark')], ['light', t('Light')], ['system', system.platform === 'win32' ? t('Same as Windows') : t('Same as the system')]];
+  return el('div', { class: 'panel' },
+    el('h2', {}, t('Appearance')),
+    el('p', { class: 'muted' }, t('Colour theme for Subscroll\'s window.')),
+    el('div', { class: 'seg', style: '--svc:#6aa8ff' }, options.map(([id, label]) => el('button', { class: current === id ? 'on' : '', onclick: pick(id) }, label))));
 }
 
 // How long you play a day: used instead of the estimate from imports.
@@ -3308,6 +3334,7 @@ async function init() {
   ({ services, tierBadges, system: sys } = await api.getServices());
   if (sys) system = sys;
   state = await api.getState();
+  applyTheme();
   applyLanguage();
   catalogs = await api.getCatalog();
   rebuildGames();

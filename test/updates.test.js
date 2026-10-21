@@ -91,7 +91,8 @@ test('Updates: the download is kept only when it matches the checksum', async ()
   const r = await selfupdate.download({ url: 'https://github.com/x', size: body.length, sha256: sha }, file, { fetch: serve(body), platform: 'linux', onProgress: (got, total) => seen.push([got, total]) });
   assert.strictEqual(r.file, file);
   assert.ok(fs.readFileSync(file).equals(body));
-  assert.ok(fs.statSync(file).mode & 0o100, 'the AppImage can run');
+  // Windows files have no executable bit to check.
+  if (process.platform !== 'win32') assert.ok(fs.statSync(file).mode & 0o100, 'the AppImage can run');
   assert.deepStrictEqual(seen[seen.length - 1], [body.length, body.length]);
   assert.ok(!fs.existsSync(`${file}.part`));
 

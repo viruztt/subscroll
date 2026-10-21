@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, net, shell } = require('electron');
+const { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, nativeTheme, net, shell } = require('electron');
 const path = require('path');
 const { Store, readJson, writeJson } = require('./store');
 const { Catalog, SERVICES: CATALOG_SERVICES } = require('./catalog');
@@ -85,6 +85,14 @@ const argAfter = (flag) => {
 };
 const updatedFrom = argAfter('--updated-from');
 
+// Dark (the default), light, or the system's choice. The window's styles and
+// title bar follow Electron's theme. Returns whether it's dark.
+function applyTheme() {
+  const theme = store.get().settings.theme;
+  nativeTheme.themeSource = ['light', 'system'].includes(theme) ? theme : 'dark';
+  return nativeTheme.shouldUseDarkColors;
+}
+
 function createWindow() {
   win = new BrowserWindow({
     show: !startHidden,
@@ -92,7 +100,7 @@ function createWindow() {
     height: 880,
     minWidth: 900,
     minHeight: 600,
-    backgroundColor: '#0f1115',
+    backgroundColor: applyTheme() ? '#0f1115' : '#f3f4f7',
     title: 'Subscroll',
     icon: process.platform === 'win32' ? ICO : ICON,
     autoHideMenuBar: true,
@@ -600,6 +608,7 @@ function registerIpc() {
     // A newly completed game is looked up for "Because you beat".
     if (clean.marks && Object.keys(clean.marks).some((id) => clean.marks[id] === 'completed' && before[id] !== 'completed')) startWiki();
     if (clean.settings) {
+      applyTheme();
       applyLanguage();
       applyLoginItem();
       updateTray();
