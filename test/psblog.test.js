@@ -16,6 +16,7 @@ const POST_2025 = `<h1>PlayStation Plus Game Catalog for December: Assassin&#821
 <p class="wp-block-paragraph"><strong>Assassin&#8217;s Creed Mirage | PS5, PS4&nbsp;</strong></p>
 <p class="wp-block-paragraph">Experience the story of Basim, a cunning street thief.</p>
 <p class="wp-block-paragraph"><strong>Ratchet &#038; Clank: Rift Apart | PS5</strong></p>
+<p class="wp-block-paragraph"><strong>Paw Patrol: Grand Prix | PS5, PS4</strong><strong><br></strong><strong><br></strong>No track is too big, no racer too small! Race around Adventure Bay in a long description that goes on well past the limit for a title line, and then some more words to be sure.</p>
 <h2 class="wp-block-heading"><strong>PlayStation Plus Premium</strong></h2>
 <p class="wp-block-paragraph"><strong>Sly 2: Band of Thieves | PS4, PS5</strong></p>`;
 const POST_2022 = `<h2 class="wp-block-heading"><strong>PlayStation Plus Essential | Monthly Games</strong></h2>
@@ -27,7 +28,7 @@ const POST_2022 = `<h2 class="wp-block-heading"><strong>PlayStation Plus Essenti
 const LAUNCH = '<ul><li>Bloodborne | FromSoftware, PS4</li><li>Demon&#8217;s Souls | Bluepoint Games, Japan Studio, PS5</li></ul>';
 
 test('PS Blog: game titles from each kind of post', () => {
-  assert.deepStrictEqual(blog.parsePost(POST_2025).map((x) => x.title), ['Assassin’s Creed Mirage', 'Ratchet & Clank: Rift Apart', 'Sly 2: Band of Thieves']);
+  assert.deepStrictEqual(blog.parsePost(POST_2025).map((x) => x.title), ['Assassin’s Creed Mirage', 'Ratchet & Clank: Rift Apart', 'Paw Patrol: Grand Prix', 'Sly 2: Band of Thieves']);
   // Essential's monthly games are left out.
   assert.deepStrictEqual(blog.parsePost(POST_2022).map((x) => x.title), ['Far Cry 5', 'Jak and Daxter: The Precursor Legacy']);
   assert.deepStrictEqual(blog.parsePost(LAUNCH).map((x) => x.title), ['Bloodborne', 'Demon’s Souls']);

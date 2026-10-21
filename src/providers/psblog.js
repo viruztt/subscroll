@@ -12,8 +12,8 @@ const { matchKey } = require('../../renderer/unify');
 // and kept in psplus-blog.json: a post is read once, and later checks
 // only look for new ones.
 const BLOG = 'https://blog.playstation.com';
-// 3: better title parsing, so posts read before are read again.
-const VERSION = 3;
+// 4: better title parsing, so posts read before are read again.
+const VERSION = 4;
 const FIRST_YEAR = 2022;
 const CRAWL_DELAY = 5000;
 const CHECK_EVERY = 20 * 3600 * 1000;
@@ -108,7 +108,8 @@ function titlesIn(html, allowBare) {
   const bare = [];
   let section = 'catalog';
   for (const m of html.matchAll(/<(h[1-6]|p|li)\b[^>]*>([\s\S]*?)<\/\1>/gi)) {
-    const text = decode(m[2]);
+    // A title can share its paragraph with the description, after a <br>.
+    const text = decode(m[2].split(/<br\s*\/?>/i)[0]);
     if (!text || text.length > 160) continue;
     const bar = text.lastIndexOf('|');
     const right = bar === -1 ? '' : text.slice(bar + 1);
