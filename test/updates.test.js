@@ -27,6 +27,12 @@ test('Updates: the download for this computer', () => {
   assert.match(updates.parseRelease(release, 'win32').download.url, /\.exe$/);
   assert.match(updates.parseRelease(release, 'linux').download.url, /\.AppImage$/);
   assert.strictEqual(updates.parseRelease(release, 'darwin').download, null);
+  // Macs get the .dmg for their chip.
+  const mac = ['arm64', 'x64'].map((arch) => ({ name: `Subscroll-0.5.0-${arch}.dmg`, browser_download_url: `https://github.com/viruztt/subscroll/releases/download/v0.5.0/Subscroll-0.5.0-${arch}.dmg`, size: 90 }));
+  const both = [...release.assets, ...mac];
+  assert.strictEqual(updates.pickAsset(both, 'darwin', 'arm64').name, 'Subscroll-0.5.0-arm64.dmg');
+  assert.strictEqual(updates.pickAsset(both, 'darwin', 'x64').name, 'Subscroll-0.5.0-x64.dmg');
+  assert.strictEqual(updates.pickAsset(both, 'win32').name, 'Subscroll-0.5.0-abc1234.exe');
   // An older release without a Linux file still points at its page.
   const old = updates.parseRelease({ ...release, assets: [release.assets[1]] }, 'linux');
   assert.strictEqual(old.download, null);

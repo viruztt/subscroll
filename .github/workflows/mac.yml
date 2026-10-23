@@ -1,0 +1,47 @@
+# Builds the Mac version on GitHub's Macs: one .dmg for Apple silicon (arm64)
+# and one for Intel (x64). Run it by hand from the Actions tab, and it runs by
+# itself when a release is published, adding both files to that release.
+name: Mac build
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Build
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          short=$(git rev-parse --short=7 HEAD)
+          npx electron-builder --mac dmg --arm64 --x64 -c.mac.artifactName="Subscroll-\${version}-${short}-\${arch}.\${ext}"
+      - name: Check the apps are signed
+        run: |
+          for app in dist/mac*/Subscroll.app; do
+            codesign --verify --deep --strict --verbose=2 "$app"
+            lipo -archs "$app/Contents/MacOS/Subscroll"
+          done
+          shasum -a 256 dist/*.dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: subscroll-mac
+          path: dist/*.dmg
+          if-no-files-found: error
+      - name: Add to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" dist/*.dmg --clobber

@@ -9,7 +9,7 @@
     "test": "node --test test/*.test.js",
     "snapshot": "node scripts/build-snapshot.js",
     "dist:win": "electron-builder --win portable --x64",
-    "dist:mac": "electron-builder --mac dmg",
+    "dist:mac": "electron-builder --mac dmg --arm64 --x64",
     "dist:linux": "electron-builder --linux AppImage"
   },
   "build": {
@@ -27,7 +27,11 @@
       "icon": "build/icon.ico"
     },
     "mac": {
-      "category": "public.app-category.games"
+      "target": "dmg",
+      "artifactName": "Subscroll-${version}-${arch}.${ext}",
+      "icon": "build/icon.png",
+      "category": "public.app-category.games",
+      "identity": null
     },
     "extraResources": [
       {
@@ -45,7 +49,8 @@
       "syncDesktopName": true
     },
     "productName": "Subscroll",
-    "publish": null
+    "publish": null,
+    "afterPack": "scripts/adhoc-sign.js"
   },
   "license": "MIT",
   "devDependencies": {

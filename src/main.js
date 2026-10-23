@@ -249,7 +249,9 @@ function sendAlerts(results, before, waitingBefore = new Map()) {
 }
 
 function createTray() {
-  tray = new Tray(nativeImage.createFromPath(ICON).resize({ width: 32, height: 32 }));
+  // The Mac menu bar fits an 18-point icon.
+  const size = process.platform === 'darwin' ? 18 : 32;
+  tray = new Tray(nativeImage.createFromPath(ICON).resize({ width: size, height: size }));
   tray.on('click', () => showWindow());
   updateTray();
 }
@@ -291,14 +293,19 @@ function setSettings(patch) {
 // The portable exe unpacks itself to a temp folder each run, so the login
 // item points at the exe the user actually has. Each build has its own file
 // name, so this is set again on every launch.
-// On Linux the same goes for the AppImage, through an autostart entry.
+// On Linux the same goes for the AppImage, through an autostart entry, and a
+// Mac adds the app to its Login Items.
 // (The setting keeps its old name, startWithWindows, so saved choices carry over.)
-const canStartAtLogin = () => app.isPackaged && (process.platform === 'win32' || (process.platform === 'linux' && !!process.env.APPIMAGE));
+const canStartAtLogin = () => app.isPackaged && (process.platform === 'win32' || process.platform === 'darwin' || (process.platform === 'linux' && !!process.env.APPIMAGE));
 function applyLoginItem() {
   if (!canStartAtLogin()) return;
   const on = !!store.get().settings.startWithWindows;
   if (process.platform === 'linux') {
     linux.setAutostart(on, process.env.APPIMAGE);
+    return;
+  }
+  if (process.platform === 'darwin') {
+    app.setLoginItemSettings({ openAtLogin: on, openAsHidden: true });
     return;
   }
   const exe = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
@@ -853,9 +860,8 @@ app.whenReady().then(async () => {
   // "Can I finish it in time?"), so read the library again now.
   const steamSaved = store.get().steam;
   if (steamSaved?.key && steamSaved.recentMinutes === undefined) setTimeout(refreshSteam, 3000);
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
+  // Clicking the Dock icon brings the window back, even when it was closed to the menu bar.
+  app.on('activate', () => showWindow());
 });
 
 app.on('window-all-closed', () => {

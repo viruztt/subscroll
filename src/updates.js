@@ -24,11 +24,13 @@ function compareVersions(a, b) {
   return 0;
 }
 
-// The file for this computer: the .exe on Windows, the .AppImage on Linux.
-function pickAsset(assets, platform) {
-  const ext = platform === 'win32' ? /\.exe$/i : platform === 'linux' ? /\.appimage$/i : platform === 'darwin' ? /\.(dmg|zip)$/i : null;
+// The file for this computer: the .exe on Windows, the .AppImage on Linux,
+// and on a Mac the .dmg for its chip (Apple silicon is arm64, Intel x64).
+function pickAsset(assets, platform, arch = process.arch) {
+  const ext = platform === 'win32' ? /\.exe$/i : platform === 'linux' ? /\.appimage$/i : platform === 'darwin' ? /\.dmg$/i : null;
   if (!ext || !Array.isArray(assets)) return null;
-  const a = assets.find((x) => x && ext.test(x.name || '') && /^https:\/\//.test(x.browser_download_url || ''));
+  const files = assets.filter((x) => x && ext.test(x.name || '') && /^https:\/\//.test(x.browser_download_url || ''));
+  const a = (platform === 'darwin' ? files.filter((x) => new RegExp(`-${arch}\\.dmg$`, 'i').test(x.name)) : files)[0];
   if (!a) return null;
   const sha = String(a.digest || '').match(/^sha256:([0-9a-f]{64})$/i);
   return { name: a.name, url: a.browser_download_url, size: a.size || null, sha256: sha ? sha[1].toLowerCase() : null };
