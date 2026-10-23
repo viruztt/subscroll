@@ -305,7 +305,8 @@ function applyLoginItem() {
     return;
   }
   if (process.platform === 'darwin') {
-    app.setLoginItemSettings({ openAtLogin: on, openAsHidden: true });
+    // Only when it changes: macOS refuses the call for apps outside Applications.
+    if (app.getLoginItemSettings().openAtLogin !== on) app.setLoginItemSettings({ openAtLogin: on, openAsHidden: true });
     return;
   }
   const exe = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
