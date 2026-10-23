@@ -35,6 +35,20 @@ jobs:
             lipo -archs "$app/Contents/MacOS/Subscroll"
           done
           shasum -a 256 dist/*.dmg
+      - name: Check the app opens
+        run: |
+          "dist/mac-arm64/Subscroll.app/Contents/MacOS/Subscroll" > open.log 2>&1 &
+          pid=$!
+          sleep 30
+          screencapture -x opened.png || true
+          kill -0 "$pid" || { cat open.log; echo 'Subscroll quit on its own'; exit 1; }
+          kill "$pid"
+          tail -20 open.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-screenshot
+          path: opened.png
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         with:
           name: subscroll-mac
