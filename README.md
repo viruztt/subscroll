@@ -32,7 +32,7 @@ A desktop app that shows which games are in Xbox Game Pass, PlayStation Plus, Ni
 
 The tray icon needs a desktop with a system tray. GNOME needs the "AppIndicator and KStatusNotifierItem Support" extension, which Ubuntu includes. The Play buttons open Steam games with your installed Steam (native or Flatpak). The Xbox app button only appears on Windows.
 
-Your plans and marks stay on your computer and carry over when you download a newer version. To move them to another PC, use **Export profile** on the **Backup** tab in Settings.
+Your plans and marks stay on your computer and carry over when you download a newer version. To keep two computers in step, use **Sync between devices** on the **Backup and sync** tab in Settings; to move them to another PC once, use **Export profile** on the same tab.
 
 ### Updating
 
