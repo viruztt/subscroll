@@ -12,7 +12,7 @@ const FREE_MARKS = new Set(['claimed', 'skip']);
 const FIELDS = [
   'subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings', 'costs', 'priceOverrides', 'viaSub',
   'freebies', 'steam', 'alertedLeaving', 'freeKnown', 'freeReminded', 'trayHintShown', 'notes', 'saleAlerted',
-  'xbox', 'psn', 'finishedOn', 'goals',
+  'xbox', 'psn', 'finishedOn', 'goals', 'predictionLog',
 ];
 // Looked-up data, each a map of key -> entry.
 const LOOKUPS = ['ratings', 'prices', 'wikipedia', 'details', 'appstore'];
@@ -97,6 +97,10 @@ function parseBackup(text) {
   if ('goals' in s) {
     state.goals = (Array.isArray(s.goals) ? s.goals : []).filter((g) => isObject(g) && typeof g.id === 'string' && Number(g.count) > 0
       && ['games', 'hours'].includes(g.unit) && ['week', 'month', 'year'].includes(g.per));
+  }
+  if ('predictionLog' in s) {
+    const day = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
+    state.predictionLog = mapOf(s.predictionLog, (e) => isObject(e) && typeof e.id === 'string' && typeof e.service === 'string' && day(e.date) && day(e.madeOn));
   }
   const lookups = {};
   for (const k of LOOKUPS) if (data.lookups && isObject(data.lookups[k])) lookups[k] = mapOf(data.lookups[k], isObject);

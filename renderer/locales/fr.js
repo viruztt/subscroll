@@ -12,7 +12,6 @@
     "+ Extras": "+ Extras",
     "+1h": "+1 h",
     "+{n} more": "+{n} autres",
-    ". One plan a month, counting games announced for the next few months.": ". Une formule par mois, en comptant les jeux annoncés pour les prochains mois.",
     "10 to 20 hours": "10 à 20 heures",
     "20 to 40 hours": "20 à 40 heures",
     ": {n} game from the {source}, updated {when}|: {n} games from the {source}, updated {when}": {
@@ -24,6 +23,7 @@
     "A notification when games join a service in your plans, or games in your plans start leaving. Completed and ignored games are left out.": "Une notification quand des jeux arrivent dans un service de vos formules, ou que des jeux de vos formules commencent à partir. Les jeux terminés et ignorés ne sont pas pris en compte.",
     "A notification when new games are free to keep, and on the last day of ones you haven't marked claimed.": "Une notification quand de nouveaux jeux sont offerts, et le dernier jour de ceux que vous n’avez pas marqués comme récupérés.",
     "A quarter of How Long To Beat's main story time": "Un quart du temps de l'histoire principale selon How Long To Beat",
+    "A rule whose likely calls are mostly wrong (after 5 or more) is shown as less likely from then on.": "Une règle dont les prévisions « probables » se trompent le plus souvent (après 5 ou plus) passe ensuite en « moins probable ».",
     "API key saved (enter a new one to replace it)": "Clé API enregistrée (saisissez-en une nouvelle pour la remplacer)",
     "About how long you play games a day. Subscroll uses it to tell whether you can finish games before they leave, instead of working it out from your Steam playtime and the games you complete. Leave it empty to let Subscroll work it out.": "Le temps que vous passez à jouer par jour, environ. Subscroll s'en sert pour savoir si vous pouvez finir un jeu avant son départ, au lieu de le déduire de votre temps de jeu Steam et des jeux que vous terminez. Laissez vide pour que Subscroll le calcule.",
     "Accounts": "Comptes",
@@ -33,6 +33,7 @@
     "Add an hour to your hours played": "Ajouter une heure à vos heures de jeu",
     "Add another service": "Ajouter un autre service",
     "Add game": "Ajouter le jeu",
+    "Add games to To play (＋ on a cover) or mark them Now playing, and this page works out when you'd get through them and which plan to pay for each month.": "Ajoutez des jeux à « À jouer » (＋ sur une jaquette) ou marquez-les « En cours », et cette page calcule quand vous les aurez finis et quel abonnement payer chaque mois.",
     "Add goal": "Ajouter l’objectif",
     "Add on PS Store": "Ajouter sur le PS Store",
     "Add service": "Ajouter le service",
@@ -103,6 +104,7 @@
       "other": "Record : {n} ans d’affilée"
     },
     "Big publishers' games often stay 24 months, renewed a year at a time.": "Les jeux des grands éditeurs restent souvent 24 mois, renouvelés d'année en année.",
+    "Big publishers, 24 months": "Grands éditeurs, 24 mois",
     "Browse": "Parcourir",
     "Buy it for {price}": "L’acheter pour {price}",
     "Buy it for {price} on sale": "L’acheter en promo pour {price}",
@@ -296,7 +298,9 @@
     "How Long To Beat: main story": "How Long To Beat : histoire principale",
     "How long do you play a day?": "Combien de temps jouez-vous par jour ?",
     "How long to beat (main story)": "Durée (histoire principale)",
+    "How long you play a day ({source}):": "Temps de jeu par jour ({source}) :",
     "How much you play": "Votre temps de jeu",
+    "How past predictions did": "Bilan des prévisions passées",
     "If you stopped and came back later, untick \"still paying\", set when it ended and add another period. ": "Si vous avez arrêté puis repris plus tard, décochez « abonnement en cours », indiquez la date de fin et ajoutez une autre période. ",
     "Ignore": "Ignorer",
     "Ignore: not interested, hide it": "Ignorer : sans intérêt, le masquer",
@@ -330,8 +334,10 @@
       "other": "Arrivé sur {service} le {joined}, {n} mois plus tôt."
     },
     "Just added": "Tout juste ajouté",
+    "Just your plans": "Vos abonnements seulement",
     "Keep it safe or move it to another PC. Importing replaces your plans, marks and settings on this PC, and adds the history and looked-up data to what it already has. ": "Gardez-le en lieu sûr ou transférez-le sur un autre PC. L’importation remplace vos formules, marquages et paramètres sur ce PC, et ajoute l’historique et les données récupérées à ce qu’il possède déjà. ",
     "Keep running in the tray when the window is closed.": "Rester dans la zone de notification quand la fenêtre est fermée.",
+    "Keep the plans you have and add at most one a month, picked so you play the most. Games you've started come first, then the ones leaving soonest, then the shortest.": "Gardez vos abonnements et ajoutez-en au plus un par mois, choisi pour jouer le plus possible. Les jeux commencés passent d'abord, puis ceux qui partent le plus tôt, puis les plus courts.",
     "Keys while they last": "Dans la limite des clés disponibles",
     "Language ": "Langue ",
     "Last day free": "Dernier jour gratuit",
@@ -361,10 +367,13 @@
     },
     "Leaving {service} soon": "Quitte bientôt {service}",
     "Left": "Parti",
+    "Left around then": "Parti à cette date",
     "Left every service that had it. Checked for sales twice a day.": "Retirés de tous les services qui les proposaient. Promotions vérifiées deux fois par jour.",
+    "Left on another day": "Parti un autre jour",
     "Left the service": "Retiré du service",
     "Left the service ({n})": "Retirés du service ({n})",
     "Left {date}": "Parti le {date}",
+    "Less likely:": "Moins probables :",
     "Less likely: {n} game at a later renewal|Less likely: {n} games at a later renewal": {
       "one": "Moins probable : {n} jeu à un renouvellement ultérieur",
       "many": "Moins probable : {n} jeux à un renouvellement ultérieur",
@@ -372,6 +381,7 @@
     },
     "Light": "Clair",
     "Likely to leave around {date}": "Va probablement partir vers le {date}",
+    "Likely:": "Probables :",
     "List": "Liste",
     "List history and looked-up scores, prices and descriptions are added to what this PC already has.": "L’historique des listes et les notes, prix et descriptions récupérés s’ajoutent à ce que ce PC possède déjà.",
     "List prices as of {date}": "Tarifs relevés en {date}",
@@ -394,11 +404,13 @@
     "Marked as played but not completed": "Marqués comme joués mais pas terminés",
     "Metacritic score": "Note Metacritic",
     "Metacritic {score}": "Metacritic {score}",
+    "Might not make it": "Risque de ne pas y arriver",
     "Mobile": "Mobile",
-    "Month by month: ": "Mois par mois : ",
+    "Month by month": "Mois par mois",
     "More refresh options": "Autres options d’actualisation",
     "More than you usually play": "Plus que votre rythme habituel",
     "Most games sign for 12 months, renewed a year at a time.": "La plupart des jeux signent pour 12 mois, renouvelés d'année en année.",
+    "Most games, 12 months": "La plupart des jeux, 12 mois",
     "Music": "Musique",
     "My games": "Mes jeux",
     "My subscriptions": "Mes abonnements",
@@ -448,8 +460,10 @@
     "Nothing is flagged as leaving right now.": "Aucun jeu n’est signalé sur le départ pour le moment.",
     "Nothing matches these choices yet. Try another genre or length.": "Rien ne correspond encore à ces choix. Essayez un autre genre ou une autre durée.",
     "Nothing on this day.": "Rien ce jour-là.",
+    "Nothing to play this month yet.": "Rien à jouer ce mois-ci pour l'instant.",
     "Nothing to roll": "Rien à tirer au sort",
     "Now playing": "En cours",
+    "Now shown as less likely": "Désormais en « moins probable »",
     "On Steam": "Sur Steam",
     "On sale from your To play list: {n} game|On sale from your To play list: {n} games": {
       "one": "En promo dans votre liste À jouer : {n} jeu",
@@ -492,7 +506,9 @@
     "Picked for you": "Choisis pour vous",
     "Picked from your plans: games in genres you like, well-reviewed, leaving soon or just added, then games like the ones you beat or rated highly. Your star ratings count: games like the ones you rated low drop. Scores and play times make these better as they load.": "Choisis parmi vos formules : des jeux dans les genres que vous aimez, bien notés, bientôt retirés ou tout juste ajoutés, puis des jeux proches de ceux que vous avez terminés ou bien évalués. Vos étoiles comptent : les jeux proches de ceux que vous avez mal évalués descendent. Les notes et les durées de jeu affinent ces choix à mesure qu’elles se chargent.",
     "Pinned Subscroll to the taskbar or made a shortcut? Rename the exe to Subscroll.exe first: updates then keep that name, so the shortcut keeps working.": "Vous avez épinglé Subscroll à la barre des tâches ou créé un raccourci ? Renommez d’abord l’exe en Subscroll.exe : les mises à jour garderont ce nom et le raccourci continuera de fonctionner.",
+    "Plan ahead": "Planifier",
     "Plans": "Abonnements",
+    "Plans added: {price} in all, at list prices.": "Abonnements ajoutés : {price} au total, au prix catalogue.",
     "Plans, cheapest first, comma separated (optional)": "Formules, de la moins chère à la plus chère, séparées par des virgules (facultatif)",
     "Platform": "Plateforme",
     "Platform (optional)": "Plateforme (facultatif)",
@@ -552,6 +568,7 @@
     "Restart to update, or it updates the next time Subscroll starts.": "Redémarrez pour mettre à jour, sinon la mise à jour se fera au prochain démarrage de Subscroll.",
     "Retro": "Rétro",
     "Rockstar and 2K games usually stay 3 to 6 months.": "Les jeux Rockstar et 2K restent en général 3 à 6 mois.",
+    "Rockstar and 2K, 3 to 6 months": "Rockstar et 2K, 3 à 6 mois",
     "Rolled from {n} game in your subscriptions{scope}, completed, dropped and ignored ones left out|Rolled from {n} games in your subscriptions{scope}, completed, dropped and ignored ones left out": {
       "one": "Tiré parmi {n} jeu de vos abonnements{scope}, hors jeux terminés, abandonnés et ignorés",
       "other": "Tiré parmi {n} jeux de vos abonnements{scope}, hors jeux terminés, abandonnés et ignorés"
@@ -560,6 +577,7 @@
       "one": "Tiré parmi {n} jeu{scope}, hors jeux terminés, abandonnés et ignorés",
       "other": "Tiré parmi {n} jeux{scope}, hors jeux terminés, abandonnés et ignorés"
     },
+    "Rotating plans? {link} works out which plan to pay for each month, and when you'd be through your list.": "Vous alternez les abonnements ? {link} calcule quel abonnement payer chaque mois, et quand vous aurez fini votre liste.",
     "Run the welcome setup again": "Relancer la configuration d’accueil",
     "Sale alerts.": "Alertes de promotions.",
     "Same as Windows": "Comme Windows",
@@ -573,6 +591,7 @@
     "Service name, e.g. Google Play Pass or Amazon Luna": "Nom du service, par ex. Google Play Pass ou Amazon Luna",
     "Set a goal, like beating two games a month, and see how you're doing and how many months in a row you've made it. Games count in the week, month or year you mark them completed.": "Fixez-vous un objectif, comme terminer deux jeux par mois, et suivez où vous en êtes et combien de mois d’affilée vous l’avez atteint. Les jeux comptent pour la semaine, le mois ou l’année où vous les marquez comme terminés.",
     "Set a start": "Indiquez un début",
+    "Set how long you play a day to see a plan.": "Indiquez votre temps de jeu par jour pour voir un plan.",
     "Settings": "Paramètres",
     "Shooter": "Tir",
     "Short (under 10 hours)": "Court (moins de 10 heures)",
@@ -589,6 +608,11 @@
     "Showing {shown} of {total}": "{shown} affichés sur {total}",
     "Simulation": "Simulation",
     "Skip": "Passer",
+    "So far this rule was right {right} of {n} time.|So far this rule was right {right} of {n} times.": {
+      "one": "Jusqu'ici, cette règle a vu juste {right} fois sur {n}.",
+      "other": "Jusqu'ici, cette règle a vu juste {right} fois sur {n}.",
+      "many": "Jusqu'ici, cette règle a vu juste {right} fois sur {n}."
+    },
     "Some lists failed, retry": "Certaines listes ont échoué, réessayer",
     "Sony didn't accept the NPSSO code. Sign in at playstation.com, open ca.account.sony.com/api/v1/ssocookie and copy the new code.": "Sony n’a pas accepté le code NPSSO. Connectez-vous sur playstation.com, ouvrez ca.account.sony.com/api/v1/ssocookie et copiez le nouveau code.",
     "Sony didn't hand out a sign-in token. Get a fresh NPSSO code and try again.": "Sony n’a pas fourni de jeton de connexion. Récupérez un nouveau code NPSSO et réessayez.",
@@ -602,6 +626,7 @@
     "Started, but you stopped": "Commencé, puis arrêté",
     "Starts in the tray, without opening the window.": "Démarre dans la zone de notification, sans ouvrir la fenêtre.",
     "Statistics": "Statistiques",
+    "Stayed": "Resté",
     "Stays in your library while you have PS Plus": "Reste dans votre bibliothèque tant que vous avez PS Plus",
     "Steam Web API key": "Clé Steam Web API",
     "Steam didn't accept the API key. Check it at steamcommunity.com/dev/apikey.": "Steam n’a pas accepté la clé API. Vérifiez-la sur steamcommunity.com/dev/apikey.",
@@ -626,6 +651,12 @@
     "Subscroll can keep running in the system tray and check the lists once a day, so you hear about new and leaving games without opening it.": "Subscroll peut continuer de tourner dans la zone de notification et vérifier les listes une fois par jour : vous êtes ainsi informé des jeux qui arrivent et qui partent sans avoir à l’ouvrir.",
     "Subscroll can't save files in {folder}. Move it to a folder you can write to, such as Downloads.": "Subscroll ne peut pas enregistrer de fichiers dans {folder}. Déplacez-le dans un dossier où vous pouvez écrire, comme Téléchargements.",
     "Subscroll is still running": "Subscroll tourne toujours",
+    "Subscroll keeps every prediction and checks it once its day has passed.": "Subscroll garde chaque prévision et la vérifie une fois le jour passé.",
+    "Subscroll keeps every prediction and checks it once its day has passed. {n} is waiting for its day.|Subscroll keeps every prediction and checks it once its day has passed. {n} are waiting for their day.": {
+      "one": "Subscroll garde chaque prévision et la vérifie une fois le jour passé. {n} attend son jour.",
+      "other": "Subscroll garde chaque prévision et la vérifie une fois le jour passé. {n} attendent leur jour.",
+      "many": "Subscroll garde chaque prévision et la vérifie une fois le jour passé. {n} attendent leur jour."
+    },
     "Subscroll profile": "Profil Subscroll",
     "Subscroll {version} is downloaded and installs when you restart.": "Subscroll {version} est téléchargé et s’installera au redémarrage.",
     "Subscroll {version} is out": "Subscroll {version} est disponible",
@@ -634,6 +665,7 @@
     "Subscroll: lists checked {date}": "Subscroll : listes vérifiées le {date}",
     "Switch": "Switch",
     "System language ({language})": "Langue du système ({language})",
+    "That's too few to call it likely.": "C'est trop peu pour la dire probable.",
     "The cheapest way to play it. Open the game for the other ways.": "Le moyen le moins cher d’y jouer. Ouvrez le jeu pour voir les autres options.",
     "The download failed: {error}": "Le téléchargement a échoué : {error}",
     "The file includes your Steam, OpenXBL and PlayStation sign-in keys if you added them, so keep it to yourself.": "Le fichier contient vos clés de connexion Steam, OpenXBL et PlayStation si vous les avez ajoutées : gardez-le pour vous.",
@@ -651,7 +683,13 @@
       "one": "La dernière année",
       "other": "Les {n} dernières années"
     },
+    "The {n} checked prediction|The {n} checked predictions": {
+      "one": "La prévision vérifiée",
+      "other": "Les {n} prévisions vérifiées",
+      "many": "Les {n} prévisions vérifiées"
+    },
     "The {n} games you're playing that have a How Long To Beat time add up to about {hours} hours of main story.": "Les {n} jeux en cours qui ont une durée How Long To Beat représentent environ {hours} heures d’histoire principale.",
+    "These leave, or could leave, before the plan gets to them. Start them sooner, or play more a day.": "Ces jeux partent, ou pourraient partir, avant que le plan n'y arrive. Commencez-les plus tôt, ou jouez plus chaque jour.",
     "Ticked: played through a subscription": "Cochés : joués via un abonnement",
     "Tight at your pace": "Juste à votre rythme",
     "Time to beat": "Durée",
@@ -733,6 +771,7 @@
     "You play": "Vous jouez",
     "You play about {pace} a day, {source}.": "Vous jouez environ {pace} par jour, {source}.",
     "You rate {genre} highly": "Genre apprécié : {genre}",
+    "Your backlog": "Vos jeux en attente",
     "Your games": "Vos jeux",
     "Your hours played": "Vos heures jouées",
     "Your note: {note}": "Votre note : {note}",
@@ -750,9 +789,11 @@
     "a month": "un mois",
     "a year": "un an",
     "about {hours} left to beat them": "environ {hours} restantes pour les finir",
+    "about {time} at your pace": "environ {time} à votre rythme",
     "an hour if bought": "par heure en achetant",
     "an hour played": "par heure jouée",
     "as you set it": "selon votre réglage",
+    "at {perDay} a day": "à {perDay} par jour",
     "average Metacritic": "note Metacritic moyenne",
     "bundled": "intégrée",
     "bundled list": "liste intégrée",
@@ -761,6 +802,9 @@
     "community mirror": "miroir communautaire",
     "completed": "terminés",
     "completed through a subscription": "terminés via un abonnement",
+    "could leave {date}": "pourrait partir le {date}",
+    "done around": "fini vers le",
+    "done around, following the plan below": "fini vers le, en suivant le plan ci-dessous",
     "dropped": "abandonnés",
     "dropped · {percent}%": "abandonné · {percent} %",
     "edit": "modifier",
@@ -785,6 +829,8 @@
       "other": "dans {n} heures"
     },
     "last day": "dernier jour",
+    "leaves {date}": "part le {date}",
+    "leaving, probably by {date}": "part, sans doute d'ici le {date}",
     "looking up…": "recherche…",
     "minutes a day": "minutes par jour",
     "mirror": "miroir",
@@ -815,6 +861,7 @@
       "one": "pour acheter le {n} jeu terminé",
       "other": "pour acheter les {n} jeux terminés"
     },
+    "to play": "à jouer",
     "unknown": "inconnue",
     "week": "semaine",
     "within the hour": "dans l’heure",
@@ -849,8 +896,12 @@
       "one": "{earned} trophée sur {n}",
       "other": "{earned} trophées sur {n}"
     },
+    "{from} to {to}": "du {from} au {to}",
     "{hours} left to beat": "encore {hours} pour le finir",
+    "{hours} not played": "{hours} non jouées",
     "{hours} to beat": "{hours} pour le finir",
+    "{hours} to finish it": "{hours} pour le finir",
+    "{hours}, then carry on next month": "{hours}, puis la suite le mois prochain",
     "{hours}, {days}: about {perDay} a day": "{hours}, {days} : environ {perDay} par jour",
     "{hours}h to beat": "Terminé en {hours} h",
     "{kind} ({n})": "{kind} ({n})",
@@ -863,6 +914,11 @@
     },
     "{month}: {coming} arriving · {added} added · {left} left": "{month} : {coming} à venir · {added} ajoutés · {left} partis",
     "{month}: {coming} arriving · {added} added · {left} left · in your plans": "{month} : {coming} à venir · {added} ajoutés · {left} partis · dans vos formules",
+    "{n} To play or Now playing game you can play through your plans or one you could add.|{n} To play and Now playing games you can play through your plans or one you could add.": {
+      "one": "{n} jeu « À jouer » ou « En cours » jouable avec vos abonnements ou un que vous pourriez ajouter.",
+      "other": "{n} jeux « À jouer » et « En cours » jouables avec vos abonnements ou un que vous pourriez ajouter.",
+      "many": "{n} jeux « À jouer » et « En cours » jouables avec vos abonnements ou un que vous pourriez ajouter."
+    },
     "{n} achievement|{n} achievements": {
       "one": "{n} succès",
       "other": "{n} succès"
@@ -892,6 +948,11 @@
       "one": "{n} jour restant",
       "other": "{n} jours restants"
     },
+    "{n} day|{n} days": {
+      "one": "{n} jour",
+      "other": "{n} jours",
+      "many": "{n} jours"
+    },
     "{n} free to keep right now|{n} free to keep right now": {
       "one": "{n} offert en ce moment",
       "other": "{n} offerts en ce moment"
@@ -904,9 +965,19 @@
       "one": "{n} jeu y correspond.",
       "other": "{n} jeux y correspondent."
     },
+    "{n} game has no How Long To Beat time yet, so it counts as {hours}.|{n} games have no How Long To Beat time yet, so each counts as {hours}.": {
+      "one": "{n} jeu n'a pas encore de durée How Long To Beat, il compte donc pour {hours}.",
+      "other": "{n} jeux n'ont pas encore de durée How Long To Beat, chacun compte donc pour {hours}.",
+      "many": "{n} jeux n'ont pas encore de durée How Long To Beat, chacun compte donc pour {hours}."
+    },
     "{n} game is leaving soon without a date, so they aren't on the calendar. |{n} games are leaving soon without a date, so they aren't on the calendar. ": {
       "one": "{n} jeu part bientôt sans date : il n’est donc pas dans le calendrier. ",
       "other": "{n} jeux partent bientôt sans date : ils ne sont donc pas dans le calendrier. "
+    },
+    "{n} game isn't in any plan; To play shows the cheapest way to play it.|{n} games aren't in any plan; To play shows the cheapest way to play them.": {
+      "one": "{n} jeu n'est dans aucun abonnement ; « À jouer » indique la façon la moins chère d'y jouer.",
+      "other": "{n} jeux ne sont dans aucun abonnement ; « À jouer » indique la façon la moins chère d'y jouer.",
+      "many": "{n} jeux ne sont dans aucun abonnement ; « À jouer » indique la façon la moins chère d'y jouer."
     },
     "{n} game leaving. Xbox flags these itself but gives no exact date.|{n} games leaving. Xbox flags these itself but gives no exact date.": {
       "one": "{n} jeu sur le départ. Xbox le signale elle-même, mais sans date précise.",
@@ -953,6 +1024,16 @@
       "one": "{n} mois",
       "other": "{n} mois"
     },
+    "{n} more game is left after a year of this plan.|{n} more games are left after a year of this plan.": {
+      "one": "Il reste {n} jeu après un an de ce plan.",
+      "other": "Il reste {n} jeux après un an de ce plan.",
+      "many": "Il reste {n} jeux après un an de ce plan."
+    },
+    "{n} more is waiting for its day.|{n} more are waiting for their day.": {
+      "one": "{n} autre attend son jour.",
+      "other": "{n} autres attendent leur jour.",
+      "many": "{n} autres attendent leur jour."
+    },
     "{n} more needs {plans}, which you don't have. |{n} more need {plans}, which you don't have. ": {
       "one": "{n} autre nécessite {plans}, que vous n’avez pas. ",
       "other": "{n} autres nécessitent {plans}, que vous n’avez pas. "
@@ -989,6 +1070,11 @@
       "one": "{n} a été nouvellement marqué comme joué",
       "other": "{n} ont été nouvellement marqués comme joués"
     },
+    "{n} week|{n} weeks": {
+      "one": "{n} semaine",
+      "other": "{n} semaines",
+      "many": "{n} semaines"
+    },
     "{n} without a price yet": "{n} sans prix pour l’instant",
     "{n}h": "{n} h",
     "{n}m": "{n} min",
@@ -1020,7 +1106,9 @@
     "{played} of {beat} · {left} to go": "{played} sur {beat} · encore {left}",
     "{played} played": "{played} joué",
     "{played} played, past its {beat} main story": "{played} joué, au-delà des {beat} de l'histoire principale",
+    "{price} a month": "{price} par mois",
     "{price} an hour over about {hours} hours": "{price} de l’heure sur environ {hours} heures",
+    "{price} for {length}": "{price} pour {length}",
     "{price} more than buying": "{price} de plus qu’à l’achat",
     "{price} paid over {n} month|{price} paid over {n} months": {
       "one": "{price} payés sur {n} mois",
@@ -1029,7 +1117,14 @@
     "{price}, {off}% off": "{price}, -{off} %",
     "{price}, {off}% off, until {date}": "{price}, -{off} %, jusqu’au {date}",
     "{price}/h": "{price}/h",
+    "{right} of {n} left around the predicted day ({pct})|{right} of {n} left around the predicted day ({pct})": {
+      "one": "{right} sur {n} parti vers le jour prévu ({pct})",
+      "other": "{right} sur {n} partis vers le jour prévu ({pct})",
+      "many": "{right} sur {n} partis vers le jour prévu ({pct})"
+    },
+    "{rule}, later renewals": "{rule}, renouvellements suivants",
     "{services}: soon, no date announced": "{services} : bientôt, sans date annoncée",
+    "{service}, {date}: {outcome}": "{service}, {date} : {outcome}",
     "{service}: {date} {source}": "{service} : {date} {source}",
     "{service}: {plans}": "{service} : {plans}",
     "{service}: {status}": "{service} : {status}",
@@ -1038,6 +1133,7 @@
     "{size} MB": "{size} Mo",
     "{source}, and the price over those hours": "{source}, et le prix rapporté à ces heures",
     "{title} ({off}% off)": "{title} (-{off} %)",
+    "{used} of {budget} of play": "{used} sur {budget} de jeu",
     "· {n} not loaded|· {n} not loaded": {
       "one": "· {n} non chargé",
       "other": "· {n} non chargés"

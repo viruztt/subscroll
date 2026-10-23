@@ -312,6 +312,7 @@ function rebuildGames() {
     const ids = offersOf(g).map((o) => o.id);
     if (ids.length > 1) ids.forEach((id) => markGroups.set(id, ids));
   }
+  setTimeout(recordPredictions, 0);
 }
 
 function platformsList() {
@@ -1044,7 +1045,8 @@ function renderOnboarding() {
 // could end, and then for the last of those dates. Your own services count
 // when you have one; a service saying the game is leaving comes first.
 const PREDICT_DAYS = 45;
-function predictionOf(g, keys = unlocked()) {
+// raw: as the rules say, before the scorecard demotes a rule that keeps missing.
+function predictionOf(g, keys = unlocked(), { raw = false } = {}) {
   if (g.custom || leaveInfo(g) || isComing(g)) return null;
   const all = offersOf(g);
   const mine = all.filter((o) => offerIsMine(o, keys));
@@ -1056,6 +1058,7 @@ function predictionOf(g, keys = unlocked()) {
     if (!last || p.date > last.date) last = { ...p, service: o.service, likely: p.likely && (!last || last.likely) };
     else if (!p.likely) last = { ...last, likely: false };
   }
+  if (last && !raw && last.likely && Scorecard.demoted(predictionStats(), last.service, last.kind)) return { ...last, likely: false, demoted: true };
   return last;
 }
 
@@ -1076,7 +1079,16 @@ function predictionReason(p) {
     tn(p.months, 'Joined {service} on {joined}, {n} month earlier.', 'Joined {service} on {joined}, {n} months earlier.', { service, joined: fmtDate(p.joined) }),
     t(PREDICT_KIND[p.kind]),
     PREDICT_DAY[p.service] ? t(PREDICT_DAY[p.service]) : '',
+    ruleRecord(p),
   ].filter(Boolean).join(' ');
+}
+
+// "So far this rule was right 4 of 6 times."
+function ruleRecord(p) {
+  const r = Scorecard.ruleStats(predictionStats(), p.service, p.kind, p.demoted ? true : p.likely);
+  if (!r || !r.total) return '';
+  const line = tn(r.total, 'So far this rule was right {right} of {n} time.', 'So far this rule was right {right} of {n} times.', { right: r.right });
+  return p.demoted ? `${line} ${t('That\'s too few to call it likely.')}` : line;
 }
 
 function predictionLine(p) {
@@ -1115,7 +1127,94 @@ function predictionsSection() {
     el('h2', {}, t('Predictions ({n})', { n: found.length })),
     intro(t('Games that could leave in the next {days} days (for PS Plus, up to the removal day after next), worked out from when they joined. Most games sign for 12 months, big publishers\' games often 24, Rockstar and 2K games 3 to 6, and the service\'s own studios\' games usually stay. PS Plus removes games on the third Tuesday of the month and Game Pass on the 15th or the last day. Only games with a known join date are here: Game Pass gives it; for PS Plus it comes from the PlayStation Blog\'s monthly lineup posts since 2022, and for other services from Subscroll\'s own refreshes. Sony doesn\'t publish which PS Plus games are leaving outside the console, so its predictions can include games that were renewed.', { days: PREDICT_DAYS })),
     likely.length ? predictionGrid(likely, keys) : el('div', { class: 'empty small' }, t('No games look likely to leave in the next {days} days.', { days: PREDICT_DAYS })),
-    possible.length ? more : null);
+    possible.length ? more : null,
+    scorecardPanel());
+}
+
+// ---------- prediction scorecard ----------
+// Every prediction is kept from the first day it's made (state.predictionLog)
+// and checked once its day has passed (renderer/scorecard.js).
+function recordPredictions() {
+  if (!state || !games.length) return;
+  const keys = unlocked();
+  const found = [];
+  for (const g of games) {
+    const p = predictionOf(g, keys, { raw: true });
+    if (!p) continue;
+    const o = offersOf(g).find((x) => x.service === p.service);
+    if (o) found.push({ ...p, id: o.id, title: g.title });
+  }
+  const before = state.predictionLog || {};
+  const { log, added } = Scorecard.record(before, found, todayIso());
+  if (added || Object.keys(log).length !== Object.keys(before).length) saveState({ predictionLog: log });
+}
+
+let judgedMemo = { state: null, catalogs: null, day: null, value: [] };
+function judgedPredictions() {
+  const today = todayIso();
+  if (judgedMemo.state === state && judgedMemo.catalogs === catalogs && judgedMemo.day === today) return judgedMemo.value;
+  const left = new Map();
+  for (const d of departed) if (d.leftOn) left.set(d.id, d.leftOn);
+  const present = new Set();
+  const refreshed = {};
+  for (const c of catalogs) {
+    for (const g of c.games) present.add(g.id);
+    if (c.source !== 'bundled' && c.fetchedAt) refreshed[c.service] = String(c.fetchedAt).slice(0, 10);
+  }
+  const value = Object.values(state.predictionLog || {}).map((e) => ({ ...e, outcome: Scorecard.judge(e, { leftOn: left.get(e.id) || null, present: present.has(e.id), refreshedOn: refreshed[e.service] || null, today }) }));
+  judgedMemo = { state, catalogs, day: today, value };
+  return value;
+}
+let statsMemo = { judged: null, value: null };
+function predictionStats() {
+  const judged = judgedPredictions();
+  if (statsMemo.judged !== judged) statsMemo = { judged, value: Scorecard.stats(judged) };
+  return statsMemo.value;
+}
+
+const RULE_LABEL = {
+  short: tk('Rockstar and 2K, 3 to 6 months'),
+  big: tk('Big publishers, 24 months'),
+  standard: tk('Most games, 12 months'),
+};
+const OUTCOME_LABEL = { right: tk('Left around then'), 'other-day': tk('Left on another day'), stayed: tk('Stayed') };
+
+function scorecardPanel() {
+  const judged = judgedPredictions();
+  const checked = judged.filter((j) => OUTCOME_LABEL[j.outcome]);
+  const waiting = judged.filter((j) => j.outcome === 'pending').length;
+  const s = predictionStats();
+  const pct = (r) => `${Math.round((100 * r.right) / r.total)}%`;
+  const body = [];
+  if (!checked.length) {
+    body.push(el('p', { class: 'muted' }, waiting
+      ? tn(waiting, 'Subscroll keeps every prediction and checks it once its day has passed. {n} is waiting for its day.', 'Subscroll keeps every prediction and checks it once its day has passed. {n} are waiting for their day.')
+      : t('Subscroll keeps every prediction and checks it once its day has passed.')));
+  } else {
+    const line = (label, r) => (r.total ? el('div', { class: 'score-line' }, el('strong', {}, label), ' ', tn(r.total, '{right} of {n} left around the predicted day ({pct})', '{right} of {n} left around the predicted day ({pct})', { right: r.right, pct: pct(r) })) : null);
+    body.push(line(t('Likely:'), s.likely), line(t('Less likely:'), s.possible));
+    const rules = Object.entries(s.rules).filter(([, r]) => r.total).sort((a, b) => b[1].total - a[1].total).map(([key, r]) => {
+      const [service, kind, which] = key.split(':');
+      const demoted = which === 'likely' && Scorecard.demoted(s, service, kind);
+      return el('tr', {},
+        el('td', {}, serviceById(service)?.name || service),
+        el('td', {}, which === 'likely' ? t(RULE_LABEL[kind] || kind) : t('{rule}, later renewals', { rule: t(RULE_LABEL[kind] || kind) })),
+        el('td', { class: 'num' }, `${r.right} / ${r.total}`),
+        el('td', { class: 'muted' }, demoted ? t('Now shown as less likely') : ''));
+    });
+    body.push(el('table', { class: 'score-rules' }, rules));
+    const recent = checked.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 40);
+    const list = el('details', { class: 'score-recent' }, el('summary', {}, tn(checked.length, 'The {n} checked prediction', 'The {n} checked predictions')),
+      el('ul', {}, recent.map((j) => el('li', { class: `outcome ${j.outcome}` },
+        el('span', { class: 'outcome-mark' }, j.outcome === 'right' ? '✓' : '✗'), ' ', j.title, ' ',
+        el('span', { class: 'muted' }, t('{service}, {date}: {outcome}', { service: serviceById(j.service)?.short || j.service, date: fmtDate(j.date), outcome: t(OUTCOME_LABEL[j.outcome]) }))))));
+    body.push(list);
+    if (waiting) body.push(el('p', { class: 'muted' }, tn(waiting, '{n} more is waiting for its day.', '{n} more are waiting for their day.')));
+  }
+  return el('div', { class: 'panel scorecard' },
+    el('div', { class: 'panel-head' }, el('h2', {}, t('How past predictions did')),
+      el('span', { class: 'muted' }, t('A rule whose likely calls are mostly wrong (after 5 or more) is shown as less likely from then on.'))),
+    body);
 }
 
 function renderLeaving() {
@@ -1265,6 +1364,9 @@ function renderToPlay() {
   ];
   const total = list.length + gone.size;
   $('#summary').textContent = total ? tn(total, '{n} game to play · {ready} ready now', '{n} games to play · {ready} ready now', { ready: groups[0][2].length }) : '';
+  // The backlog forecast (Plan ahead has the details).
+  const f = total ? makePlan().forecast : null;
+  if (f) $('#summary').textContent += ` · ${t('about {time} at your pace', { time: durationText(f.days) })}`;
   if (!total) {
     content.append(el('div', { class: 'empty' }, t('Click ＋ on a game\'s cover (or "To play" in its details) to keep it here, whether it\'s out now or coming soon.')));
     return;
@@ -1401,9 +1503,9 @@ function advisorPanel() {
   });
   const notes = [];
   if (r.rotation.length > 1) {
-    notes.push(el('p', { class: 'adv-note' }, el('strong', {}, t('Month by month: ')),
-      r.rotation.map((x) => `${planName(x.service, x.tier)} (${x.count})`).join(' → '),
-      el('span', { class: 'muted' }, t('. One plan a month, counting games announced for the next few months.'))));
+    notes.push(el('p', { class: 'adv-note' }, tEl('Rotating plans? {link} works out which plan to pay for each month, and when you\'d be through your list.', {
+      link: el('button', { class: 'link inline', onclick: () => { ui.view = 'plan'; $('#content').scrollTop = 0; render(); } }, t('Plan ahead')),
+    })));
   }
   for (const k of idle) notes.push(el('p', { class: 'adv-note' }, t('{plan}: nothing on your To play list needs it right now, so you could pause it.', { plan: planName(k.service, k.tier) })));
   for (const k of lower) notes.push(el('p', { class: 'adv-note' }, tn(k.needs, '{plan}: {lower} covers the {n} To play game you need it for.', '{plan}: {lower} covers the {n} To play games you need it for.', { plan: planName(k.service, k.tier), lower: planName(k.service, k.lower) })));
@@ -1413,6 +1515,160 @@ function advisorPanel() {
   return el('div', { class: 'panel advisor' },
     el('div', { class: 'panel-head' }, el('h2', {}, t('Which plan to get')), el('span', { class: 'muted' }, hint)),
     rows, notes);
+}
+
+// ---------- plan ahead ----------
+// Your To play and Now playing games against the time you play a day
+// (renderer/planner.js): when you'd be through them, and which plan to pay
+// for each month if you rotate plans.
+const UNKNOWN_HOURS = 12;
+function hoursLeft(g) {
+  const beat = beatHours(g);
+  const played = playedHours(g)?.hours || 0;
+  if (beat == null) return { hours: Math.max(1, UNKNOWN_HOURS - played), guessed: true };
+  return { hours: Math.max(0.5, beat - played), guessed: false };
+}
+
+// When it leaves, or could: the service's date, the usual Game Pass day for
+// a game flagged without one, or a likely prediction.
+function deadlineOf(g, keys) {
+  const l = leaveInfo(g);
+  if (l && !l.past) return { date: l.date || Deadline.guessLeaveDate(todayIso()), kind: l.date ? 'leaving' : 'guess' };
+  const p = predictionOf(g, keys);
+  return p && p.likely ? { date: p.date, kind: 'predicted' } : null;
+}
+
+// Each plan you could take for a month on top of yours, with its list price
+// (a month's, or the shortest it's sold for).
+function planCandidates() {
+  const svcs = allServices();
+  const currency = regionCurrency();
+  const out = [];
+  for (const s of svcs) {
+    const options = currency ? PlanPrices.options(s, currency) : [];
+    for (const tier of s.tiers) {
+      if (state.subscriptions[s.id] === tier.id) continue;
+      const priced = options.filter((o) => o.tier === tier.id).sort((a, b) => a.months - b.months)[0];
+      out.push({
+        key: `${s.id}:${tier.id}`, service: s.id, tier: tier.id,
+        keys: Advisor.keysFor(svcs, { ...state.subscriptions, [s.id]: tier.id }),
+        price: priced ? { amount: priced.amount, months: priced.months, unsure: !!priced.unsure } : null,
+      });
+    }
+  }
+  return out;
+}
+
+function planInput(keys) {
+  const candidates = planCandidates();
+  const items = games.filter((g) => ['wishlist', 'playing'].includes(markOf(g.id))).map((g) => {
+    const { hours, guessed } = hoursLeft(g);
+    const ready = isMine(g, keys);
+    const d = deadlineOf(g, keys);
+    return {
+      id: g.id, g, hours, guessed, ready,
+      plans: new Set(ready ? [] : candidates.filter((c) => isMine(g, c.keys)).map((c) => c.key)),
+      from: isComing(g) ? g.comingOn : null,
+      deadline: d?.date || null,
+      deadlineKind: d?.kind || null,
+      playing: markOf(g.id) === 'playing',
+    };
+  });
+  return { items, candidates };
+}
+
+function makePlan() {
+  const keys = unlocked();
+  const { items, candidates } = planInput(keys);
+  const pace = playPace();
+  const today = todayIso();
+  const result = Planner.plan(items, { perDay: pace.perDay, today, candidates: candidates.map((c) => ({ key: c.key, price: c.price })) });
+  return { items, candidates, pace, result, forecast: Planner.forecast(result.hours, pace.perDay, today) };
+}
+
+// "12 days", "5 weeks", "4 months".
+function durationText(days) {
+  if (days < 14) return tn(days, '{n} day', '{n} days');
+  if (days < 61) return tn(Math.round(days / 7), '{n} week', '{n} weeks');
+  return tn(Math.round(days / 30.4), '{n} month', '{n} months');
+}
+
+const DEADLINE_TEXT = {
+  leaving: tk('leaves {date}'),
+  guess: tk('leaving, probably by {date}'),
+  predicted: tk('could leave {date}'),
+};
+
+function planPriceText(price) {
+  if (!price) return '';
+  const p = { price: money(price.amount), length: planLength(price.months) };
+  return price.months === 1 ? t('{price} a month', p) : t('{price} for {length}', p);
+}
+
+function renderPlan() {
+  const content = $('#content');
+  content.replaceChildren();
+  const { items, candidates, pace, result: r, forecast: f } = makePlan();
+  $('#summary').textContent = '';
+  if (!items.length) {
+    content.append(el('div', { class: 'empty' }, t('Add games to To play (＋ on a cover) or mark them Now playing, and this page works out when you\'d get through them and which plan to pay for each month.')));
+    return;
+  }
+  const byId = new Map(items.map((i) => [i.id, i]));
+  const counted = items.filter((i) => !r.unreachable.includes(i.id));
+  const guessed = counted.filter((i) => i.guessed).length;
+  const stat = (value, label) => el('div', { class: 'plan-stat' }, el('strong', {}, value), el('span', { class: 'muted' }, label));
+  const done = r.finishes || f?.date || null;
+  content.append(el('div', { class: 'panel plan-forecast' },
+    el('div', { class: 'panel-head' }, el('h2', {}, t('Your backlog')),
+      el('span', { class: 'muted' }, tn(counted.length, '{n} To play or Now playing game you can play through your plans or one you could add.', '{n} To play and Now playing games you can play through your plans or one you could add.'))),
+    el('div', { class: 'plan-stats' },
+      stat(fmtHours(r.hours), t('to play')),
+      stat(f ? durationText(f.days) : '–', t('at {perDay} a day', { perDay: fmtPerDay(pace.perDay) })),
+      stat(done ? fmtDate(done) : '–', r.finishes ? t('done around, following the plan below') : t('done around'))),
+    el('div', { class: 'plan-pace' }, el('span', { class: 'muted' }, t('How long you play a day ({source}):', { source: paceSource(pace) })), ' ', playTimeControl()),
+    guessed ? el('p', { class: 'muted small' }, tn(guessed, '{n} game has no How Long To Beat time yet, so it counts as {hours}.', '{n} games have no How Long To Beat time yet, so each counts as {hours}.', { hours: fmtHours(UNKNOWN_HOURS) })) : null));
+
+  // Month by month.
+  const total = r.months.reduce((n, m) => (m.price && n !== null ? (m.price.months === 1 ? n + m.price.amount : null) : n), 0);
+  const months = r.months.map((m) => {
+    const c = m.key ? candidates.find((x) => x.key === m.key) : null;
+    const s = c ? serviceById(c.service) : null;
+    const head = el('div', { class: 'plan-month-head' },
+      el('strong', {}, t('{from} to {to}', { from: fmtDate(m.start), to: fmtDate(m.end) })),
+      c ? el('span', { class: 'plan-chip', style: `--svc:${s?.color || 'var(--accent)'}` }, planName(c.service, c.tier)) : el('span', { class: 'plan-chip own' }, t('Just your plans')),
+      c?.price ? el('span', { class: 'muted' }, planPriceText(c.price)) : null,
+      el('span', { class: 'muted plan-hours' }, t('{used} of {budget} of play', { used: fmtHours(m.hours), budget: fmtHours(m.budget) })));
+    const rows = m.games.map((step) => {
+      const it = byId.get(step.id);
+      return el('li', { class: step.needsPlan ? 'needs-plan' : '' },
+        el('button', { class: 'game-link', onclick: () => openDrawer(it.g) }, it.g.title), ' ',
+        el('span', { class: 'muted' }, step.finishes ? t('{hours} to finish it', { hours: fmtHours(step.hours) }) : t('{hours}, then carry on next month', { hours: fmtHours(step.hours) })),
+        it.deadline ? el('span', { class: `plan-deadline ${it.deadlineKind}` }, t(DEADLINE_TEXT[it.deadlineKind], { date: fmtDate(it.deadline) })) : null);
+    });
+    return el('div', { class: `plan-month ${c ? 'paid' : ''}` }, head, rows.length ? el('ol', {}, rows) : el('div', { class: 'muted' }, t('Nothing to play this month yet.')));
+  });
+  content.append(el('div', { class: 'panel plan-months' },
+    el('div', { class: 'panel-head' }, el('h2', {}, t('Month by month')),
+      el('span', { class: 'muted' }, t('Keep the plans you have and add at most one a month, picked so you play the most. Games you\'ve started come first, then the ones leaving soonest, then the shortest.'))),
+    months.length ? months : el('div', { class: 'empty small' }, t('Set how long you play a day to see a plan.')),
+    total ? el('p', { class: 'muted' }, t('Plans added: {price} in all, at list prices.', { price: money(total) })) : null));
+
+  if (r.missed.length) {
+    content.append(el('div', { class: 'panel plan-missed' },
+      el('div', { class: 'panel-head' }, el('h2', {}, t('Might not make it')),
+        el('span', { class: 'muted' }, t('These leave, or could leave, before the plan gets to them. Start them sooner, or play more a day.'))),
+      el('ul', {}, r.missed.map((m) => {
+        const it = byId.get(m.id);
+        return el('li', {}, el('button', { class: 'game-link', onclick: () => openDrawer(it.g) }, it.g.title), ' ',
+          el('span', { class: `plan-deadline ${it.deadlineKind}` }, t(DEADLINE_TEXT[it.deadlineKind], { date: fmtDate(m.deadline) })), ' ',
+          el('span', { class: 'muted' }, t('{hours} not played', { hours: fmtHours(m.left) })));
+      }))));
+  }
+  const notes = [];
+  if (r.leftOver?.length) notes.push(tn(r.leftOver.length, '{n} more game is left after a year of this plan.', '{n} more games are left after a year of this plan.'));
+  if (r.unreachable.length) notes.push(tn(r.unreachable.length, '{n} game isn\'t in any plan; To play shows the cheapest way to play it.', '{n} games aren\'t in any plan; To play shows the cheapest way to play them.'));
+  if (notes.length) content.append(el('p', { class: 'muted' }, notes.join(' ')));
 }
 
 // ---------- calendar ----------
@@ -3088,7 +3344,7 @@ function renderChrome() {
 // empty before any filter (your To play list or My games when you've
 // marked nothing yet).
 function toolbarNeeded() {
-  if (['subs', 'stats', 'value', 'foryou', 'free'].includes(ui.view)) return false;
+  if (['subs', 'stats', 'value', 'foryou', 'free', 'plan'].includes(ui.view)) return false;
   if (ui.view === 'toplay') return games.some((g) => markOf(g.id) === 'wishlist') || departed.some((d) => state.marks[d.id] === 'wishlist');
   if (ui.view === 'mine') return games.some((g) => markOf(g.id) !== 'none');
   if (ui.view === 'playing') return games.some((g) => markOf(g.id) === 'playing');
@@ -3141,7 +3397,7 @@ function render(keepScroll = false) {
   const top = content.scrollTop;
   if (!keepScroll) ui.shown = PAGE_SIZE;
   renderChrome();
-  ({ foryou: renderForYou, browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, playing: renderPlaying, toplay: renderToPlay, free: renderFree, calendar: renderCalendar, stats: renderStats, value: renderValue, subs: renderSubs })[ui.view]();
+  ({ foryou: renderForYou, browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, playing: renderPlaying, toplay: renderToPlay, plan: renderPlan, free: renderFree, calendar: renderCalendar, stats: renderStats, value: renderValue, subs: renderSubs })[ui.view]();
   compactSummary();
   if (keepScroll) content.scrollTop = top;
   if (drawerGame) openDrawer(drawerGame);

@@ -642,7 +642,7 @@ function registerIpc() {
   ipcMain.handle('get-state', () => store.get());
   ipcMain.handle('update-state', (_e, patch) => {
     // Only user-owned fields can be written from the window.
-    const allowed = ['subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings', 'costs', 'priceOverrides', 'viaSub', 'freebies', 'notes', 'finishedOn', 'goals'];
+    const allowed = ['subscriptions', 'marks', 'leaveDates', 'customServices', 'customGames', 'settings', 'costs', 'priceOverrides', 'viaSub', 'freebies', 'notes', 'finishedOn', 'goals', 'predictionLog'];
     const clean = Object.fromEntries(Object.entries(patch || {}).filter(([k]) => allowed.includes(k)));
     const before = store.get().marks;
     const next = store.update(clean);
