@@ -1559,31 +1559,34 @@ function planCandidates() {
   return out;
 }
 
+// Games not out yet stay out of the plan (dates slip, and there's no time
+// to beat yet); the page lists them on their own.
 function planInput(keys) {
   const candidates = planCandidates();
-  const items = games.filter((g) => ['wishlist', 'playing'].includes(markOf(g.id))).map((g) => {
+  const wanted = games.filter((g) => ['wishlist', 'playing'].includes(markOf(g.id)));
+  const upcoming = wanted.filter(isComing).sort((a, b) => a.comingOn.localeCompare(b.comingOn));
+  const items = wanted.filter((g) => !isComing(g)).map((g) => {
     const { hours, guessed } = hoursLeft(g);
     const ready = isMine(g, keys);
     const d = deadlineOf(g, keys);
     return {
       id: g.id, g, hours, guessed, ready,
       plans: new Set(ready ? [] : candidates.filter((c) => isMine(g, c.keys)).map((c) => c.key)),
-      from: isComing(g) ? g.comingOn : null,
       deadline: d?.date || null,
       deadlineKind: d?.kind || null,
       playing: markOf(g.id) === 'playing',
     };
   });
-  return { items, candidates };
+  return { items, candidates, upcoming };
 }
 
 function makePlan() {
   const keys = unlocked();
-  const { items, candidates } = planInput(keys);
+  const { items, candidates, upcoming } = planInput(keys);
   const pace = playPace();
   const today = todayIso();
   const result = Planner.plan(items, { perDay: pace.perDay, today, candidates: candidates.map((c) => ({ key: c.key, price: c.price })) });
-  return { items, candidates, pace, result, forecast: Planner.forecast(result.hours, pace.perDay, today) };
+  return { items, candidates, upcoming, pace, result, forecast: Planner.forecast(result.hours, pace.perDay, today) };
 }
 
 // "12 days", "5 weeks", "4 months".
@@ -1608,9 +1611,9 @@ function planPriceText(price) {
 function renderPlan() {
   const content = $('#content');
   content.replaceChildren();
-  const { items, candidates, pace, result: r, forecast: f } = makePlan();
+  const { items, candidates, upcoming, pace, result: r, forecast: f } = makePlan();
   $('#summary').textContent = '';
-  if (!items.length) {
+  if (!items.length && !upcoming.length) {
     content.append(el('div', { class: 'empty' }, t('Add games to To play (＋ on a cover) or mark them Now playing, and this page works out when you\'d get through them and which plan to pay for each month.')));
     return;
   }
@@ -1619,51 +1622,65 @@ function renderPlan() {
   const guessed = counted.filter((i) => i.guessed).length;
   const stat = (value, label) => el('div', { class: 'plan-stat' }, el('strong', {}, value), el('span', { class: 'muted' }, label));
   const done = r.finishes || f?.date || null;
-  content.append(el('div', { class: 'panel plan-forecast' },
-    el('div', { class: 'panel-head' }, el('h2', {}, t('Your backlog')),
-      el('span', { class: 'muted' }, tn(counted.length, '{n} To play or Now playing game you can play through your plans or one you could add.', '{n} To play and Now playing games you can play through your plans or one you could add.'))),
-    el('div', { class: 'plan-stats' },
-      stat(fmtHours(r.hours), t('to play')),
-      stat(f ? durationText(f.days) : '–', t('at {perDay} a day', { perDay: fmtPerDay(pace.perDay) })),
-      stat(done ? fmtDate(done) : '–', r.finishes ? t('done around, following the plan below') : t('done around'))),
-    el('div', { class: 'plan-pace' }, el('span', { class: 'muted' }, t('How long you play a day ({source}):', { source: paceSource(pace) })), ' ', playTimeControl()),
-    guessed ? el('p', { class: 'muted small' }, tn(guessed, '{n} game has no How Long To Beat time yet, so it counts as {hours}.', '{n} games have no How Long To Beat time yet, so each counts as {hours}.', { hours: fmtHours(UNKNOWN_HOURS) })) : null));
+  if (items.length) {
+    content.append(el('div', { class: 'panel plan-forecast' },
+      el('div', { class: 'panel-head' }, el('h2', {}, t('Your backlog')),
+        el('span', { class: 'muted' }, tn(counted.length, '{n} To play or Now playing game you can play through your plans or one you could add.', '{n} To play and Now playing games you can play through your plans or one you could add.'))),
+      el('div', { class: 'plan-stats' },
+        stat(fmtHours(r.hours), t('to play')),
+        stat(f ? durationText(f.days) : '–', t('at {perDay} a day', { perDay: fmtPerDay(pace.perDay) })),
+        stat(done ? fmtDate(done) : '–', r.finishes ? t('done around, following the plan below') : t('done around'))),
+      el('div', { class: 'plan-pace' }, el('span', { class: 'muted' }, t('How long you play a day ({source}):', { source: paceSource(pace) })), ' ', playTimeControl()),
+      guessed ? el('p', { class: 'muted small' }, tn(guessed, '{n} game has no How Long To Beat time yet, so it counts as {hours}.', '{n} games have no How Long To Beat time yet, so each counts as {hours}.', { hours: fmtHours(UNKNOWN_HOURS) })) : null));
 
-  // Month by month.
-  const total = r.months.reduce((n, m) => (m.price && n !== null ? (m.price.months === 1 ? n + m.price.amount : null) : n), 0);
-  const months = r.months.map((m) => {
-    const c = m.key ? candidates.find((x) => x.key === m.key) : null;
-    const s = c ? serviceById(c.service) : null;
-    const head = el('div', { class: 'plan-month-head' },
-      el('strong', {}, t('{from} to {to}', { from: fmtDate(m.start), to: fmtDate(m.end) })),
-      c ? el('span', { class: 'plan-chip', style: `--svc:${s?.color || 'var(--accent)'}` }, planName(c.service, c.tier)) : el('span', { class: 'plan-chip own' }, t('Just your plans')),
-      c?.price ? el('span', { class: 'muted' }, planPriceText(c.price)) : null,
-      el('span', { class: 'muted plan-hours' }, t('{used} of {budget} of play', { used: fmtHours(m.hours), budget: fmtHours(m.budget) })));
-    const rows = m.games.map((step) => {
-      const it = byId.get(step.id);
-      return el('li', { class: step.needsPlan ? 'needs-plan' : '' },
-        el('button', { class: 'game-link', onclick: () => openDrawer(it.g) }, it.g.title), ' ',
-        el('span', { class: 'muted' }, step.finishes ? t('{hours} to finish it', { hours: fmtHours(step.hours) }) : t('{hours}, then carry on next month', { hours: fmtHours(step.hours) })),
-        it.deadline ? el('span', { class: `plan-deadline ${it.deadlineKind}` }, t(DEADLINE_TEXT[it.deadlineKind], { date: fmtDate(it.deadline) })) : null);
+    // Month by month.
+    const total = r.months.reduce((n, m) => (m.price && n !== null ? (m.price.months === 1 ? n + m.price.amount : null) : n), 0);
+    const months = r.months.map((m) => {
+      const c = m.key ? candidates.find((x) => x.key === m.key) : null;
+      const s = c ? serviceById(c.service) : null;
+      const head = el('div', { class: 'plan-month-head' },
+        el('strong', {}, t('{from} to {to}', { from: fmtDate(m.start), to: fmtDate(m.end) })),
+        c ? el('span', { class: 'plan-chip', style: `--svc:${s?.color || 'var(--accent)'}` }, planName(c.service, c.tier)) : el('span', { class: 'plan-chip own' }, t('Just your plans')),
+        c?.price ? el('span', { class: 'muted' }, planPriceText(c.price)) : null,
+        el('span', { class: 'muted plan-hours' }, t('{used} of {budget} of play', { used: fmtHours(m.hours), budget: fmtHours(m.budget) })));
+      const rows = m.games.map((step) => {
+        const it = byId.get(step.id);
+        return el('li', { class: step.needsPlan ? 'needs-plan' : '' },
+          el('button', { class: 'game-link', onclick: () => openDrawer(it.g) }, it.g.title), ' ',
+          el('span', { class: 'muted', title: it.guessed ? t('No How Long To Beat time yet, so this is a guess of {hours} in all.', { hours: fmtHours(UNKNOWN_HOURS) }) : '' },
+            it.guessed
+              ? (step.finishes ? t('about {hours} to finish it (a guess)', { hours: fmtHours(step.hours) }) : t('about {hours}, then carry on next month (a guess)', { hours: fmtHours(step.hours) }))
+              : (step.finishes ? t('{hours} to finish it', { hours: fmtHours(step.hours) }) : t('{hours}, then carry on next month', { hours: fmtHours(step.hours) }))),
+          it.deadline ? el('span', { class: `plan-deadline ${it.deadlineKind}` }, t(DEADLINE_TEXT[it.deadlineKind], { date: fmtDate(it.deadline) })) : null);
+      });
+      return el('div', { class: `plan-month ${c ? 'paid' : ''}` }, head, rows.length ? el('ol', {}, rows) : el('div', { class: 'muted' }, t('Nothing to play this month yet.')));
     });
-    return el('div', { class: `plan-month ${c ? 'paid' : ''}` }, head, rows.length ? el('ol', {}, rows) : el('div', { class: 'muted' }, t('Nothing to play this month yet.')));
-  });
-  content.append(el('div', { class: 'panel plan-months' },
-    el('div', { class: 'panel-head' }, el('h2', {}, t('Month by month')),
-      el('span', { class: 'muted' }, t('Keep the plans you have and add at most one a month, picked so you play the most. Games you\'ve started come first, then the ones leaving soonest, then the shortest.'))),
-    months.length ? months : el('div', { class: 'empty small' }, t('Set how long you play a day to see a plan.')),
-    total ? el('p', { class: 'muted' }, t('Plans added: {price} in all, at list prices.', { price: money(total) })) : null));
+    content.append(el('div', { class: 'panel plan-months' },
+      el('div', { class: 'panel-head' }, el('h2', {}, t('Month by month')),
+        el('span', { class: 'muted' }, t('Keep the plans you have and add at most one a month, picked so you play the most. Games you\'ve started come first, then the ones leaving soonest, then the shortest.'))),
+      months.length ? months : el('div', { class: 'empty small' }, t('Set how long you play a day to see a plan.')),
+      total ? el('p', { class: 'muted' }, t('Plans added: {price} in all, at list prices.', { price: money(total) })) : null));
 
-  if (r.missed.length) {
-    content.append(el('div', { class: 'panel plan-missed' },
-      el('div', { class: 'panel-head' }, el('h2', {}, t('Might not make it')),
-        el('span', { class: 'muted' }, t('These leave, or could leave, before the plan gets to them. Start them sooner, or play more a day.'))),
-      el('ul', {}, r.missed.map((m) => {
-        const it = byId.get(m.id);
-        return el('li', {}, el('button', { class: 'game-link', onclick: () => openDrawer(it.g) }, it.g.title), ' ',
-          el('span', { class: `plan-deadline ${it.deadlineKind}` }, t(DEADLINE_TEXT[it.deadlineKind], { date: fmtDate(m.deadline) })), ' ',
-          el('span', { class: 'muted' }, t('{hours} not played', { hours: fmtHours(m.left) })));
-      }))));
+    if (r.missed.length) {
+      content.append(el('div', { class: 'panel plan-missed' },
+        el('div', { class: 'panel-head' }, el('h2', {}, t('Might not make it')),
+          el('span', { class: 'muted' }, t('These leave, or could leave, before the plan gets to them. Start them sooner, or play more a day.'))),
+        el('ul', {}, r.missed.map((m) => {
+          const it = byId.get(m.id);
+          return el('li', {}, el('button', { class: 'game-link', onclick: () => openDrawer(it.g) }, it.g.title), ' ',
+            el('span', { class: `plan-deadline ${it.deadlineKind}` }, t(DEADLINE_TEXT[it.deadlineKind], { date: fmtDate(m.deadline) })), ' ',
+            el('span', { class: 'muted' }, t('{hours} not played', { hours: fmtHours(m.left) })));
+        }))));
+    }
+  }
+  if (upcoming.length) {
+    const keys = unlocked();
+    content.append(el('div', { class: 'panel plan-upcoming' },
+      el('div', { class: 'panel-head' }, el('h2', {}, t('Not out yet')),
+        el('span', { class: 'muted' }, t('Left out of the plan until they arrive, as dates can slip and there\'s no time to beat yet.'))),
+      el('ul', {}, upcoming.map((g) => el('li', {},
+        el('button', { class: 'game-link', onclick: () => openDrawer(g) }, g.title), ' ',
+        el('span', { class: 'muted' }, isMine(g, keys) ? t('arrives {date}, in your plans', { date: fmtDate(g.comingOn) }) : t('arrives {date}', { date: fmtDate(g.comingOn) })))))));
   }
   const notes = [];
   if (r.leftOver?.length) notes.push(tn(r.leftOver.length, '{n} more game is left after a year of this plan.', '{n} more games are left after a year of this plan.'));
