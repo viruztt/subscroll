@@ -57,8 +57,11 @@ class Store {
   }
 
   update(patch) {
+    const prev = this.state;
     this.state = { ...this.state, ...patch };
     if (patch.settings) this.state.settings = normalizeSettings(this.state.settings);
+    // Sync (src/sync.js) notes when each item changed.
+    if (this.beforeWrite) this.beforeWrite(prev, this.state, patch);
     writeJson(this.file, this.state);
     return this.state;
   }

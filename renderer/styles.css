@@ -768,3 +768,7 @@ dd .deadline { margin: 2px 0; }
 .score-recent ul { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 3px; }
 .outcome .outcome-mark { display: inline-block; width: 1.2em; font-weight: 700; color: var(--danger-text); }
 .outcome.right .outcome-mark { color: var(--ok-text); }
+
+/* Settings › Backup and sync: the sync folder and its status. */
+.sync-lines p { margin: 2px 0; overflow-wrap: anywhere; }
+.sync-lines { margin: 4px 0 8px; }

@@ -2505,7 +2505,7 @@ function beatenPanel(v) {
 }
 
 // Settings in tabs, one subject each.
-const SETTINGS_TABS = [['plans', tk('Plans')], ['region', tk('Region and language')], ['look', tk('Appearance')], ['accounts', tk('Accounts')], ['app', tk('Background and updates')], ['backup', tk('Backup')], ['sources', tk('Data sources')]];
+const SETTINGS_TABS = [['plans', tk('Plans')], ['region', tk('Region and language')], ['look', tk('Appearance')], ['accounts', tk('Accounts')], ['app', tk('Background and updates')], ['backup', tk('Backup and sync')], ['sources', tk('Data sources')]];
 
 function renderSubs() {
   $('#summary').textContent = t('Everything here is saved on this computer.');
@@ -2519,7 +2519,7 @@ function renderSubs() {
     onclick: () => { ui.settingsTab = id; $('#content').scrollTop = 0; render(); },
   }, t(label)))));
   if (tab !== 'plans') {
-    const panels = { region: () => [regionPanel()], look: () => [appearancePanel()], accounts: () => [steamPanel(), achievementsPanel('xbox'), achievementsPanel('psn')], app: () => [backgroundPanel(), updatePanel()], backup: () => [backupPanel()], sources: () => [sourcesPanel()] };
+    const panels = { region: () => [regionPanel()], look: () => [appearancePanel()], accounts: () => [steamPanel(), achievementsPanel('xbox'), achievementsPanel('psn')], app: () => [backgroundPanel(), updatePanel()], backup: () => [syncPanel(), backupPanel()], sources: () => [sourcesPanel()] };
     content.append(...panels[tab]());
     return;
   }
@@ -2812,6 +2812,46 @@ function achievementRows(g) {
       : (a.total ? tn(a.total, '{earned} of {n} trophy', '{earned} of {n} trophies', { earned: a.earned }) : tn(a.earned, '{n} trophy', '{n} trophies'));
     return [el('dt', {}, label), el('dd', {}, a.completed ? t('{count}, {progress}% (completed)', { count, progress: a.progress }) : t('{count}, {progress}%', { count, progress: a.progress }))];
   });
+}
+
+// Sync through a folder a cloud drive keeps the same everywhere (src/sync.js).
+let syncStatus = null;
+function syncPanel() {
+  const panel = el('div', { class: 'panel', id: 'sync-panel' }, el('h2', {}, t('Sync between devices')));
+  panel.append(el('p', { class: 'muted' }, t('Pick a folder that Google Drive, OneDrive, Dropbox or iCloud keeps the same on all your devices, then pick the same folder in Subscroll on each of them. Your plans, marks, To play list, stars, notes, goals and settings then stay in step. When two devices change the same game, the latest change wins. Scores, prices and catalogues aren\'t synced: each device looks them up itself.')));
+  const st = syncStatus;
+  if (!st) {
+    api.getSync().then((x) => { syncStatus = x; $('#sync-panel')?.replaceWith(syncPanel()); }).catch(() => {});
+    return panel;
+  }
+  const after = async (r) => {
+    if (!r || r.ok === false) return;
+    syncStatus = r.status;
+    state = r.state;
+    rebuildGames();
+    render(true);
+  };
+  const when = (iso) => new Date(iso).toLocaleString(I18n.locale(), { dateStyle: 'medium', timeStyle: 'short' });
+  if (!st.folder) {
+    panel.append(el('p', {}, t('Not syncing. Everything stays on this computer.')),
+      el('div', { class: 'form' }, el('button', { class: 'primary', onclick: async () => after(await api.chooseSyncFolder()) }, t('Choose folder…'))));
+    return panel;
+  }
+  const box = el('input', { type: 'checkbox' });
+  box.checked = !!st.accounts;
+  box.addEventListener('change', async () => after(await api.setSyncAccounts(box.checked)));
+  const lines = [t('Syncing through {folder}', { folder: st.folder }), t('This device: {name}.', { name: st.name })];
+  if (st.error) lines.push(t('Can\'t sync: {error}', { error: st.error }));
+  else if (st.lastSync) lines.push(t('Last synced {time}.', { time: when(st.lastSync) }));
+  lines.push(st.devices.length ? t('Other devices: {names}.', { names: st.devices.map((d) => d.name).join(', ') }) : t('No other device has synced through this folder yet.'));
+  panel.append(
+    el('div', { class: 'sync-lines' }, lines.map((x, i) => el('p', { class: i ? 'muted' : '' }, x))),
+    el('div', { class: 'checks' }, el('label', { class: 'check-row' }, box, el('span', {}, el('strong', {}, t('Include Steam, Xbox and PlayStation links.')), el('span', { class: 'muted' }, ` ${t('Their keys are then saved in the sync folder too, so only tick this for a folder that only you can open.')}`)))),
+    el('div', { class: 'form' },
+      el('button', { class: 'primary', onclick: async () => after(await api.syncNow()) }, t('Sync now')),
+      el('button', { onclick: async () => after(await api.chooseSyncFolder()) }, t('Change folder…')),
+      el('button', { class: 'link danger', onclick: async () => after(await api.stopSync()) }, t('Stop syncing'))));
+  return panel;
 }
 
 // The last export or import result, kept while the page is rebuilt.
@@ -3650,6 +3690,10 @@ async function init() {
   render();
   loadFree().catch(() => {});
   api.getUpdate().then((st) => { update = st; renderUpdateBanner(); }).catch(() => {});
+  api.onSyncStatus((st) => {
+    syncStatus = st;
+    $('#sync-panel')?.replaceWith(syncPanel());
+  });
   api.onUpdateChanged((st) => {
     update = st;
     renderUpdateBanner();

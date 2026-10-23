@@ -27,6 +27,7 @@ const updates = require('./updates');
 const selfupdate = require('./selfupdate');
 const Goals = require('../renderer/goals');
 const I18n = require('../renderer/i18n');
+const { Sync } = require('./sync');
 require('../renderer/locales');
 
 const { t, tn, tk, locale } = I18n;
@@ -34,6 +35,7 @@ const { t, tn, tk, locale } = I18n;
 const LOGIN_LABEL = process.platform === 'win32' ? tk('Start with Windows') : tk('Start when you log in');
 
 let store;
+let sync;
 let catalog;
 let details;
 let ratings;
@@ -135,6 +137,8 @@ function createWindow() {
       notify({ title: t('Subscroll is still running'), body: t('It keeps checking your services in the background. Right-click the tray icon to quit.') });
     }
   });
+  // Coming back to the window is a good moment to pick up changes from other devices.
+  win.on('focus', () => syncSoon());
   // Store links open in the user's browser, never inside the app.
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//.test(url)) shell.openExternal(url);
@@ -645,6 +649,14 @@ function flushRatings() {
 }
 const queueRatings = () => { if (!ratingTimer) ratingTimer = setTimeout(flushRatings, 1500); };
 
+// At most every 10 seconds, so switching windows back and forth doesn't read the folder each time.
+let lastSyncPull = 0;
+function syncSoon() {
+  if (!sync?.folder() || Date.now() - lastSyncPull < 10000) return;
+  lastSyncPull = Date.now();
+  sync.pull();
+}
+
 function registerIpc() {
   ipcMain.handle('get-services', () => ({ services: SERVICES, tierBadges: TIER_BADGES, system: { platform: process.platform, version: app.getVersion(), startAtLogin: canStartAtLogin() ? LOGIN_LABEL : null, selfUpdate: !!selfFile() } }));
   ipcMain.handle('get-state', () => store.get());
@@ -665,6 +677,34 @@ function registerIpc() {
     return next;
   });
   ipcMain.handle('get-catalog', () => catalogPayload());
+  ipcMain.handle('get-sync', () => sync.status());
+  ipcMain.handle('choose-sync-folder', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+      title: t('Choose a folder to sync through'),
+      defaultPath: store.get().settings.syncFolder || app.getPath('home'),
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (canceled || !filePaths.length) return { ok: false };
+    store.update({ settings: { ...store.get().settings, syncFolder: filePaths[0] } });
+    sync.start();
+    return { ok: true, status: sync.status(), state: store.get() };
+  });
+  ipcMain.handle('stop-sync', () => {
+    sync.stop();
+    store.update({ settings: { ...store.get().settings, syncFolder: null }, syncJoined: false });
+    sync.start();
+    return { status: sync.status(), state: store.get() };
+  });
+  ipcMain.handle('set-sync-accounts', (_e, on) => {
+    store.update({ settings: { ...store.get().settings, syncAccounts: !!on } });
+    sync.start();
+    return { status: sync.status(), state: store.get() };
+  });
+  ipcMain.handle('sync-now', () => {
+    sync.seen.clear();
+    sync.pull();
+    return { status: sync.status(), state: store.get() };
+  });
   ipcMain.handle('get-psblog-progress', () => psBlogProgress);
   ipcMain.handle('get-free', () => freeGames.list());
   ipcMain.handle('refresh-free', () => refreshFree());
@@ -820,7 +860,11 @@ async function waitForLock() {
 }
 
 app.setAppUserModelId(APP_ID);
-app.on('before-quit', () => { quitting = true; });
+app.on('before-quit', () => {
+  quitting = true;
+  // Changes from the last few seconds reach the sync folder before Subscroll closes.
+  sync?.write();
+});
 
 app.whenReady().then(async () => {
   if (!firstCopy && !(await waitForLock())) {
@@ -829,6 +873,15 @@ app.whenReady().then(async () => {
   }
   const dataDir = app.getPath('userData');
   store = new Store(dataDir);
+  sync = new Sync(store, {
+    onApplied: (s) => {
+      applyTheme();
+      applyLanguage();
+      updateTray();
+      win?.webContents.send('state-changed', s);
+    },
+    onStatus: (st) => win?.webContents.send('sync-status', st),
+  });
   applyLanguage();
   // A version downloaded last time installs now, before anything opens.
   if (!updatedFrom && autoInstall() && installUpdate({ hidden: startHidden })) return;
@@ -852,6 +905,7 @@ app.whenReady().then(async () => {
   createWindow();
   createTray();
   applyLoginItem();
+  sync.start();
   scheduleRefresh();
   setTimeout(enrichArcade, 5000);
   setTimeout(startWiki, 8000);

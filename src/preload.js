@@ -35,5 +35,11 @@ contextBridge.exposeInMainWorld('api', {
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
   onUpdateChanged: (fn) => ipcRenderer.on('update-changed', (_e, st) => fn(st)),
+  getSync: () => ipcRenderer.invoke('get-sync'),
+  chooseSyncFolder: () => ipcRenderer.invoke('choose-sync-folder'),
+  stopSync: () => ipcRenderer.invoke('stop-sync'),
+  setSyncAccounts: (on) => ipcRenderer.invoke('set-sync-accounts', on),
+  syncNow: () => ipcRenderer.invoke('sync-now'),
+  onSyncStatus: (fn) => ipcRenderer.on('sync-status', (_e, st) => fn(st)),
   onRefreshProgress: (fn) => ipcRenderer.on('refresh-progress', (_e, msg) => fn(msg)),
 });
