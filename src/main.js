@@ -705,6 +705,15 @@ function registerIpc() {
     await Promise.all(Array.from({ length: 6 }, worker));
     return out;
   });
+  // Controller mode fills the screen, and leaving it puts the window back.
+  let wasFullScreen = false;
+  ipcMain.handle('set-fullscreen', (_e, on) => {
+    if (!win) return;
+    if (on) {
+      wasFullScreen = win.isFullScreen();
+      win.setFullScreen(true);
+    } else if (!wasFullScreen) win.setFullScreen(false);
+  });
   ipcMain.handle('copy-text', (_e, text) => clipboard.writeText(String(text || '')));
   ipcMain.handle('copy-image', (_e, dataUrl) => {
     if (/^data:image\/png;base64,/.test(dataUrl || '')) clipboard.writeImage(nativeImage.createFromDataURL(dataUrl));

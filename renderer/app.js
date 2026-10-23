@@ -1389,6 +1389,213 @@ function renderToPlay() {
   }
 }
 
+// ---------- controller mode ----------
+// A big-screen view for a TV, browsed with a gamepad (or the keyboard or a
+// remote): lists across the top (LB / RB), big covers, a game's details with
+// Play and mark buttons. renderer/tv.js turns buttons and keys into actions.
+let tv = null; // { tab, index, shown, detail: null | { g, focus }, rolled }
+const TV_PAGE = 120;
+const tvTop = (list, n = 400) => list.slice(0, n);
+function tvTabs() {
+  const keys = unlocked();
+  const mine = keys.size ? (g) => isMine(g, keys) : () => true;
+  const byTitle = (a, b) => a.title.localeCompare(b.title, I18n.locale());
+  const leaving = (g) => { const l = leaveInfo(g); return l && l.soon && !l.past; };
+  const playable = games.filter((g) => mine(g) && !isComing(g));
+  const tabs = [
+    ['foryou', t('For you'), () => (keys.size ? recommendations(48, 12).map((p) => p.game) : [])],
+    ['playing', t('Now playing'), () => games.filter((g) => markOf(g.id) === 'playing').sort(byTitle)],
+    ['toplay', t('To play'), () => games.filter((g) => markOf(g.id) === 'wishlist').sort((a, b) => Number(isComing(a)) - Number(isComing(b)) || Number(isMine(b, keys)) - Number(isMine(a, keys)) || byTitle(a, b))],
+    ['leaving', t('Leaving soon'), () => playable.filter(leaving).sort((a, b) => (leaveInfo(a).date || '9999').localeCompare(leaveInfo(b).date || '9999') || byTitle(a, b))],
+    ['new', t('New'), () => playable.filter((g) => g.firstSeen && daysUntil(g.firstSeen) >= -30).sort((a, b) => b.firstSeen.localeCompare(a.firstSeen) || byTitle(a, b))],
+    ['coming', t('Coming soon'), () => games.filter((g) => isComing(g) && mine(g)).sort((a, b) => a.comingOn.localeCompare(b.comingOn))],
+    ['all', keys.size ? t('All in your plans') : t('All games'), () => playable.filter((g) => !['ignored', 'completed', 'dropped'].includes(markOf(g.id))).sort((a, b) => (mcScore(b) || 0) - (mcScore(a) || 0) || byTitle(a, b))],
+  ];
+  return tabs.map(([id, label, list]) => ({ id, label, games: tvTop(list()) })).filter((x) => x.games.length || x.id === 'all');
+}
+
+function tvCols() {
+  return Math.min(8, Math.max(3, Math.floor((window.innerWidth - 120) / 250)));
+}
+
+function openTv() {
+  tv = { tab: 0, index: 0, shown: TV_PAGE, detail: null };
+  closeDrawer();
+  closeShare();
+  if (!$('#tv')) document.body.append(el('div', { id: 'tv', class: 'tv', role: 'application', 'aria-label': t('Controller mode') }));
+  api.setFullScreen(true);
+  renderTv();
+}
+
+function closeTv() {
+  tv = null;
+  $('#tv')?.remove();
+  api.setFullScreen(false);
+  render(true);
+}
+
+function tvLine(g) {
+  const leave = leaveInfo(g);
+  if (isComing(g)) return t('Coming {date}', { date: fmtDate(g.comingOn) });
+  if (leave && !leave.past) return leave.date ? t('Leaves {date}', { date: fmtDate(leave.date) }) : t('Leaving soon');
+  const status = STATUS_BADGE[markOf(g.id)];
+  if (status) return `${status[0]} ${t(status[1])}`;
+  if (markOf(g.id) === 'wishlist') return `＋ ${t('To play')}`;
+  return serviceOffers(g).map((o) => serviceById(o.service)?.short || o.service).join(' · ');
+}
+
+function renderTv() {
+  const box = $('#tv');
+  if (!box || !tv) return;
+  const tabs = tvTabs();
+  tv.tab = Math.min(tv.tab, tabs.length - 1);
+  const tab = tabs[tv.tab];
+  const list = tab.games;
+  tv.index = Math.min(tv.index, Math.max(list.length - 1, 0));
+  if (tv.index >= tv.shown - tvCols() * 2) tv.shown = tv.index + TV_PAGE;
+  const cols = tvCols();
+  const grid = el('div', { class: 'tv-grid', style: `--cols:${cols}` }, list.slice(0, tv.shown).map((g, i) => el('button', {
+    class: `tv-tile ${i === tv.index ? 'focus' : ''}`,
+    tabindex: '-1',
+    onclick: () => { tv.index = i; tvOpen(g); },
+  }, el('div', { class: 'cover-wrap' }, placeholder(g), g.image ? cover(g) : null), el('div', { class: 'tv-title' }, g.title), el('div', { class: 'tv-sub' }, tvLine(g)))));
+  box.replaceChildren(
+    el('header', { class: 'tv-head' },
+      el('img', { class: 'tv-logo', src: 'logo.svg', alt: '' }),
+      el('div', { class: 'tv-tabs' },
+        el('span', { class: 'tv-key' }, 'LB'),
+        tabs.map((x, i) => el('button', { class: `tv-tab ${i === tv.tab ? 'on' : ''}`, tabindex: '-1', onclick: () => { tv.tab = i; tv.index = 0; tv.detail = null; renderTv(); } }, x.label, el('span', { class: 'tv-count' }, String(x.games.length)))),
+        el('span', { class: 'tv-key' }, 'RB'))),
+    list.length ? grid : el('div', { class: 'tv-empty' }, t('Nothing here yet.')),
+    el('footer', { class: 'tv-hints' },
+      [['Ⓐ', t('Open')], ['Ⓧ', t('To play')], ['Ⓨ', t('Roll a game')], ['LB RB', t('Switch list')], ['Ⓑ', t('Back')], ['☰', t('Exit controller mode')]]
+        .map(([k, label]) => el('span', {}, el('span', { class: 'tv-key' }, k), label))));
+  if (tv.detail) box.append(tvDetail());
+  box.querySelector('.tv-tile.focus')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function tvActions(g) {
+  const mark = markOf(g.id);
+  const keys = unlocked();
+  const play = isMine(g, keys) && !isComing(g) ? Play.playActions(g, { installed: g.steam?.appid ? steamInstalledCache.get(g.steam.appid) ?? null : null, platform: system.platform }) : [];
+  const toggle = (value) => async () => { await setMark(g.id, mark === value ? null : value); renderTv(); };
+  return [
+    ...play.map((a) => ({ label: a.label, run: () => api.launch(a.url) })),
+    { label: mark === 'wishlist' ? `✓ ${t('On your To play list')}` : `＋ ${t('To play')}`, run: toggle('wishlist') },
+    { label: mark === 'playing' ? `✓ ${t('Now playing')}` : `▶ ${t('Now playing')}`, run: toggle('playing') },
+    { label: mark === 'completed' ? `✓ ${t('Completed')}` : `★ ${t('Completed')}`, run: toggle('completed') },
+    { label: t('Close'), run: () => { tv.detail = null; renderTv(); } },
+  ];
+}
+
+function tvDetail() {
+  const { g } = tv.detail;
+  const actions = tvActions(g);
+  tv.detail.focus = Math.min(tv.detail.focus, actions.length - 1);
+  const r = ratings[g.id] || {};
+  const facts = [];
+  const leave = leaveInfo(g);
+  if (isComing(g)) facts.push(t('Coming {date}', { date: fmtDate(g.comingOn) }));
+  else if (leave && !leave.past) facts.push(leave.date ? t('Leaves {date}', { date: fmtDate(leave.date) }) : t('Leaving soon'));
+  if (mcScore(g)) facts.push(`Metacritic ${mcScore(g)}`);
+  if (beatHours(g)) facts.push(t('{time} to beat', { time: fmtHours(beatHours(g)) }));
+  if (starsOf(g.id)) facts.push('★'.repeat(starsOf(g.id)));
+  const d = loadDetails(g);
+  if (d instanceof Promise) d.then(() => { if (tv?.detail?.g === g) renderTv(); });
+  const description = d instanceof Promise ? t('Loading description and screenshots…') : d?.description || '';
+  return el('div', { class: 'tv-detail' },
+    el('div', { class: 'tv-detail-card' },
+      el('div', { class: 'tv-detail-cover' }, el('div', { class: 'cover-wrap' }, placeholder(g), g.image ? cover(g) : null)),
+      el('div', { class: 'tv-detail-body' },
+        tv.rolled ? el('div', { class: 'tv-rolled' }, `🎲 ${t('Rolled for you')}`) : null,
+        el('h1', {}, g.title),
+        serviceMeta(g, unlocked()),
+        facts.length ? el('p', { class: 'tv-facts' }, facts.join('  ·  ')) : null,
+        description ? el('p', { class: 'tv-desc' }, description) : null,
+        el('div', { class: 'tv-actions' }, actions.map((a, i) => el('button', {
+          class: `tv-action ${i === tv.detail.focus ? 'focus' : ''} ${i === 0 ? 'primary' : ''}`,
+          tabindex: '-1',
+          onclick: () => { tv.detail.focus = i; a.run(); },
+        }, a.label))))));
+}
+
+function tvOpen(g, rolled = false) {
+  tv.detail = { g, focus: 0 };
+  tv.rolled = rolled;
+  const appid = g.steam?.appid;
+  if (appid && !steamInstalledCache.has(appid)) {
+    api.steamInstalled(appid).then((v) => { steamInstalledCache.set(appid, v); if (tv?.detail?.g === g) renderTv(); }).catch(() => {});
+  }
+  renderTv();
+}
+
+function tvAction(action, source) {
+  if (!tv) {
+    // Start / Menu on a gamepad opens controller mode from anywhere.
+    if (action === 'menu' && source === 'pad') openTv();
+    return;
+  }
+  if (action === 'menu') return closeTv();
+  const tabs = tvTabs();
+  const list = tabs[Math.min(tv.tab, tabs.length - 1)].games;
+  if (tv.detail) {
+    const actions = tvActions(tv.detail.g);
+    if (action === 'left' || action === 'up') tv.detail.focus = Math.max(0, tv.detail.focus - 1);
+    else if (action === 'right' || action === 'down') tv.detail.focus = Math.min(actions.length - 1, tv.detail.focus + 1);
+    else if (action === 'ok') return actions[tv.detail.focus]?.run();
+    else if (action === 'back') tv.detail = null;
+    else if (action === 'x') {
+      const g = tv.detail.g;
+      return setMark(g.id, markOf(g.id) === 'wishlist' ? null : 'wishlist').then(renderTv);
+    }
+    else if (action === 'y') return tvRoll();
+    else return;
+    return renderTv();
+  }
+  if (['up', 'down', 'left', 'right'].includes(action)) {
+    const next = TV.move(tv.index, action, tvCols(), list.length);
+    if (next === tv.index) return;
+    tv.index = next;
+    // Move the highlight without redrawing every cover.
+    const tiles = $('#tv').querySelectorAll('.tv-tile');
+    if (tv.index >= tiles.length) return renderTv();
+    $('#tv .tv-tile.focus')?.classList.remove('focus');
+    tiles[tv.index].classList.add('focus');
+    tiles[tv.index].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    return;
+  }
+  if (action === 'prevTab' || action === 'nextTab') {
+    tv.tab = (tv.tab + (action === 'nextTab' ? 1 : -1) + tabs.length) % tabs.length;
+    tv.index = 0;
+    tv.shown = TV_PAGE;
+    $('#tv .tv-grid')?.scrollTo(0, 0);
+    return renderTv();
+  }
+  if (action === 'ok' && list[tv.index]) return tvOpen(list[tv.index]);
+  if (action === 'x' && list[tv.index]) {
+    const g = list[tv.index];
+    return setMark(g.id, markOf(g.id) === 'wishlist' ? null : 'wishlist').then(renderTv);
+  }
+  if (action === 'y') return tvRoll();
+  // The keyboard's Esc leaves; a gamepad's B doesn't, so a stray press on the sofa keeps you here.
+  if (action === 'back' && source === 'key') closeTv();
+}
+
+function tvRoll() {
+  const pool = rollPool();
+  if (!pool.length) return;
+  tvOpen(pool[Math.floor(Math.random() * pool.length)], true);
+}
+
+const pad = new TV.Pad((action, source) => tvAction(action, source), { win: window });
+document.addEventListener('keydown', (e) => {
+  if (!tv) return;
+  const action = TV.keyAction(e);
+  e.preventDefault();
+  e.stopPropagation();
+  if (action) tvAction(action, 'key');
+}, true);
+
 // ---------- share a list ----------
 // Which list each page shares first, and the lists you can pick.
 const SHARE_FROM = { toplay: 'wishlist', playing: 'playing', mine: 'completed' };
@@ -3593,6 +3800,7 @@ function render(keepScroll = false) {
   ({ foryou: renderForYou, browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, playing: renderPlaying, toplay: renderToPlay, plan: renderPlan, free: renderFree, calendar: renderCalendar, stats: renderStats, value: renderValue, subs: renderSubs })[ui.view]();
   compactSummary();
   addShareButton();
+  if (tv) renderTv();
   if (keepScroll) content.scrollTop = top;
   if (drawerGame) openDrawer(drawerGame);
   // Lists arriving during onboarding fill in its counts and picks.
@@ -3778,6 +3986,7 @@ function wire() {
   $('#refresh-all').addEventListener('click', () => refresh('all'));
   document.addEventListener('click', (e) => { if (!e.target.closest('#refresh-split')) closeRefreshMenu(); });
   $('#roll-btn').addEventListener('click', roll);
+  $('#tv-btn').addEventListener('click', openTv);
   document.addEventListener('keydown', (e) => {
     const typing = /^(input|textarea|select)$/i.test(e.target.tagName) || e.target.isContentEditable;
     if (((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'f') || (e.key === '/' && !typing)) {
