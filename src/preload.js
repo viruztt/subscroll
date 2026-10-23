@@ -41,5 +41,9 @@ contextBridge.exposeInMainWorld('api', {
   setSyncAccounts: (on) => ipcRenderer.invoke('set-sync-accounts', on),
   syncNow: () => ipcRenderer.invoke('sync-now'),
   onSyncStatus: (fn) => ipcRenderer.on('sync-status', (_e, st) => fn(st)),
+  fetchImages: (pairs) => ipcRenderer.invoke('fetch-images', pairs),
+  copyText: (text) => ipcRenderer.invoke('copy-text', text),
+  copyImage: (dataUrl) => ipcRenderer.invoke('copy-image', dataUrl),
+  saveShare: (file) => ipcRenderer.invoke('save-share', file),
   onRefreshProgress: (fn) => ipcRenderer.on('refresh-progress', (_e, msg) => fn(msg)),
 });

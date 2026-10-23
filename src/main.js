@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, nativeTheme, net, shell } = require('electron');
+const { app, BrowserWindow, Menu, Notification, Tray, clipboard, dialog, ipcMain, nativeImage, nativeTheme, net, shell } = require('electron');
 const path = require('path');
 const { Store, readJson, writeJson } = require('./store');
 const { Catalog, SERVICES: CATALOG_SERVICES } = require('./catalog');
@@ -677,6 +677,50 @@ function registerIpc() {
     return next;
   });
   ipcMain.handle('get-catalog', () => catalogPayload());
+  // Share a list: covers as data URLs (a picture drawn from other sites'
+  // images couldn't be saved), then copy or save the result.
+  ipcMain.handle('fetch-images', async (_e, pairs) => {
+    const one = async (url) => {
+      if (!/^https:\/\//.test(url || '')) return null;
+      try {
+        const res = await net.fetch(url, { signal: AbortSignal.timeout(15000) });
+        const type = res.headers.get('content-type') || '';
+        if (!res.ok || !/^image\//.test(type)) return null;
+        const buf = Buffer.from(await res.arrayBuffer());
+        return buf.length < 8e6 ? `data:${type.split(';')[0]};base64,${buf.toString('base64')}` : null;
+      } catch {
+        return null;
+      }
+    };
+    const list = (Array.isArray(pairs) ? pairs : []).slice(0, 60);
+    const out = new Array(list.length).fill(null);
+    let next = 0;
+    const worker = async () => {
+      while (next < list.length) {
+        const i = next++;
+        const [url, fallback] = Array.isArray(list[i]) ? list[i] : [list[i]];
+        out[i] = (await one(url)) || (await one(fallback));
+      }
+    };
+    await Promise.all(Array.from({ length: 6 }, worker));
+    return out;
+  });
+  ipcMain.handle('copy-text', (_e, text) => clipboard.writeText(String(text || '')));
+  ipcMain.handle('copy-image', (_e, dataUrl) => {
+    if (/^data:image\/png;base64,/.test(dataUrl || '')) clipboard.writeImage(nativeImage.createFromDataURL(dataUrl));
+  });
+  ipcMain.handle('save-share', async (_e, { name, text, png } = {}) => {
+    const isPng = typeof png === 'string' && /^data:image\/png;base64,/.test(png);
+    const base = path.basename(String(name || (isPng ? 'subscroll.png' : 'subscroll.txt')));
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      title: t('Share a list'),
+      defaultPath: path.join(app.getPath(isPng ? 'pictures' : 'documents'), base),
+      filters: isPng ? [{ name: 'PNG', extensions: ['png'] }] : [{ name: t('Text'), extensions: [path.extname(base).slice(1) || 'txt'] }],
+    });
+    if (canceled || !filePath) return { ok: false };
+    await fs.promises.writeFile(filePath, isPng ? Buffer.from(png.split(',')[1], 'base64') : String(text || ''));
+    return { ok: true, file: filePath };
+  });
   ipcMain.handle('get-sync', () => sync.status());
   ipcMain.handle('choose-sync-folder', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog(win, {

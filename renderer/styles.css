@@ -772,3 +772,14 @@ dd .deadline { margin: 2px 0; }
 /* Settings › Backup and sync: the sync folder and its status. */
 .sync-lines p { margin: 2px 0; overflow-wrap: anywhere; }
 .sync-lines { margin: 4px 0 8px; }
+
+/* Share a list */
+.summary .share-btn { margin-left: 10px; }
+.share-card { width: min(1100px, 100%); }
+.share-card .panel-head { display: flex; align-items: center; justify-content: space-between; }
+.share-options { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 8px 0 14px; }
+.share-preview { border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); padding: 10px; max-height: 58vh; overflow: auto; }
+.share-canvas { display: block; width: 100%; height: auto; border-radius: 6px; }
+.share-text { width: 100%; box-sizing: border-box; min-height: 300px; font: 13px/1.5 ui-monospace, Consolas, monospace; resize: vertical; }
+.share-status { min-height: 1.4em; margin: 8px 0 0; }
+.share-foot { grid-template-columns: 1fr auto auto; }

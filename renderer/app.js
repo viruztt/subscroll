@@ -1389,6 +1389,142 @@ function renderToPlay() {
   }
 }
 
+// ---------- share a list ----------
+// Which list each page shares first, and the lists you can pick.
+const SHARE_FROM = { toplay: 'wishlist', playing: 'playing', mine: 'completed' };
+const SHARE_LISTS = [['wishlist', tk('To play')], ['playing', tk('Now playing')], ['completed', tk('Completed')], ['played', tk('Played')]];
+let shareUi = null; // { mark, format: 'image'|'text', markdown, where, stars }
+
+function shareGames(mark) {
+  const list = games.filter((g) => markOf(g.id) === mark);
+  // Completed games: the latest first. The rest by title.
+  if (mark === 'completed') return list.sort((a, b) => (finishedOf(b.id) || '').localeCompare(finishedOf(a.id) || '') || a.title.localeCompare(b.title, I18n.locale()));
+  return list.sort((a, b) => a.title.localeCompare(b.title, I18n.locale()));
+}
+
+function addShareButton() {
+  const mark = SHARE_FROM[ui.view];
+  if (!mark || !SHARE_LISTS.some(([m]) => shareGames(m).length)) return;
+  $('#summary').append(el('button', { class: 'link share-btn', onclick: () => openShare(shareGames(mark).length ? mark : SHARE_LISTS.find(([m]) => shareGames(m).length)[0]) }, t('Share…')));
+}
+
+const SHARE_HEADING = { wishlist: tk('My To play list'), playing: tk('What I\'m playing'), completed: tk('Games I completed'), played: tk('Games I played') };
+const shareFooter = () => t('Made with Subscroll · github.com/viruztt/subscroll');
+const WHOLE_COVERS = ['nso', 'netflix', 'applearcade', 'crunchyroll', 'playpass', 'antstream'];
+
+function shareItems(list) {
+  return list.map((g) => ({
+    title: g.title,
+    where: serviceOffers(g).map((o) => serviceById(o.service)?.short || serviceById(o.service)?.name || o.service).join(', '),
+    stars: starsOf(g.id) || 0,
+    color: serviceById(g.service)?.color || '#555',
+    whole: WHOLE_COVERS.includes(g.service),
+  }));
+}
+
+function openShare(mark) {
+  shareUi = { format: 'image', markdown: false, where: true, stars: true, ...(shareUi || {}), mark };
+  if (!$('#share')) document.body.append(el('div', { id: 'share', class: 'onboard', onclick: (e) => { if (e.target.id === 'share') closeShare(); } }));
+  renderShare();
+}
+function closeShare() {
+  $('#share')?.remove();
+}
+
+// Covers come through the main process, so the picture can be saved.
+const coverCache = new Map();
+function coverUrl(g) {
+  if (!g.image) return null;
+  return ['gamepass', 'eaplay', 'ubisoftplus'].includes(g.service) ? `${g.image}?w=300&h=450&q=80` : g.image;
+}
+async function loadCovers(list) {
+  const want = list.filter((g) => !coverCache.has(g.id));
+  if (want.length) {
+    const data = await api.fetchImages(want.map((g) => [coverUrl(g), g.imageFallback || null]));
+    want.forEach((g, i) => coverCache.set(g.id, data[i] || null));
+  }
+  return Promise.all(list.map((g) => new Promise((resolve) => {
+    const src = coverCache.get(g.id);
+    if (!src) return resolve(null);
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  })));
+}
+
+const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+async function renderShare() {
+  const box = $('#share');
+  if (!box || !shareUi) return;
+  const list = shareGames(shareUi.mark);
+  const items = shareItems(list);
+  const heading = t(SHARE_HEADING[shareUi.mark]);
+  const status = el('p', { class: 'muted share-status' });
+  const opt = (key, label) => {
+    const c = el('input', { type: 'checkbox' });
+    c.checked = !!shareUi[key];
+    c.addEventListener('change', () => { shareUi[key] = c.checked; renderShare(); });
+    return el('label', { class: 'check-row inline' }, c, el('span', {}, label));
+  };
+  const seg = (key, options) => el('div', { class: 'seg' }, options.map(([v, label]) => el('button', { class: shareUi[key] === v ? 'on' : '', onclick: () => { shareUi[key] = v; renderShare(); } }, label)));
+  const which = el('select', {}, SHARE_LISTS.filter(([m]) => shareGames(m).length).map(([m, label]) => el('option', { value: m, ...(m === shareUi.mark ? { selected: '' } : {}) }, `${t(label)} (${shareGames(m).length})`)));
+  which.addEventListener('change', () => { shareUi.mark = which.value; renderShare(); });
+  const preview = el('div', { class: 'share-preview' });
+  const text = () => Share.text(items, { heading, footer: shareFooter(), markdown: shareUi.markdown, where: shareUi.where, stars: shareUi.stars });
+  let canvas = null;
+  const copy = async () => {
+    if (shareUi.format === 'text') await api.copyText(text());
+    else if (canvas) await api.copyImage(canvas.toDataURL('image/png'));
+    status.textContent = shareUi.format === 'text' ? t('Copied the list. Paste it wherever you like.') : t('Copied the picture. Paste it wherever you like.');
+  };
+  const save = async () => {
+    const name = `subscroll-${shareUi.mark === 'wishlist' ? 'to-play' : shareUi.mark}`;
+    const r = shareUi.format === 'text'
+      ? await api.saveShare({ name: `${name}.${shareUi.markdown ? 'md' : 'txt'}`, text: text() })
+      : canvas && await api.saveShare({ name: `${name}.png`, png: canvas.toDataURL('image/png') });
+    if (r?.ok) status.textContent = t('Saved to {file}', { file: r.file });
+  };
+  box.replaceChildren(el('div', { class: 'onboard-card share-card', role: 'dialog', 'aria-label': t('Share a list') },
+    el('div', { class: 'onboard-body' },
+      el('div', { class: 'panel-head' }, el('h1', {}, t('Share a list')), el('button', { class: 'link', onclick: closeShare }, t('Close'))),
+      el('div', { class: 'share-options' },
+        which,
+        seg('format', [['image', t('Picture')], ['text', t('Text')]]),
+        shareUi.format === 'text' ? seg('markdown', [[false, t('Plain text')], [true, t('Markdown')]]) : null,
+        opt('where', t('Where to play it')),
+        opt('stars', t('Your stars'))),
+      preview,
+      status),
+    el('div', { class: 'onboard-foot share-foot' },
+      el('span', { class: 'muted' }, shareUi.format === 'image' && list.length > Share.MAX_IMAGE ? t('The picture shows the first {n} games; the text has them all.', { n: Share.MAX_IMAGE }) : ''),
+      el('span'),
+      el('div', { class: 'onboard-actions' }, el('button', { onclick: save }, t('Save…')), el('button', { class: 'primary', onclick: copy }, t('Copy'))))));
+  if (shareUi.format === 'text') {
+    preview.append(el('textarea', { class: 'share-text', readonly: '', rows: 16 }, text()));
+    return;
+  }
+  preview.append(el('p', { class: 'muted' }, t('Getting the covers…')));
+  const mark = shareUi.mark;
+  const images = await loadCovers(list.slice(0, Share.MAX_IMAGE));
+  // Picked another list or closed it while the covers loaded.
+  if (!shareUi || shareUi.mark !== mark || shareUi.format !== 'image' || !$('#share')) return;
+  canvas = el('canvas', { class: 'share-canvas' });
+  Share.draw(canvas, {
+    heading,
+    sub: tn(list.length, '{n} game', '{n} games'),
+    footer: shareFooter(),
+    more: tn(list.length - Share.MAX_IMAGE, 'and {n} more', 'and {n} more'),
+    items,
+    images,
+    where: shareUi.where,
+    stars: shareUi.stars,
+    colors: { bg: cssVar('--bg'), panel: cssVar('--panel-2'), text: cssVar('--text'), muted: cssVar('--muted'), accent: cssVar('--accent-text') },
+  });
+  preview.replaceChildren(canvas);
+}
+
 // "Game Pass Ultimate", "PC Game Pass", "PS Plus Extra", "Netflix Games".
 function planName(serviceId, tierId) {
   const s = serviceById(serviceId);
@@ -3456,6 +3592,7 @@ function render(keepScroll = false) {
   renderChrome();
   ({ foryou: renderForYou, browse: renderBrowse, coming: renderComing, leaving: renderLeaving, changes: renderChanges, mine: renderMine, playing: renderPlaying, toplay: renderToPlay, plan: renderPlan, free: renderFree, calendar: renderCalendar, stats: renderStats, value: renderValue, subs: renderSubs })[ui.view]();
   compactSummary();
+  addShareButton();
   if (keepScroll) content.scrollTop = top;
   if (drawerGame) openDrawer(drawerGame);
   // Lists arriving during onboarding fill in its counts and picks.
@@ -3651,6 +3788,7 @@ function wire() {
     if (e.key !== 'Escape') return;
     const box = document.querySelector('.lightbox');
     if (box) box.remove();
+    else if ($('#share')) closeShare();
     else if (!$('#hide-menu').hidden) closeHideMenu();
     else closeDrawer();
   });
