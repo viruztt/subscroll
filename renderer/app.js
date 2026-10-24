@@ -416,10 +416,18 @@ function filtered(list, { keepDeparted = false } = {}) {
 
 // 0 means Metacritic hasn't scored it (older results were saved that way).
 const mcScore = (g) => (ratings[g.id]?.mc > 0 ? ratings[g.id].mc : null);
-// Main story time, or the closest thing HLTB has for games without a story.
+// The How Long To Beat time you picked in Settings (main story unless you
+// changed it). A game without that time uses the next longer one, then a
+// shorter one.
+const HLTB_ORDER = { main: ['main', 'plus', 'all'], plus: ['plus', 'all', 'main'], all: ['all', 'plus', 'main'] };
+const HLTB_LABEL = { main: tk('How Long To Beat main story'), plus: tk('How Long To Beat main + extras'), all: tk('How Long To Beat 100%') };
+const hltbKind = () => (HLTB_ORDER[state.settings.hltbTime] ? state.settings.hltbTime : 'main');
+const hltbLabel = () => t(HLTB_LABEL[hltbKind()]);
 function beatHours(g) {
   const h = ratings[g.id]?.hltb;
-  return h ? h.main ?? h.plus ?? h.all ?? null : null;
+  if (!h) return null;
+  for (const k of HLTB_ORDER[hltbKind()]) if (h[k] != null) return h[k];
+  return null;
 }
 // Hours you've played: your own entry first, then Steam's playtime (from an
 // hour up, so a game finished elsewhere and only opened on Steam doesn't count).
@@ -432,8 +440,8 @@ function playedHours(g) {
 }
 // Time a game took you: hours played when known, else How Long To Beat.
 const timeTaken = (g) => playedHours(g)?.hours ?? beatHours(g);
-const TIME_SOURCE = { you: tk('Your hours played'), steam: tk('Steam playtime'), hltb: tk('How Long To Beat main story') };
-const timeSource = (g) => t(TIME_SOURCE[playedHours(g)?.source || 'hltb']);
+const TIME_SOURCE = { you: tk('Your hours played'), steam: tk('Steam playtime') };
+const timeSource = (g) => (playedHours(g) ? t(TIME_SOURCE[playedHours(g).source]) : hltbLabel());
 
 // A dropped game counts on the Value page for the part of it you played:
 // your hours over How Long To Beat's, or a quarter when either is missing.
@@ -631,7 +639,7 @@ function stats(g) {
   const h = beatHours(g);
   return [
     score != null ? el('span', { class: `score ${scoreClass(score)}`, title: t('Metacritic score') }, score) : null,
-    h != null ? el('span', { class: 'hltb', title: t('How Long To Beat: main story') }, `⏱ ${fmtHours(h)}`) : null,
+    h != null ? el('span', { class: 'hltb', title: hltbLabel() }, `⏱ ${fmtHours(h)}`) : null,
   ];
 }
 
@@ -1288,7 +1296,7 @@ function playProgress(g) {
 function progressBlock(g) {
   const p = playProgress(g);
   const text = p.beat
-    ? (p.played ? (p.played >= p.beat ? t('{played} played, past its {beat} main story', { played: fmtHours(p.played), beat: fmtHours(p.beat) }) : t('{played} of {beat} · {left} to go', { played: fmtHours(p.played), beat: fmtHours(p.beat), left: fmtHours(p.left) })) : t('{beat} to beat', { beat: fmtHours(p.beat) }))
+    ? (p.played ? (p.played >= p.beat ? t('{played} played, past its {beat} to beat', { played: fmtHours(p.played), beat: fmtHours(p.beat) }) : t('{played} of {beat} · {left} to go', { played: fmtHours(p.played), beat: fmtHours(p.beat), left: fmtHours(p.left) })) : t('{beat} to beat', { beat: fmtHours(p.beat) }))
     : (p.played ? t('{played} played', { played: fmtHours(p.played) }) : t('No time yet'));
   // One more hour: adds to your own hours, or starts from Steam's.
   const plus = el('button', {
@@ -1301,7 +1309,7 @@ function progressBlock(g) {
     },
   }, t('+1h'));
   return el('div', { class: 'progress' },
-    p.share != null ? el('div', { class: 'bar', title: t('Hours played against How Long To Beat\'s main story') }, el('span', { class: 'bar-playing', style: `width:${p.share * 100}%` })) : null,
+    p.share != null ? el('div', { class: 'bar', title: t('Hours played against {time}', { time: hltbLabel() }) }, el('span', { class: 'bar-playing', style: `width:${p.share * 100}%` })) : null,
     el('div', { class: 'progress-line' }, el('span', { class: 'muted' }, text), plus));
 }
 
@@ -2421,7 +2429,7 @@ function goalsPanel() {
   return el('div', { class: 'panel goals' },
     el('h2', {}, t('Goals')),
     intro(goals.length
-      ? t('Games count in the week, month or year you marked them completed. Hours are your hours played where you\'ve entered them or Steam has them, otherwise How Long To Beat main story times.')
+      ? t('Games count in the week, month or year you marked them completed. Hours are your hours played where you\'ve entered them or Steam has them, otherwise How Long To Beat times.')
       : t('Set a goal, like beating two games a month, and see how you\'re doing and how many months in a row you\'ve made it. Games count in the week, month or year you mark them completed.')),
     rows,
     el('div', { class: 'form goal-add' }, tEl('Beat {count} {unit} a {per}', { count, unit, per }).map((x) => (typeof x === 'string' ? (x.trim() ? el('span', {}, x.trim()) : null) : x)), add),
@@ -2529,7 +2537,7 @@ function renderStats() {
     totals.played ? tile(totals.played, t('played'), t('Marked as played but not completed'), 'played') : null,
     totals.dropped ? tile(totals.dropped, t('dropped'), t('Started, but you stopped'), 'dropped') : null,
     st.finishRate != null ? tile(pct(st.finishRate), t('finish rate'), t('Completed out of every game you have started')) : null,
-    st.time.completedTimed ? tile(t('{n}h', { n: Math.round(st.time.completed) }), t('of games finished'), t('Hours played, or How Long To Beat main-story time, of {n} of your completed games', { n: st.time.completedTimed })) : null,
+    st.time.completedTimed ? tile(t('{n}h', { n: Math.round(st.time.completed) }), t('of games finished'), t('Hours played, or How Long To Beat time, of {n} of your completed games', { n: st.time.completedTimed })) : null,
     st.averageScore != null ? tile(st.averageScore, t('average Metacritic'), t('Average score of the games you completed')) : null,
     totals.inPlans ? tile(share(st.plans.completed / totals.inPlans), t('of your plans done'), t('{done} completed out of {total} games in your plans', { done: st.plans.completed, total: totals.inPlans })) : null,
     state.steam?.owned ? tile(st.steamOwned, t('owned on Steam'), t('Games in your plans that you also own on Steam'), st.steamOwned ? 'steam' : null) : null));
@@ -2589,7 +2597,7 @@ function renderStats() {
   }
 
   if (st.time.playingTimed) {
-    content.append(el('p', { class: 'muted stats-note' }, t('The {n} games you\'re playing that have a How Long To Beat time add up to about {hours} hours of main story.', { n: st.time.playingTimed, hours: Math.round(st.time.playing) })));
+    content.append(el('p', { class: 'muted stats-note' }, t('The {n} games you\'re playing that have a How Long To Beat time add up to about {hours} hours to beat.', { n: st.time.playingTimed, hours: Math.round(st.time.playing) })));
   }
 }
 
@@ -2652,8 +2660,8 @@ function renderValue() {
     v.paid ? tile(money(Math.abs(v.saved)), ahead ? t('saved by subscribing') : t('more than buying them'), '', ahead ? 'good' : 'bad') : null,
     v.perGame ? tile(money(v.perGame), t('per game beaten'), t('What each game cost you through subscriptions')) : null,
     v.perHour ? tile(money(v.perHour, 2), t('an hour played'), v.timed < v.games
-      ? t('What you paid in subscriptions over about {hours} hours of play: your hours played, or How Long To Beat main story times, for {timed} of the {total} games, the rest counted at their average', { hours: Math.round(v.hoursEst), timed: v.timed, total: v.games })
-      : t('What you paid in subscriptions over about {hours} hours of play: your hours played, or How Long To Beat main story times', { hours: Math.round(v.hoursEst) })) : null,
+      ? t('What you paid in subscriptions over about {hours} hours of play: your hours played, or How Long To Beat times, for {timed} of the {total} games, the rest counted at their average', { hours: Math.round(v.hoursEst), timed: v.timed, total: v.games })
+      : t('What you paid in subscriptions over about {hours} hours of play: your hours played, or How Long To Beat times', { hours: Math.round(v.hoursEst) })) : null,
     v.boughtPerHour ? tile(money(v.boughtPerHour, 2), t('an hour if bought'), t('Store prices over hours played (or How Long To Beat times), for the games that have both')) : null));
 
   const playedBox = el('input', { type: 'checkbox' });
@@ -2748,7 +2756,7 @@ function costsPanel(v) {
         el('div', { class: 'cost-sum' },
           r?.paid ? el('div', {}, tn(r.months, '{price} paid over {n} month', '{price} paid over {n} months', { price: money(r.paid) })) : el('div', { class: 'muted' }, t('Not counted yet')),
           r?.games ? el('div', { class: 'muted' }, `${t('{n} beaten, worth {price}', { n: r.games, price: money(r.value) })}${verdict ? ` · ${verdict}` : ''}`) : null,
-          r?.perHour ? el('div', { class: 'muted', title: r.timed < r.games ? t('Hours for {timed} of {total} games; the rest counted at their average', { timed: r.timed, total: r.games }) : t('From your hours played, or How Long To Beat main story times') }, t('{price} an hour over about {hours} hours', { price: money(r.perHour, 2), hours: Math.round(r.hoursEst) })) : null)),
+          r?.perHour ? el('div', { class: 'muted', title: r.timed < r.games ? t('Hours for {timed} of {total} games; the rest counted at their average', { timed: r.timed, total: r.games }) : t('From your hours played, or How Long To Beat times') }, t('{price} an hour over about {hours} hours', { price: money(r.perHour, 2), hours: Math.round(r.hoursEst) })) : null)),
       list.map(row),
       el('button', { class: 'link inline add-period', onclick: () => {
         // Usually an earlier stretch: ended, with the same price to start from.
@@ -2807,7 +2815,7 @@ function beatenPanel(v) {
     const h = valueHours(g);
     const dropped = markOf(g.id) === 'dropped';
     const part = dropped ? droppedShare(g) : 1;
-    const source = dropped && !playedHours(g) ? t('A quarter of How Long To Beat\'s main story time') : timeSource(g);
+    const source = dropped && !playedHours(g) ? t('A quarter of How Long To Beat\'s time') : timeSource(g);
     const time = h ? el('span', { class: 'beaten-hours muted', title: p?.amount > 0 ? t('{source}, and the price over those hours', { source }) : source },
       `${t('{n} h', { n: h < 1 ? '<1' : Math.round(h) })}${p?.amount > 0 ? ` · ${t('{price}/h', { price: money((p.amount * part) / Math.max(h, 0.5), 2) })}` : ''}`) : el('span', { class: 'beaten-hours' });
     const markTag = markOf(g.id) === 'played' ? el('span', { class: 'tier' }, t('played'))
@@ -2886,7 +2894,7 @@ function renderSubs() {
   content.append(el('div', { class: 'panel' },
     el('div', { class: 'panel-head' }, el('h2', {}, t('My subscriptions')), el('button', { class: 'link', onclick: startOnboarding }, t('Run the welcome setup again'))),
     rows));
-  content.append(playTimePanel(), customServicePanel(), customGamePanel());
+  content.append(playTimePanel(), gameLengthPanel(), customServicePanel(), customGamePanel());
 }
 
 // Dark, light, or whatever the system uses. The main process sets Electron's
@@ -2914,6 +2922,20 @@ function playTimePanel() {
     el('p', { class: 'muted' }, pace.source === 'setting'
       ? t('Using what you set: about {pace} a day.', { pace: fmtPerDay(pace.perDay) })
       : t('Worked out for now: about {pace} a day, {source}.', { pace: fmtPerDay(pace.perDay), source: paceSource(pace) })));
+}
+
+// Which How Long To Beat time counts: main story by default, 100% for completionists.
+function gameLengthPanel() {
+  const current = hltbKind();
+  const pick = (kind) => async () => {
+    await saveState({ settings: { ...state.settings, hltbTime: kind === 'main' ? null : kind } });
+    render(true);
+  };
+  const options = [['main', t('Main story')], ['plus', t('Main + extras')], ['all', t('Completionist (100%)')]];
+  return el('div', { class: 'panel' },
+    el('h2', {}, t('Game length')),
+    el('p', { class: 'muted' }, t('Which How Long To Beat time Subscroll shows on cards and uses for time to beat: whether you can finish a game before it leaves, Plan ahead, To play and Now playing, Statistics and cost per hour. If you play everything to 100%, pick Completionist. A game without that time uses the next longer one.')),
+    el('div', { class: 'seg', style: '--svc:#6aa8ff' }, options.map(([id, label]) => el('button', { class: current === id ? 'on' : '', onclick: pick(id) }, label))));
 }
 
 // Tray, start at login and alerts.
@@ -3527,10 +3549,12 @@ function ratingRows(g) {
     rows.push(el('dt', {}, 'Metacritic'), el('dd', {}, link(r.mcUrl, t('Not scored yet ↗'))));
   }
   if (r?.hltb) {
-    const parts = [[t('Main'), r.hltb.main], [t('+ Extras'), r.hltb.plus], ['100%', r.hltb.all]]
-      .filter(([, h]) => h != null)
-      .map(([label, h]) => `${label} ${fmtHours(h)}`);
-    rows.push(el('dt', {}, t('Time to beat')), el('dd', {}, link(r.hltbUrl, parts.join(' · '), ' ↗')));
+    // The time Subscroll uses is in bold.
+    const used = HLTB_ORDER[hltbKind()].find((k) => r.hltb[k] != null);
+    const parts = [['main', t('Main'), r.hltb.main], ['plus', t('+ Extras'), r.hltb.plus], ['all', '100%', r.hltb.all]]
+      .filter(([, , h]) => h != null)
+      .flatMap(([k, label, h], i) => [i ? ' · ' : '', k === used ? el('strong', {}, `${label} ${fmtHours(h)}`) : `${label} ${fmtHours(h)}`]);
+    rows.push(el('dt', {}, t('Time to beat')), el('dd', {}, link(r.hltbUrl, ...parts, ' ↗')));
   }
   return rows;
 }
