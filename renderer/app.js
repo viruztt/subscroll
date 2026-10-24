@@ -2290,7 +2290,12 @@ api.onFreeChanged(async () => {
 const SVG_NS = 'http://www.w3.org/2000/svg';
 function svgEl(tag, attrs = {}, text) {
   const node = document.createElementNS(SVG_NS, tag);
-  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  // A style attribute is blocked by the page's content security policy;
+  // setting it through node.style isn't.
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'style') node.style.cssText = v;
+    else node.setAttribute(k, v);
+  }
   if (text != null) node.textContent = text;
   return node;
 }
