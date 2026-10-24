@@ -3334,6 +3334,8 @@ function regionPanel() {
   const language = el('select', {},
     el('option', { value: 'auto' }, t('System language ({language})', { language: I18n.LANGS.find((l) => l.id === I18n.pick(navigator.language))?.name || 'English' })),
     I18n.LANGS.map((l) => el('option', { value: l.id }, l.name)));
+  language.id = 'set-language';
+  picker.country.id = 'set-country';
   language.value = state.settings.uiLanguage || 'auto';
   language.addEventListener('change', async () => {
     await saveState({ settings: { ...state.settings, uiLanguage: language.value } });
@@ -3344,9 +3346,10 @@ function regionPanel() {
   return el('div', { class: 'panel' },
     el('h2', {}, t('Region and language')),
     el('p', { class: 'muted' }, t('Game Pass and PS Plus catalogues differ a little by country. Switch Online only differs in Japan, which has some games the rest of the world doesn\'t (and the other way round).')),
-    el('div', { class: 'form' }, el('label', {}, t('Country '), picker.country), note),
-    picker.note,
-    el('div', { class: 'form language-row' }, el('label', {}, t('Language '), language)));
+    // Labels in one column and the dropdowns lined up in the next.
+    el('div', { class: 'field-grid' },
+      el('label', { for: 'set-country' }, t('Country ')), el('div', { class: 'field' }, picker.country, note, picker.note),
+      el('label', { for: 'set-language' }, t('Language ')), el('div', { class: 'field' }, language)));
 }
 
 // Before anything is drawn: the language, and the static text in index.html.

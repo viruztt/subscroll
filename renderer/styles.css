@@ -303,6 +303,11 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .form input { flex: 1 1 220px; }
 .form input.short { flex: 0 0 90px; width: 90px; }
 .form label { color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.field-grid { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: start; gap: 14px 16px; margin-top: 4px; }
+.field-grid > label { color: var(--muted); line-height: 20px; padding-top: 8px; }
+.field-grid .field { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.field-grid select { min-width: 280px; max-width: 100%; }
+.field-grid .fallback-row { flex-basis: 100%; margin: 2px 0 0; }
 .primary { background: var(--accent); color: #0a1a33; border: 0; border-radius: 8px; padding: 8px 14px; font-weight: 600; }
 .link { background: none; border: 0; color: var(--accent-text); padding: 6px 0; text-align: left; }
 .link.danger { color: var(--danger-text); }
