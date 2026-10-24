@@ -28,6 +28,8 @@ const selfupdate = require('./selfupdate');
 const Goals = require('../renderer/goals');
 const I18n = require('../renderer/i18n');
 const { Sync } = require('./sync');
+const Kept = require('./kept');
+const gamepassProvider = require('./providers/gamepass');
 require('../renderer/locales');
 
 const { t, tn, tk, locale } = I18n;
@@ -204,6 +206,7 @@ async function refreshAll(only = null) {
     refreshPsBlog();
     sendAlerts(results, before, waitingBefore);
     win?.webContents.send('catalog-changed');
+    keepSoon();
     return results;
   })();
   updateTray();
@@ -623,6 +626,45 @@ async function enrichArcade() {
 }
 
 // ---- Metacritic / How Long To Beat, looked up in the background ----
+// Games you've marked, rated, timed or written about: when they leave a
+// service, the departed list keeps them for good.
+function keptGameIds() {
+  const st = store.get();
+  return new Set([st.marks, st.notes, st.finishedOn, st.priceOverrides, st.viaSub].flatMap((m) => Object.keys(m || {})));
+}
+
+// Keeps state.keptGames (src/kept.js) up to date: a copy of every game in
+// keptGameIds(). Games found nowhere that Game Pass had are looked up in
+// Microsoft's catalogue once per launch.
+let keepTimer = null;
+const recoverTried = new Set();
+function keepSoon(delay = 1500) {
+  clearTimeout(keepTimer);
+  keepTimer = setTimeout(() => keepCards().catch(() => {}), delay);
+}
+async function keepCards() {
+  const st = store.get();
+  const { kept, changed, missing } = Kept.update(st.keptGames || {}, keptGameIds(), catalog.loadAll(), details?.data || {});
+  if (changed) store.update({ keptGames: kept });
+  const lost = missing.filter((id) => id.startsWith('gamepass:') && !recoverTried.has(id));
+  let found = 0;
+  if (lost.length) {
+    lost.forEach((id) => recoverTried.add(id));
+    const { market, language } = store.get().settings;
+    const products = await gamepassProvider.fetchProducts(lost.map((id) => id.slice('gamepass:'.length)), { market, language });
+    const cur = { ...(store.get().keptGames || {}) };
+    for (const id of lost) {
+      const p = products.get(id.slice('gamepass:'.length));
+      if (p && p.title && !cur[id]) {
+        cur[id] = Kept.fromProduct(id, p);
+        found += 1;
+      }
+    }
+    if (found) store.update({ keptGames: cur });
+  }
+  if (changed || found) win?.webContents.send('state-changed', store.get());
+}
+
 function catalogGames() {
   const nintendo = store.get().settings.nintendo || 'west';
   return catalog.loadAll()
@@ -630,11 +672,20 @@ function catalogGames() {
     .filter((g) => g.service !== 'nso' || (g.regions || ['west']).includes(nintendo));
 }
 
+// Catalogue games plus your copies of marked games no list has any more,
+// so those keep their scores and times.
+function ratedGames() {
+  const list = catalogGames();
+  const ids = new Set(list.map((g) => g.id));
+  const gone = Object.values(store.get().keptGames || {}).filter((k) => !ids.has(k.id)).map((k) => ({ platforms: [], tiers: [], ...k }));
+  return [...list, ...gone];
+}
+
 function startRatings() {
   const { subscriptions, customServices } = store.get();
   const keys = unlockedTiers(subscriptions, customServices);
   // Games in the user's plans are looked up first.
-  ratings.start(catalogGames(), (g) => offerOpen(keys, g));
+  ratings.start(ratedGames(), (g) => offerOpen(keys, g));
 }
 
 // Results reach the window in batches rather than one message per game.
@@ -668,6 +719,7 @@ function registerIpc() {
     const next = store.update(clean);
     // A newly completed game is looked up for "Because you beat".
     if (clean.marks && Object.keys(clean.marks).some((id) => clean.marks[id] === 'completed' && before[id] !== 'completed')) startWiki();
+    if (['marks', 'notes', 'finishedOn', 'priceOverrides', 'viaSub'].some((k) => k in clean)) keepSoon();
     if (clean.settings) {
       applyTheme();
       applyLanguage();
@@ -768,7 +820,7 @@ function registerIpc() {
   ipcMain.handle('get-details', (_e, game) => details.get(game, store.get().settings));
   ipcMain.handle('get-ratings', () => {
     startRatings();
-    return { ratings: ratings.forGames(catalogGames()), progress: ratingProgress };
+    return { ratings: ratings.forGames(ratedGames()), progress: ratingProgress };
   });
   // The looked-up data, by the name used in profile files.
   const lookupStores = () => ({
@@ -822,7 +874,9 @@ function registerIpc() {
     });
     if (response !== 0) return { ok: false };
     const { settings, ...rest } = backup.state;
-    store.update({ ...rest, ...(settings ? { settings: { ...store.get().settings, ...settings } } : {}) });
+    // Copies of game cards from both: this PC may know games the profile doesn't.
+    const keptGames = { ...(store.get().keptGames || {}), ...(rest.keptGames || {}) };
+    store.update({ ...rest, keptGames, ...(settings ? { settings: { ...store.get().settings, ...settings } } : {}) });
     for (const [service, h] of Object.entries(backup.history)) catalog.importHistory(service, h, mergeHistory);
     let looked = 0;
     const stores = lookupStores();
@@ -836,6 +890,7 @@ function registerIpc() {
     updateTray();
     startRatings();
     startWiki();
+    keepSoon();
     win?.webContents.send('catalog-changed');
     return { ok: true, marks: count(backup.state.marks), looked, state: store.get() };
   });
@@ -932,6 +987,7 @@ app.whenReady().then(async () => {
       applyLanguage();
       updateTray();
       win?.webContents.send('state-changed', s);
+      keepSoon();
     },
     onStatus: (st) => win?.webContents.send('sync-status', st),
   });
@@ -939,7 +995,7 @@ app.whenReady().then(async () => {
   // A version downloaded last time installs now, before anything opens.
   if (!updatedFrom && autoInstall() && installUpdate({ hidden: startHidden })) return;
   cleanUpUpdate();
-  catalog = new Catalog(dataDir);
+  catalog = new Catalog(dataDir, { keep: keptGameIds });
   details = new DetailsCache(dataDir);
   ratings = new Ratings(dataDir, {
     onUpdate: (updates) => { Object.assign(ratingBatch, updates); queueRatings(); },
@@ -959,6 +1015,8 @@ app.whenReady().then(async () => {
   createTray();
   applyLoginItem();
   sync.start();
+  // Copies of your marked games, and recovering ones that left uncopied.
+  keepSoon(5000);
   scheduleRefresh();
   setTimeout(enrichArcade, 5000);
   setTimeout(startWiki, 8000);

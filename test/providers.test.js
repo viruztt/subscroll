@@ -8,7 +8,7 @@ const gamepass = require('../src/providers/gamepass');
 const psplus = require('../src/providers/psplus');
 const nintendo = require('../src/providers/nintendo');
 const covers = require('../src/providers/covers');
-const { Catalog, mergeDuplicates, titleKey, applyHistory } = require('../src/catalog');
+const { Catalog, mergeDuplicates, titleKey, applyHistory, MAX_DEPARTED } = require('../src/catalog');
 const { normalizeSettings } = require('../src/store');
 const { unlockedTiers } = require('../src/services');
 
@@ -285,4 +285,18 @@ test('Catalog: placeholder release dates count as no date', () => {
   assert.strictEqual(realDate('1753-01-01'), null);
   assert.strictEqual(realDate('2024-05-02'), '2024-05-02');
   assert.strictEqual(realDate(null), null);
+});
+
+test('departed games you marked stay past the limit', () => {
+  const old = Array.from({ length: MAX_DEPARTED + 50 }, (_, i) => ({ id: `gamepass:${i}`, title: `G${i}`, leftOn: `2026-01-${String((i % 28) + 1).padStart(2, '0')}` }));
+  // Newest first, as the list is kept; the marked game is near the end.
+  old.sort((a, b) => b.leftOn.localeCompare(a.leftOn));
+  const marked = old[MAX_DEPARTED + 10].id;
+  const prev = { source: 'live', origin: 'live:GB', games: [{ id: 'gamepass:new', title: 'New' }], history: { firstSeen: {}, departed: old } };
+  const plain = applyHistory(prev, [{ id: 'gamepass:x', title: 'X' }], 'live:GB');
+  assert.strictEqual(plain.history.departed.length, MAX_DEPARTED);
+  assert.ok(!plain.history.departed.some((g) => g.id === marked));
+  const kept = applyHistory(prev, [{ id: 'gamepass:x', title: 'X' }], 'live:GB', [], new Set([marked]));
+  assert.strictEqual(kept.history.departed.length, MAX_DEPARTED + 1);
+  assert.ok(kept.history.departed.some((g) => g.id === marked));
 });

@@ -157,12 +157,24 @@ class DetailsCache {
     // Wikipedia descriptions saved before the page had to match the game are asked again.
     const stale = hit && hit.descriptionSource && hit.v !== DETAILS_VERSION;
     if (hit && !stale && Date.now() - hit.fetchedAt < CACHE_DAYS * 86400000) return hit;
-    const details = { ...(await fetchDetails(game, settings)), fetchedAt: Date.now(), v: DETAILS_VERSION };
+    let details;
+    try {
+      details = { ...(await fetchDetails(game, settings)), fetchedAt: Date.now(), v: DETAILS_VERSION };
+    } catch (err) {
+      if (hit) return hit;
+      if (game.description || game.screenshots?.length) return { description: game.description || null, screenshots: game.screenshots || [] };
+      throw err;
+    }
     // Only remember answers worth keeping, so a failed lookup is retried.
     if (details.description || details.screenshots.length) {
       this.data[game.id] = details;
       fs.writeFile(this.file, JSON.stringify(this.data), () => {});
+      return details;
     }
+    // Nothing found this time (a game that left may lose its store page):
+    // the details saved before stay, or the ones in your copy of its card.
+    if (hit) return hit;
+    if (game.description || game.screenshots?.length) return { description: game.description || null, screenshots: game.screenshots || [] };
     return details;
   }
 }

@@ -305,6 +305,12 @@ function rebuildGames() {
     }
     for (const d of c.history?.departed || []) departed.push(d);
   }
+  // Your copies of marked games that no list has any more (src/kept.js).
+  const known = new Set([...catalogs.flatMap((c) => c.games.map((g) => g.id)), ...departed.map((d) => d.id)]);
+  for (const k of Object.values(state.keptGames || {})) {
+    if (known.has(k.id)) continue;
+    departed.push({ platforms: [], tiers: [], genres: [], screenshots: [], ...k, departed: true });
+  }
   for (const g of state.customGames || []) out.push({ ...g, custom: true });
   games = Unify.unify(out).map((g) => ({ ...g, genreTags: Genres.genresOf(g), steam: steamOf(g) }));
   markGroups = new Map();
@@ -394,14 +400,17 @@ const hideIgnored = () => state.settings.hideIgnored !== false && ui.view !== 'm
 // Same for dropped games: they stay on My games and under the "Dropped" filter.
 const hideDropped = () => !!state.settings.hideDropped && ui.view !== 'mine' && ui.status !== 'dropped';
 
-function filtered(list, { keepDeparted = false } = {}) {
+// keepGone: games that left every service show whatever the filters for
+// departed games and "only my plans" say (they're in no plan any more).
+function filtered(list, { keepDeparted = false, keepGone = false } = {}) {
   const keys = unlocked();
   const q = ui.search.trim().toLowerCase();
   return list.filter((g) => {
     if (ui.services.size && !inServices(g, ui.services)) return false;
     // The To play list shows games outside your plans too, to see where they are.
-    if (ui.mineOnly && ui.view !== 'toplay' && !isMine(g, keys)) return false;
-    if (!keepDeparted && hideDeparted() && (g.leftOn || g.departed || leaveInfo(g)?.past)) return false;
+    const gone = keepGone && g.departed;
+    if (ui.mineOnly && ui.view !== 'toplay' && !gone && !isMine(g, keys)) return false;
+    if (!keepDeparted && !gone && hideDeparted() && (g.leftOn || g.departed || leaveInfo(g)?.past)) return false;
     if (hideCompleted() && markOf(g.id) === 'completed') return false;
     if (hideIgnored() && markOf(g.id) === 'ignored') return false;
     if (hideDropped() && markOf(g.id) === 'dropped') return false;
@@ -1316,7 +1325,7 @@ function progressBlock(g) {
 // Games you're playing now: leaving soon first, then the ones you're furthest into.
 function renderPlaying() {
   const keys = unlocked();
-  const list = filtered(games.filter((g) => markOf(g.id) === 'playing'));
+  const list = filtered(statsGames().filter((g) => markOf(g.id) === 'playing'), { keepGone: true });
   const leaving = (g) => { const l = leaveInfo(g); return l && l.soon && !l.past ? (l.date || '9999') : null; };
   list.sort((a, b) => {
     const la = leaving(a);
@@ -1347,7 +1356,8 @@ function renderPlaying() {
 }
 
 function renderMine() {
-  const list = sorted(filtered(games.filter((g) => markOf(g.id) !== 'none')));
+  // Games that left every service stay here with a "Left" badge.
+  const list = sorted(filtered(statsGames().filter((g) => markOf(g.id) !== 'none'), { keepGone: true }));
   const done = list.filter((g) => markOf(g.id) === 'completed').length;
   const ignored = list.filter((g) => markOf(g.id) === 'ignored').length;
   const playing = list.filter((g) => markOf(g.id) === 'playing').length;
@@ -2335,14 +2345,20 @@ const pct = (x) => `${Math.round(x * 100)}%`;
 // Shares too small to round up still show as something.
 const share = (x) => (x > 0 && x < 0.005 ? '<1%' : pct(x));
 
-function statsGames() {
-  // Marked games that have since left a service still count.
+// Marked games that have left every service that had them: from the
+// departed lists and your own copies of their cards (src/kept.js).
+function goneMarked() {
   const ids = new Set(games.flatMap((g) => offersOf(g).map((o) => o.id)));
   const gone = new Map();
   for (const d of departed) {
-    if (state.marks[d.id] && !ids.has(d.id) && !gone.has(d.id)) gone.set(d.id, { ...d, genreTags: Genres.genresOf(d) });
+    if (state.marks[d.id] && !ids.has(d.id) && !gone.has(d.id)) gone.set(d.id, { ...d, departed: true, genreTags: Genres.genresOf(d), steam: steamOf(d) });
   }
-  return [...games, ...gone.values()];
+  return [...gone.values()];
+}
+
+// Every game, plus marked ones that have since left: they still count.
+function statsGames() {
+  return [...games, ...goneMarked()];
 }
 
 // ---------- goals ----------
@@ -3805,8 +3821,8 @@ function renderChrome() {
 function toolbarNeeded() {
   if (['subs', 'stats', 'value', 'foryou', 'free', 'plan'].includes(ui.view)) return false;
   if (ui.view === 'toplay') return games.some((g) => markOf(g.id) === 'wishlist') || departed.some((d) => state.marks[d.id] === 'wishlist');
-  if (ui.view === 'mine') return games.some((g) => markOf(g.id) !== 'none');
-  if (ui.view === 'playing') return games.some((g) => markOf(g.id) === 'playing');
+  if (ui.view === 'mine') return statsGames().some((g) => markOf(g.id) !== 'none');
+  if (ui.view === 'playing') return statsGames().some((g) => markOf(g.id) === 'playing');
   if (ui.view === 'coming') return games.some(isComing);
   if (ui.view === 'leaving') return games.some((g) => leaveInfo(g));
   return true;

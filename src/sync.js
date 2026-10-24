@@ -10,8 +10,8 @@
 // change too, kept as "removed at <time>", so it syncs like any other.
 //
 // Synced: plans, marks, notes, Value page costs, finish dates, goals, own
-// services and games, settings (apart from ones about this device) and the
-// prediction log. Steam, Xbox and PlayStation links hold keys, so they sync
+// services and games, settings (apart from ones about this device), the
+// prediction log and the copies of your games' cards (src/kept.js). Steam, Xbox and PlayStation links hold keys, so they sync
 // only when you ask. Catalogues and looked-up scores and prices aren't synced:
 // each device fetches its own.
 const fs = require('fs');
@@ -22,7 +22,7 @@ const crypto = require('crypto');
 const FORMAT = 'subscroll-sync';
 const VERSION = 1;
 // Fields whose items merge one by one.
-const PER_KEY = ['subscriptions', 'marks', 'leaveDates', 'costs', 'priceOverrides', 'viaSub', 'notes', 'finishedOn', 'freebies', 'predictionLog', 'settings'];
+const PER_KEY = ['subscriptions', 'marks', 'leaveDates', 'costs', 'priceOverrides', 'viaSub', 'notes', 'finishedOn', 'freebies', 'predictionLog', 'settings', 'keptGames'];
 // Fields that merge as a whole.
 const WHOLE = ['customServices', 'customGames', 'goals'];
 // Links with keys in them: only when the user ticks the box.

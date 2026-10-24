@@ -18,6 +18,13 @@ const antstream = require('./providers/antstream');
 const SNAPSHOT_DIR = path.join(__dirname, '..', 'data', 'snapshot');
 const MAX_DEPARTED = 300;
 
+// The newest departed games, up to MAX_DEPARTED, plus any older ones in
+// `keep` (games you marked, rated or wrote about), so their name, cover and
+// details never drop out however many games leave after them.
+function trimDeparted(list, keep = new Set()) {
+  return list.filter((g, i) => i < MAX_DEPARTED || keep.has(g.id));
+}
+
 const PROVIDERS = {
   gamepass: { live: gamepass.fetchLive, mirror: gamepass.fetchMirror },
   psplus: { live: psplus.fetchLive, mirror: psplus.fetchMirror },
@@ -101,7 +108,7 @@ function originOf(service, source, settings = {}) {
 }
 
 // `left`: games the source itself lists as gone, with the date when known.
-function applyHistory(prev, games, origin, left = []) {
+function applyHistory(prev, games, origin, left = [], keep = new Set()) {
   const history = { firstSeen: {}, departed: [], ...(prev && prev.history) };
   // Lists from different sources or regions differ by a few hundred games,
   // so switching between them would look like a wave of arrivals and
@@ -134,9 +141,8 @@ function applyHistory(prev, games, origin, left = []) {
     if (!known) history.departed.push({ ...game, leftOn: g.leftOn || null, departed: true });
     else if (g.leftOn) known.leftOn = g.leftOn; // the real date rather than the day it was noticed
   }
-  history.departed = history.departed.filter((g) => !ids.has(g.id))
-    .sort((a, b) => (b.leftOn || '').localeCompare(a.leftOn || ''))
-    .slice(0, MAX_DEPARTED);
+  history.departed = trimDeparted(history.departed.filter((g) => !ids.has(g.id))
+    .sort((a, b) => (b.leftOn || '').localeCompare(a.leftOn || '')), keep);
   return { history, added, removed };
 }
 
@@ -201,15 +207,17 @@ function withRealDates(entry) {
 }
 
 // Departed lists merged by id, keeping the first one's entries.
-function mergeDeparted(a = [], b = []) {
+function mergeDeparted(a = [], b = [], keep = new Set()) {
   const ids = new Set(a.map((g) => g.id));
-  return [...a, ...b.filter((g) => !ids.has(g.id))].slice(0, MAX_DEPARTED);
+  return trimDeparted([...a, ...b.filter((g) => !ids.has(g.id))], keep);
 }
 
 class Catalog {
-  constructor(dir) {
+  // keep(): ids of games whose departed entries stay past the limit.
+  constructor(dir, { keep = () => new Set() } = {}) {
     this.dir = path.join(dir, 'catalog');
     this.cache = {};
+    this.keep = keep;
   }
 
   fileFor(service) {
@@ -248,10 +256,10 @@ class Catalog {
   importHistory(service, incoming, merge) {
     if (!SERVICES.includes(service)) return false;
     const entry = this.load(service);
-    const next = { ...entry, history: merge(entry.history, incoming, MAX_DEPARTED) };
+    const next = { ...entry, history: merge(entry.history, incoming, Infinity) };
     // Drop departed games that are back in the list.
     const ids = new Set(entry.games.map((g) => g.id));
-    next.history.departed = next.history.departed.filter((g) => !ids.has(g.id));
+    next.history.departed = trimDeparted(next.history.departed.filter((g) => !ids.has(g.id)), this.keep());
     writeJson(this.fileFor(service), next);
     this.cache[service] = next;
     return true;
@@ -264,8 +272,9 @@ class Catalog {
     const all = arcade.applyCached(entry.games, this.appStoreDir());
     // Games found to be off the App Store move to the departed list.
     const games = all.filter((g) => !g.gone);
-    const { history } = applyHistory(null, games, entry.origin, all.filter((g) => g.gone));
-    const next = { ...entry, games, history: { ...history, firstSeen: entry.history?.firstSeen || {}, departed: mergeDeparted(entry.history?.departed, history.departed) } };
+    const keep = this.keep();
+    const { history } = applyHistory(null, games, entry.origin, all.filter((g) => g.gone), keep);
+    const next = { ...entry, games, history: { ...history, firstSeen: entry.history?.firstSeen || {}, departed: mergeDeparted(entry.history?.departed, history.departed, keep) } };
     if (entry.source !== 'bundled') writeJson(this.fileFor('applearcade'), next);
     this.cache.applearcade = next;
     return next;
@@ -298,7 +307,7 @@ class Catalog {
         if (service === 'applearcade') games = arcade.applyCached(games, this.appStoreDir());
         if (games.length === 0) throw new Error('empty list');
         const origin = originOf(service, source, settings);
-        const { history, added, removed } = applyHistory(looksBlank(prev) ? forgetBlankDay(prev) : prev, games, origin, left);
+        const { history, added, removed } = applyHistory(looksBlank(prev) ? forgetBlankDay(prev) : prev, games, origin, left, this.keep());
         const entry = { service, source, origin, fetchedAt: new Date().toISOString(), games, history };
         writeJson(this.fileFor(service), entry);
         this.cache[service] = entry;
@@ -311,4 +320,4 @@ class Catalog {
   }
 }
 
-module.exports = { Catalog, SERVICES, mergeDuplicates, applyHistory, titleKey, realDate, fillMissingDetails, looksBlank, forgetBlankDay };
+module.exports = { Catalog, SERVICES, MAX_DEPARTED, trimDeparted, mergeDuplicates, applyHistory, titleKey, realDate, fillMissingDetails, looksBlank, forgetBlankDay };

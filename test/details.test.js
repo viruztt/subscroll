@@ -111,3 +111,16 @@ test('Game Pass games cached without details look them up once', async () => {
   await cache.get(game, { market: 'GB' });
   assert.strictEqual(calls, 1);
 });
+
+test('details saved earlier stay when a later lookup finds nothing', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'details-'));
+  const game = { id: 'gamepass:9OLD', service: 'gamepass', title: 'Gone' };
+  const saved = { description: 'Saved before it left.', screenshots: ['https://s/1'], fetchedAt: Date.now() - 40 * 86400000 };
+  fs.writeFileSync(path.join(dir, 'details.json'), JSON.stringify({ [game.id]: saved }));
+  http.setFetch(async () => jsonResponse({ Products: [] }));
+  const d = await new DetailsCache(dir).get(game, { market: 'GB' });
+  assert.strictEqual(d.description, 'Saved before it left.');
+  http.setFetch(async () => { throw new Error('offline'); });
+  const again = await new DetailsCache(dir).get(game, { market: 'GB' });
+  assert.deepStrictEqual(again.screenshots, ['https://s/1']);
+});
