@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const http = require('../src/providers/http');
-const { FreeGames, parseEpic, parseGamerPower, cleanGiveawayTitle, freeAlerts } = require('../src/freegames');
+const { FreeGames, parseEpic, parseGamerPower, cleanGiveawayTitle, freeAlerts, mergeFree } = require('../src/freegames');
 
 const now = new Date('2026-10-17T12:00:00Z');
 const offer = (start, end, pct = 0) => [{ promotionalOffers: [{ startDate: start, endDate: end, discountSetting: { discountType: 'PERCENTAGE', discountPercentage: pct } }] }];
@@ -117,4 +117,17 @@ test('freeAlerts: new giveaways after the first check, last-day reminders once, 
   const f = freeAlerts([...games, { id: 'fpd:2026-10-15:Y', title: 'Y', end: '2026-10-18T09:00:00Z', kind: 'try' }], { known: ['epic:a', 'epic:b', 'epic:c', 'fpd:2026-10-15:X'], reminded: ['epic:a', 'epic:c'], now });
   assert.deepStrictEqual(f.added.map((g) => g.id), ['fpd:2026-10-15:Y']);
   assert.deepStrictEqual(f.ending, []);
+});
+
+test('Free games: the same Epic giveaway from both feeds shows once, even under a shorter name', () => {
+  const epic = [{ id: 'epic:a', store: 'epic', title: 'Home - A Unique Horror Adventure', end: '2026-10-29T15:00:00.000Z', worth: '£3.99' }];
+  const gp = [
+    { id: 'gp:1', store: 'epic', title: 'Home', end: '2026-10-29T23:59:59.000Z', worth: '$4.99' },
+    // Same start of the name, but another game.
+    { id: 'gp:2', store: 'epic', title: 'Homeworld', end: '2026-10-29T23:59:59.000Z' },
+    // Same name on another store, or months apart: not the same giveaway.
+    { id: 'gp:3', store: 'steam', title: 'Home', end: '2026-10-29T23:59:59.000Z' },
+    { id: 'gp:4', store: 'epic', title: 'Home', end: '2027-03-01T00:00:00.000Z' },
+  ];
+  assert.deepStrictEqual(mergeFree(epic, gp).map((g) => g.id).sort(), ['epic:a', 'gp:2', 'gp:3', 'gp:4']);
 });

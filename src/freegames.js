@@ -20,7 +20,7 @@ const PS_BLOG = ['https://blog.playstation.com/tag/playstation-plus/feed/', 'htt
 const FREE_PLAY_DAYS = 'https://news.xbox.com/en-us/tag/free-play-days/feed/';
 const CHECK_HOURS = 6;
 // Bumped when a source is added, so the list is checked again straight away.
-const DATA_VERSION = 3;
+const DATA_VERSION = 4;
 
 const STORES = {
   epic: { name: 'Epic Games Store', short: 'Epic' },
@@ -145,15 +145,25 @@ function parseGamerPower(list, { now = new Date() } = {}) {
   return out;
 }
 
+// The name before a subtitle: "Home - A Unique Horror Adventure" -> "Home".
+const headKey = (title) => key(String(title || '').split(/\s[-–—:]\s|:\s/)[0]);
+const DAY_MS = 86400000;
+// Free at about the same time (feeds round end times differently).
+const overlaps = (a, b) => !a.end || !b.end || Math.abs(new Date(a.end) - new Date(b.end)) <= 2 * DAY_MS;
+// The same giveaway listed twice: the same store, and the same name, or the
+// same name before a subtitle while free at the same time. Only the part
+// before the subtitle counts, so "Home" doesn't match "Homeworld".
+function sameGiveaway(a, b) {
+  if (a.store !== b.store) return false;
+  if (key(a.title) === key(b.title)) return true;
+  return (headKey(a.title) === key(b.title) || key(a.title) === headKey(b.title)) && overlaps(a, b);
+}
+
 // Epic's own entries win over GamerPower's copy of the same game.
 function mergeFree(epic, others) {
-  const have = new Set(epic.map((g) => `epic:${key(g.title)}`));
-  const seen = new Set();
   const out = [...epic];
   for (const g of others) {
-    const k = `${g.store}:${key(g.title)}`;
-    if (have.has(k) || seen.has(k)) continue;
-    seen.add(k);
+    if (out.some((x) => sameGiveaway(x, g))) continue;
     out.push(g);
   }
   return out.sort((a, b) => (a.upcoming - b.upcoming) || ((a.end || '9') < (b.end || '9') ? -1 : (a.end || '9') > (b.end || '9') ? 1 : 0) || a.title.localeCompare(b.title));
