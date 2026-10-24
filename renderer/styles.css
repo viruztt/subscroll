@@ -387,6 +387,26 @@ main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 }
 .lightbox img { max-width: 92vw; max-height: 92vh; border-radius: 6px; }
 .lightbox.retro img { width: min(92vw, 122vh); height: auto; image-rendering: pixelated; }
+.lightbox-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid #fff3;
+  background: #0009;
+  color: #fff;
+  font-size: 34px;
+  line-height: 1;
+  padding: 0 0 4px;
+  cursor: pointer;
+}
+.lightbox-arrow:hover { background: #000c; border-color: #fff8; }
+.lightbox-arrow.prev { left: 2vw; }
+.lightbox-arrow.next { right: 2vw; }
+.lightbox.single .lightbox-arrow { display: none; }
+.lightbox-count { position: absolute; bottom: 1.5vh; left: 0; right: 0; text-align: center; color: #fffc; font-size: 13px; pointer-events: none; }
 
 /* Metacritic / How Long To Beat */
 .stats { display: flex; gap: 6px; align-items: center; font-size: 12px; min-height: 20px; }

@@ -3602,7 +3602,7 @@ function detailsSection(g) {
   if (shots.length) {
     const gallery = el('div', { class: `shots ${g.service === 'nso' ? 'retro' : ''}` });
     for (const src of shots) {
-      const img = el('img', { src, loading: 'lazy', alt: t('Screenshot'), onclick: () => openLightbox(src, g) });
+      const img = el('img', { src, loading: 'lazy', alt: t('Screenshot'), onclick: () => openLightbox(gallery, img, g) });
       // Not every retro game has a title screen or snap; drop missing ones.
       img.addEventListener('error', () => {
         img.remove();
@@ -3615,9 +3615,36 @@ function detailsSection(g) {
   return slot;
 }
 
-function openLightbox(src, g) {
-  const box = el('div', { class: `lightbox ${g.service === 'nso' ? 'retro' : ''}`, onclick: () => box.remove() },
-    el('img', { src, alt: '' }));
+// A screenshot shown large. With more than one, ‹ › and the arrow keys step
+// through the ones that loaded, going round at the ends.
+function openLightbox(gallery, first, g) {
+  const srcs = () => [...gallery.querySelectorAll('img')].map((i) => i.src);
+  let index = Math.max(0, srcs().indexOf(first.src));
+  const img = el('img', { alt: '' });
+  const count = el('div', { class: 'lightbox-count' });
+  const box = el('div', { class: `lightbox ${g.service === 'nso' ? 'retro' : ''}`, onclick: () => box.remove() }, img, count);
+  const show = () => {
+    const list = srcs();
+    index = (index + list.length) % list.length;
+    img.src = list[index];
+    count.textContent = list.length > 1 ? t('{n} of {total}', { n: index + 1, total: list.length }) : '';
+    box.classList.toggle('single', list.length < 2);
+  };
+  box.step = (dir) => {
+    index += dir;
+    show();
+  };
+  const arrow = (dir, label, text) => el('button', {
+    class: `lightbox-arrow ${dir < 0 ? 'prev' : 'next'}`,
+    title: label,
+    'aria-label': label,
+    onclick: (e) => {
+      e.stopPropagation();
+      box.step(dir);
+    },
+  }, text);
+  box.append(arrow(-1, t('Previous screenshot'), '‹'), arrow(1, t('Next screenshot'), '›'));
+  show();
   document.body.append(box);
 }
 
@@ -4016,6 +4043,12 @@ function wire() {
     if (((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'f') || (e.key === '/' && !typing)) {
       e.preventDefault();
       focusSearch();
+      return;
+    }
+    const shot = document.querySelector('.lightbox');
+    if (shot && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      e.preventDefault();
+      shot.step(e.key === 'ArrowLeft' ? -1 : 1);
       return;
     }
     if (e.key !== 'Escape') return;

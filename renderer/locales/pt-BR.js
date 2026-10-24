@@ -453,6 +453,7 @@
     "Newest release": "Lançamento mais recente",
     "Next": "Próximo",
     "Next month": "Próximo mês",
+    "Next screenshot": "Próxima captura",
     "Nintendo publishes no list, so Switch Online comes from Wikipedia's \"Nintendo Classics\" article, with box art from the libretro-thumbnails collection. ": "A Nintendo não publica lista, então o Switch Online vem do artigo “Nintendo Classics” da Wikipedia, com artes de capa da coleção libretro-thumbnails. ",
     "No": "Não",
     "No How Long To Beat time yet, so this is a guess of {hours} in all.": "Ainda sem tempo do How Long To Beat: é uma estimativa de {hours} no total.",
@@ -565,6 +566,7 @@
     "Predictions ({n})": "Previsões ({n})",
     "Premium": "Premium",
     "Previous month": "Mês anterior",
+    "Previous screenshot": "Captura anterior",
     "Price a month": "Preço por mês",
     "Progress per platform": "Progresso por plataforma",
     "Progress per service": "Progresso por serviço",
@@ -1121,6 +1123,7 @@
       "one": "{n} deles está nos serviços daqui: {news}.",
       "other": "{n} deles estão nos serviços daqui: {news}."
     },
+    "{n} of {total}": "{n} de {total}",
     "{n} star|{n} stars": {
       "one": "{n} estrela",
       "other": "{n} estrelas"

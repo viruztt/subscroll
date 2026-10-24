@@ -81,7 +81,7 @@ The **Calendar** shows a month at a time: games arriving (announced dates), game
 
 ![The Calendar page](docs/screenshots/calendar.png)
 
-Clicking a game shows a short description and a few screenshots. Game Pass gets both from Microsoft's catalogue; PS Plus reads the game's PlayStation Store page; Switch Online games get title screens and gameplay shots from libretro-thumbnails and the opening of the game's Wikipedia article. Looked-up details are cached for 30 days in `details.json`.
+Clicking a game shows a short description and a few screenshots. Click a screenshot to see it large, then use the ‹ › buttons or the left and right arrow keys to go through the rest (Esc or a click closes it). Game Pass gets both from Microsoft's catalogue; PS Plus reads the game's PlayStation Store page; Switch Online games get title screens and gameplay shots from libretro-thumbnails and the opening of the game's Wikipedia article. Looked-up details are cached for 30 days in `details.json`.
 
 The sidebar groups the pages into **Discover** (For you, Browse), **What's changing** (Coming soon, Leaving soon, New & departed, Calendar, Free to keep) and **Your games** (Now playing, To play, Plan ahead, My games, Statistics, Value), with Settings below and its tabs for plans, region and language, appearance, accounts, background and updates, backup and sync, and data sources. The line above the Refresh button says when the oldest catalogue was downloaded; click it for each one's date. Long explanations at the top of a page show their first sentence, and ⓘ opens the rest.
 
